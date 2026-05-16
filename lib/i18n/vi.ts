@@ -6,6 +6,12 @@ export const vi = {
     notFoundTitle: "Không tìm thấy mã",
   },
   home: {
+    searchLabel: "Tìm mã cổ phiếu",
+    searchPlaceholder: "Nhập mã, tên công ty hoặc sàn",
+    searchClear: "Xóa",
+    searchResults: (count: number) => `${count} kết quả`,
+    searchEmptyTitle: "Không tìm thấy mã phù hợp",
+    searchEmptyDescription: "Thử nhập mã cổ phiếu, tên doanh nghiệp hoặc sàn như HOSE, HNX, UPCOM.",
     dataFreshnessTitle: "Cập nhật lần cuối",
     dataSynced: "Đã đồng bộ",
     dataStale: "Dữ liệu cũ",

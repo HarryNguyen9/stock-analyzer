@@ -1,4 +1,4 @@
-import { StockCard } from "@/components/StockCard";
+import { StockSearchList } from "@/components/StockSearchList";
 import { vi } from "@/lib/i18n/vi";
 import { getDataFreshness, getStockSummaries } from "@/lib/data-source/prices";
 import type { DataFreshnessResult } from "@/lib/data-source/provider";
@@ -67,20 +67,7 @@ export default async function Home() {
         </div>
       </section>
 
-      <section className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-        <div className="mb-4 flex items-center justify-between gap-4">
-          <h2 className="text-lg font-semibold text-slate-950">{vi.home.watchlist}</h2>
-          <p className="text-sm text-slate-500">
-            {hasDataError ? vi.home.dataError : vi.home.localData}
-          </p>
-        </div>
-
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {stocks.map((stock) => (
-            <StockCard key={stock.symbol} stock={stock} />
-          ))}
-        </div>
-      </section>
+      <StockSearchList stocks={stocks} hasDataError={hasDataError} />
     </main>
   );
 }
