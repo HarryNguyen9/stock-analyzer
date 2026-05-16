@@ -3,7 +3,7 @@ name: Sync stock data
 on:
   schedule:
     # 09:00-15:00 Vietnam time (UTC+7), Monday-Friday.
-    - cron: "0 2-8 * * 1-5"
+    - cron: "*/30 2-8 * * 1-5"
   workflow_dispatch:
 
 jobs:

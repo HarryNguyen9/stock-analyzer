@@ -28,6 +28,20 @@ type TechnicalScoreRow = {
   technical_score: number | null;
 };
 
+type UpdatedAtRow = {
+  updated_at: string | null;
+};
+
+export type SupabaseUpdatedAtResult =
+  | {
+      available: true;
+      updatedAt: string | null;
+    }
+  | {
+      available: false;
+      updatedAt: null;
+    };
+
 export const supabaseDataProvider: AppDataProvider = {
   async getPrices(symbol) {
     const data = await readSupabasePrices(symbol);
@@ -96,6 +110,83 @@ export const supabaseDataProvider: AppDataProvider = {
     return results.every(isStockSummary) ? results : null;
   },
 };
+
+export async function readLatestSupabaseUpdatedAt(): Promise<SupabaseUpdatedAtResult> {
+  const technicalUpdatedAt = await readLatestUpdatedAt("technical_indicators");
+
+  if (technicalUpdatedAt.available && technicalUpdatedAt.updatedAt) {
+    return technicalUpdatedAt;
+  }
+
+  const priceUpdatedAt = await readLatestUpdatedAt("stock_prices");
+
+  if (priceUpdatedAt.available) {
+    return priceUpdatedAt;
+  }
+
+  if (technicalUpdatedAt.available) {
+    return technicalUpdatedAt;
+  }
+
+  return {
+    available: false,
+    updatedAt: null,
+  };
+}
+
+async function readLatestUpdatedAt(
+  table: "technical_indicators" | "stock_prices",
+): Promise<SupabaseUpdatedAtResult> {
+  const supabase = createSupabaseClient();
+
+  if (!supabase) {
+    return {
+      available: false,
+      updatedAt: null,
+    };
+  }
+
+  try {
+    if (table === "technical_indicators") {
+      const { data, error } = await supabase
+        .from("technical_indicators")
+        .select("updated_at")
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      return toUpdatedAtResult(data as unknown as UpdatedAtRow | null, error);
+    }
+
+    const { data, error } = await supabase
+      .from("stock_prices")
+      .select("updated_at")
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    return toUpdatedAtResult(data as unknown as UpdatedAtRow | null, error);
+  } catch {
+    return {
+      available: false,
+      updatedAt: null,
+    };
+  }
+}
+
+function toUpdatedAtResult(row: UpdatedAtRow | null, error: unknown): SupabaseUpdatedAtResult {
+  if (error) {
+    return {
+      available: false,
+      updatedAt: null,
+    };
+  }
+
+  return {
+    available: true,
+    updatedAt: row?.updated_at ?? null,
+  };
+}
 
 async function readSupabasePrices(symbol: StockSymbol): Promise<OHLCV[] | null> {
   const supabase = createSupabaseClient();

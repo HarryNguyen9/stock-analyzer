@@ -1,5 +1,5 @@
 import { localDataProvider } from "@/lib/data-source/local-provider";
-import { supabaseDataProvider } from "@/lib/data-source/supabase-provider";
+import { readLatestSupabaseUpdatedAt, supabaseDataProvider } from "@/lib/data-source/supabase-provider";
 import type { OHLCV, StockSummary, StockSymbol } from "@/types/stock";
 
 export type AppDataSource = "supabase" | "local-json" | "generated-fallback";
@@ -22,6 +22,13 @@ export type AppDataProvider = {
   getSummaries?(): Promise<StockSummary[] | null>;
 };
 
+export type DataFreshnessStatus = "synced" | "stale" | "local-fallback" | "empty";
+
+export type DataFreshnessResult = {
+  status: DataFreshnessStatus;
+  updatedAt: string | null;
+};
+
 export async function getHistoricalPricesResult(symbol: StockSymbol): Promise<PriceDataResult> {
   const supabaseResult = await supabaseDataProvider.getPrices(symbol);
 
@@ -40,4 +47,40 @@ export async function getStockSummariesFromProvider(): Promise<StockSummary[]> {
   }
 
   return (await localDataProvider.getSummaries?.()) ?? [];
+}
+
+export async function getDataFreshness(): Promise<DataFreshnessResult> {
+  const latestUpdate = await readLatestSupabaseUpdatedAt();
+
+  if (!latestUpdate.available) {
+    return {
+      status: "local-fallback",
+      updatedAt: null,
+    };
+  }
+
+  const updatedAt = latestUpdate.updatedAt;
+
+  if (!updatedAt) {
+    return {
+      status: "empty",
+      updatedAt: null,
+    };
+  }
+
+  const updatedAtTime = new Date(updatedAt).getTime();
+
+  if (!Number.isFinite(updatedAtTime)) {
+    return {
+      status: "empty",
+      updatedAt: null,
+    };
+  }
+
+  const thirtyMinutesMs = 30 * 60 * 1000;
+
+  return {
+    status: Date.now() - updatedAtTime <= thirtyMinutesMs ? "synced" : "stale",
+    updatedAt,
+  };
 }

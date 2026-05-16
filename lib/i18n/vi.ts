@@ -6,6 +6,12 @@ export const vi = {
     notFoundTitle: "Không tìm thấy mã",
   },
   home: {
+    dataFreshnessTitle: "Cập nhật lần cuối",
+    dataSynced: "Đã đồng bộ",
+    dataStale: "Dữ liệu cũ",
+    dataEmpty: "Chưa có dữ liệu",
+    dataLocalFallback: "Đang dùng dữ liệu cục bộ",
+    dataTimezone: "GMT+7",
     eyebrow: "Cổ phiếu Việt Nam",
     title: "Bảng phân tích kỹ thuật cho 20 mã VN",
     description:

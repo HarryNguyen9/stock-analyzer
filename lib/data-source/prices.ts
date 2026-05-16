@@ -1,7 +1,11 @@
-import { getHistoricalPricesResult, getStockSummariesFromProvider } from "@/lib/data-source/provider";
+import {
+  getDataFreshness,
+  getHistoricalPricesResult,
+  getStockSummariesFromProvider,
+} from "@/lib/data-source/provider";
 import type { StockSymbol } from "@/types/stock";
 
-export { getHistoricalPricesResult };
+export { getDataFreshness, getHistoricalPricesResult };
 
 export const getStockSummaries = getStockSummariesFromProvider;
 
