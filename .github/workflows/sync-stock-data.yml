@@ -1,0 +1,16 @@
+name: Sync stock data
+
+on:
+  schedule:
+    # 09:00-15:00 Vietnam time (UTC+7), Monday-Friday.
+    - cron: "0 2-8 * * 1-5"
+  workflow_dispatch:
+
+jobs:
+  sync-stock-data:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call production sync endpoint
+        run: |
+          curl -fsS -X GET "https://YOUR-PRODUCTION-DOMAIN/api/cron/sync-prices" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"

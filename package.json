@@ -1,0 +1,35 @@
+{
+  "name": "stock-analyzer",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "generate:prices": "tsx scripts/generate-local-prices.ts",
+    "fetch:prices": "tsx scripts/fetch-prices.ts",
+    "import:supabase": "tsx scripts/import-json-to-supabase.ts",
+    "sync:prices": "tsx scripts/sync-prices-to-supabase.ts"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.105.4",
+    "dotenv": "^17.4.2",
+    "lightweight-charts": "^5.2.0",
+    "next": "16.2.6",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "vnstock-js": "^1.3.3"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.2.6",
+    "tailwindcss": "^4",
+    "tsx": "^4.22.0",
+    "typescript": "^5"
+  }
+}
