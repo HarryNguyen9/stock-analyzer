@@ -10,6 +10,8 @@ import { getHistoricalPricesResult } from "@/lib/data-source/prices";
 import { isStockSymbol } from "@/lib/mock-ohlcv";
 import { round } from "@/lib/indicators";
 import { vi } from "@/lib/i18n/vi";
+import { categoryLabelsVi } from "@/lib/signals";
+import type { Signal, SignalCategory } from "@/lib/technical-analysis";
 import type { StockSymbol } from "@/types/stock";
 
 type StockPageProps = {
@@ -54,6 +56,7 @@ export default async function StockDetailPage({ params }: StockPageProps) {
 
   const candles = priceResult.data;
   const analysis = analyzeTechnical(candles);
+  const signalGroups = groupTechnicalSignals(analysis.advancedSignals ?? []);
   const latest = candles[candles.length - 1];
   const previous = candles[candles.length - 2];
   const change = latest.close - previous.close;
@@ -113,6 +116,36 @@ export default async function StockDetailPage({ params }: StockPageProps) {
           </div>
 
           <CandlestickChart data={candles} />
+
+          <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-slate-950">{vi.stock.technicalSignals}</h2>
+                <p className="mt-1 text-sm leading-6 text-slate-600">
+                  {analysis.summaryVi ?? vi.stock.notAvailable}
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-5 grid gap-4 md:grid-cols-2">
+              {signalGroups.map((group) => (
+                <div key={group.category} className="rounded-lg border border-slate-100 bg-slate-50 p-4">
+                  <h3 className="text-sm font-semibold text-slate-950">
+                    {categoryLabelsVi[group.category]}
+                  </h3>
+                  <div className="mt-3 space-y-2">
+                    {group.signals.length > 0 ? (
+                      group.signals.map((signal) => (
+                        <TechnicalSignalBadge key={signal.code} signal={signal} />
+                      ))
+                    ) : (
+                      <p className="text-sm text-slate-500">Chưa có tín hiệu nổi bật.</p>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
         </div>
 
         <aside className="space-y-5">
@@ -160,6 +193,38 @@ export default async function StockDetailPage({ params }: StockPageProps) {
         </aside>
       </section>
     </main>
+  );
+}
+
+function groupTechnicalSignals(signals: Signal[]): Array<{ category: SignalCategory; signals: Signal[] }> {
+  const categories: SignalCategory[] = ["trend", "momentum", "volume", "volatility", "risk"];
+
+  return categories.map((category) => ({
+    category,
+    signals: signals
+      .filter((signal) => signal.category === category || (category === "volatility" && signal.category === "breakout"))
+      .slice(0, 3),
+  }));
+}
+
+function TechnicalSignalBadge({ signal }: { signal: Signal }) {
+  const toneClass =
+    signal.sentiment === "bullish"
+      ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+      : signal.sentiment === "bearish"
+        ? "border-rose-200 bg-rose-50 text-rose-800"
+        : "border-slate-200 bg-white text-slate-700";
+
+  return (
+    <div className={`rounded-lg border p-3 ${toneClass}`}>
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-sm font-semibold">{signal.labelVi}</p>
+        <span className="shrink-0 rounded-full bg-white/70 px-2 py-0.5 text-xs font-medium">
+          {signal.strength}/5
+        </span>
+      </div>
+      <p className="mt-1 text-sm leading-5 opacity-80">{signal.descriptionVi}</p>
+    </div>
   );
 }
 

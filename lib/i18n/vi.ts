@@ -24,6 +24,8 @@ export const vi = {
     dataError: "Có mã lỗi dữ liệu",
   },
   stock: {
+    technicalSignals: "Tín hiệu kỹ thuật",
+    technicalSummary: "Tóm tắt kỹ thuật",
     backToWatchlist: "Về danh sách",
     technicalScore: "Điểm kỹ thuật",
     lastClose: "Giá đóng",

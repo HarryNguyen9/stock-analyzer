@@ -1,3 +1,5 @@
+import type { Signal } from "@/lib/technical-analysis/types";
+
 export type StockSymbol =
   | "FPT"
   | "HPG"
@@ -49,6 +51,8 @@ export type TechnicalAnalysis = {
   score: number;
   indicators: IndicatorSnapshot;
   signals: SignalCardData[];
+  advancedSignals?: Signal[];
+  summaryVi?: string;
 };
 
 export type StockSummary = {
@@ -63,6 +67,7 @@ export type StockSummary = {
   score: number;
   status: "Tích cực" | "Trung tính" | "Tiêu cực";
   signal: string;
+  topSignals?: Signal[];
   dataStatus: "ready" | "error";
   dataError?: string;
 };

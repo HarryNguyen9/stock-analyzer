@@ -55,6 +55,25 @@ export function StockCard({ stock }: { stock: StockSummary }) {
       <p className="mt-4 text-sm font-medium text-slate-700 group-hover:text-slate-950">
         {stock.dataStatus === "ready" ? stock.signal : stock.dataError}
       </p>
+
+      {stock.dataStatus === "ready" && stock.topSignals && stock.topSignals.length > 0 ? (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {stock.topSignals.slice(0, 2).map((signal) => (
+            <span
+              key={signal.code}
+              className={`rounded-full px-2.5 py-1 text-xs font-medium ${getSignalClass(signal.sentiment)}`}
+            >
+              {signal.labelVi}
+            </span>
+          ))}
+        </div>
+      ) : null}
     </Link>
   );
+}
+
+function getSignalClass(sentiment: "bullish" | "bearish" | "neutral"): string {
+  if (sentiment === "bullish") return "bg-emerald-50 text-emerald-700";
+  if (sentiment === "bearish") return "bg-rose-50 text-rose-700";
+  return "bg-slate-100 text-slate-600";
 }

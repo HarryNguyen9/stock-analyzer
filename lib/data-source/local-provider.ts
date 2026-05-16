@@ -72,7 +72,8 @@ export function toStockSummary(
     latestVolume: latest.volume,
     score: analysis.score,
     status: getScoreStatus(analysis.score),
-    signal: analysis.signals[0].label,
+    signal: analysis.advancedSignals?.[0]?.labelVi ?? analysis.signals[0].label,
+    topSignals: analysis.advancedSignals?.slice(0, 2),
     dataStatus: "ready",
   };
 }
