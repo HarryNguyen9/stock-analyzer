@@ -14,14 +14,34 @@ type IndicatorInsert = Database["public"]["Tables"]["technical_indicators"]["Ins
 
 const BATCH_SIZE = 500;
 
+type PriceSet = {
+  symbol: StockSymbol;
+  prices: OHLCV[];
+};
+
 export async function importJsonToSupabase(): Promise<{ importedSymbols: number }> {
   loadEnvConfig(process.cwd());
 
-  const supabase = createSupabaseAdminClient();
   const pricesDir = path.join(process.cwd(), "data", "prices");
   const files = (await readdir(pricesDir))
     .filter((file) => file.endsWith(".json") && file !== "_errors.json")
     .sort();
+
+  const priceSets: PriceSet[] = [];
+
+  for (const file of files) {
+    const symbol = file.replace(".json", "") as StockSymbol;
+    const filePath = path.join(pricesDir, file);
+    const prices = parsePrices(await readFile(filePath, "utf-8"));
+
+    priceSets.push({ symbol, prices });
+  }
+
+  return upsertPriceSetsToSupabase(priceSets);
+}
+
+export async function upsertPriceSetsToSupabase(priceSets: PriceSet[]): Promise<{ importedSymbols: number }> {
+  const supabase = createSupabaseAdminClient();
 
   const symbolRows: SymbolInsert[] = STOCKS.map((stock) => ({
     symbol: stock.symbol,
@@ -41,11 +61,7 @@ export async function importJsonToSupabase(): Promise<{ importedSymbols: number 
   console.log(`Upsert symbols: ${symbolRows.length}`);
   let importedSymbols = 0;
 
-  for (const file of files) {
-    const symbol = file.replace(".json", "") as StockSymbol;
-    const filePath = path.join(pricesDir, file);
-    const prices = parsePrices(await readFile(filePath, "utf-8"));
-
+  for (const { symbol, prices } of priceSets) {
     if (prices.length === 0) {
       console.log(`${symbol}: bo qua vi file rong hoac sai format`);
       continue;
