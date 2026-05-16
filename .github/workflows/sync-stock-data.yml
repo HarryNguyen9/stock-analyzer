@@ -12,5 +12,5 @@ jobs:
     steps:
       - name: Call production sync endpoint
         run: |
-          curl -fsS -X GET "https://stock-analyzer-sigma-one.vercel.app" \
+          curl -fsS -X GET "https://stock-analyzer-sigma-one.vercel.app/api/cron/sync-prices" \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
