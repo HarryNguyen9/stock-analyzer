@@ -1,5 +1,6 @@
 import { syncPricesToSupabase } from "@/scripts/sync-prices-to-supabase";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { refreshHomeScannerSnapshot } from "@/lib/scanner/snapshot";
 import type { Database, Json } from "@/lib/supabase/types";
 
 export const dynamic = "force-dynamic";
@@ -13,6 +14,7 @@ type CronSuccessResponse = {
   selected: number;
   synced: number;
   failed: number;
+  snapshotUpdated: boolean;
   durationMs: number;
 };
 
@@ -62,6 +64,7 @@ async function handleSyncPricesCron(
       method: request.method,
     });
     const result = await syncPricesToSupabase({ batch, limit });
+    const snapshotUpdated = await refreshHomeScannerSnapshot();
     const durationMs = Date.now() - startedAt;
 
     await updateSyncJob(jobId, {
@@ -76,6 +79,7 @@ async function handleSyncPricesCron(
         limit: result.limit,
         selectedSymbols: result.selectedSymbols,
         failedSymbols: result.failedSymbols,
+        snapshotUpdated,
       },
     });
 
@@ -87,6 +91,7 @@ async function handleSyncPricesCron(
       selected: result.selected,
       synced: result.synced,
       failed: result.failed,
+      snapshotUpdated,
       durationMs,
     } satisfies CronSuccessResponse);
   } catch (error) {

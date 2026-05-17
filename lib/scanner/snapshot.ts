@@ -1,0 +1,178 @@
+import { getStockSummaries } from "@/lib/data-source/prices";
+import { getScannerGroups, type ScannerGroup } from "@/lib/scanner/groups";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import type { Json } from "@/lib/supabase/types";
+import type { Signal } from "@/lib/technical-analysis/types";
+import type { StockSummary } from "@/types/stock";
+
+export const HOME_SCANNER_SNAPSHOT_TYPE = "home_scanner";
+
+type SnapshotRow = {
+  data: Json;
+};
+
+export async function refreshHomeScannerSnapshot(): Promise<boolean> {
+  try {
+    const stocks = await getStockSummaries();
+    const groups = getScannerGroups(stocks);
+    const supabase = createSupabaseAdminClient();
+    const { error } = await supabase.from("market_snapshots").upsert(
+      {
+        snapshot_type: HOME_SCANNER_SNAPSHOT_TYPE,
+        data: groups as unknown as Json,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "snapshot_type" },
+    );
+
+    if (error) {
+      throw error;
+    }
+
+    return true;
+  } catch (error) {
+    console.warn("Khong cap nhat duoc home_scanner snapshot:", error);
+    return false;
+  }
+}
+
+export async function readHomeScannerSnapshot(): Promise<ScannerGroup[] | null> {
+  try {
+    const supabase = createSupabaseAdminClient();
+    const { data, error } = await supabase
+      .from("market_snapshots")
+      .select("data")
+      .eq("snapshot_type", HOME_SCANNER_SNAPSHOT_TYPE)
+      .maybeSingle();
+
+    if (error || !data) {
+      return null;
+    }
+
+    const row = data as SnapshotRow;
+    return parseScannerGroups(row.data);
+  } catch {
+    return null;
+  }
+}
+
+function parseScannerGroups(value: unknown): ScannerGroup[] | null {
+  if (!Array.isArray(value)) {
+    return null;
+  }
+
+  const groups = value.map(parseScannerGroup).filter((group): group is ScannerGroup => group !== null);
+  return groups.length > 0 ? groups : null;
+}
+
+function parseScannerGroup(value: unknown): ScannerGroup | null {
+  if (!isRecord(value) || typeof value.id !== "string" || typeof value.title !== "string" || !Array.isArray(value.items)) {
+    return null;
+  }
+
+  const items = value.items.map(parseScannerItem).filter((item): item is ScannerGroup["items"][number] => item !== null);
+
+  return {
+    id: value.id as ScannerGroup["id"],
+    title: value.title,
+    items,
+  };
+}
+
+function parseScannerItem(value: unknown): ScannerGroup["items"][number] | null {
+  if (!isRecord(value) || !isRecord(value.stock)) {
+    return null;
+  }
+
+  const stock = parseStockSummary(value.stock);
+
+  if (!stock) {
+    return null;
+  }
+
+  return {
+    stock,
+    signal: parseSignal(value.signal),
+    sortSignalPriority: toNumber(value.sortSignalPriority),
+    sortVolumeSpike: toNumber(value.sortVolumeSpike),
+  };
+}
+
+function parseStockSummary(value: Record<string, unknown>): StockSummary | null {
+  if (
+    typeof value.symbol !== "string" ||
+    typeof value.name !== "string" ||
+    typeof value.exchange !== "string" ||
+    typeof value.sector !== "string" ||
+    typeof value.lastClose !== "number" ||
+    typeof value.dayChangePercent !== "number" ||
+    typeof value.latestDate !== "string" ||
+    typeof value.latestVolume !== "number" ||
+    typeof value.score !== "number" ||
+    typeof value.status !== "string" ||
+    typeof value.signal !== "string" ||
+    value.dataStatus !== "ready"
+  ) {
+    return null;
+  }
+
+  return {
+    symbol: value.symbol,
+    name: value.name,
+    exchange: value.exchange as StockSummary["exchange"],
+    sector: value.sector,
+    tier: value.tier as StockSummary["tier"],
+    liquidityRank: typeof value.liquidityRank === "number" ? value.liquidityRank : null,
+    lastClose: value.lastClose,
+    dayChangePercent: value.dayChangePercent,
+    latestDate: value.latestDate,
+    latestVolume: value.latestVolume,
+    score: value.score,
+    previousScore: typeof value.previousScore === "number" ? value.previousScore : undefined,
+    status: value.status as StockSummary["status"],
+    signal: value.signal,
+    topSignals: Array.isArray(value.topSignals) ? value.topSignals.map(parseSignal).filter((signal): signal is Signal => signal !== null) : undefined,
+    scannerSignals: Array.isArray(value.scannerSignals)
+      ? value.scannerSignals.map(parseSignal).filter((signal): signal is Signal => signal !== null)
+      : undefined,
+    dataStatus: "ready",
+  };
+}
+
+function parseSignal(value: unknown): Signal | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  if (
+    typeof value.code !== "string" ||
+    typeof value.labelVi !== "string" ||
+    typeof value.descriptionVi !== "string" ||
+    typeof value.category !== "string" ||
+    typeof value.sentiment !== "string" ||
+    typeof value.strength !== "number" ||
+    typeof value.priority !== "number"
+  ) {
+    return null;
+  }
+
+  return {
+    code: value.code,
+    labelVi: value.labelVi,
+    descriptionVi: value.descriptionVi,
+    explanationVi: typeof value.explanationVi === "string" ? value.explanationVi : "",
+    implicationVi: typeof value.implicationVi === "string" ? value.implicationVi : "",
+    category: value.category as Signal["category"],
+    sentiment: value.sentiment as Signal["sentiment"],
+    strength: value.strength as Signal["strength"],
+    priority: value.priority,
+  };
+}
+
+function toNumber(value: unknown): number {
+  return typeof value === "number" && Number.isFinite(value) ? value : 0;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}

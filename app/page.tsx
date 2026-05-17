@@ -4,10 +4,15 @@ import { StockSearchList } from "@/components/StockSearchList";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { vi } from "@/lib/i18n/vi";
 import { getDataFreshness, getStockSummaries } from "@/lib/data-source/prices";
+import { readHomeScannerSnapshot } from "@/lib/scanner/snapshot";
 import type { DataFreshnessResult } from "@/lib/data-source/provider";
 
 export default async function Home() {
-  const [stocks, dataFreshness] = await Promise.all([getStockSummaries(), getDataFreshness()]);
+  const [stocks, dataFreshness, scannerSnapshot] = await Promise.all([
+    getStockSummaries(),
+    getDataFreshness(),
+    readHomeScannerSnapshot(),
+  ]);
   const averageScore =
     stocks.length > 0
       ? Math.round(stocks.reduce((total, stock) => total + stock.score, 0) / stocks.length)
@@ -73,7 +78,7 @@ export default async function Home() {
         </div>
       </section>
 
-      <MarketScanner stocks={stocks} />
+      <MarketScanner stocks={stocks} snapshotGroups={scannerSnapshot} />
       <StockSearchList stocks={stocks} hasDataError={hasDataError} />
       <NotificationCenter stocks={stocks} />
     </main>

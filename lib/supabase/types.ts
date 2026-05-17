@@ -177,6 +177,30 @@ export type Database = {
         };
         Relationships: [];
       };
+      market_snapshots: {
+        Row: {
+          id: string;
+          snapshot_type: string;
+          data: Json;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          snapshot_type: string;
+          data: Json;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          snapshot_type?: string;
+          data?: Json;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: {};
     Functions: {};
