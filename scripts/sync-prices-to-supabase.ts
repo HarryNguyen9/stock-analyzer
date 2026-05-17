@@ -8,7 +8,8 @@ import { fetchPricesToLocalJson } from "./fetch-prices";
 import { importJsonToSupabase, upsertPriceSetsToSupabase } from "./import-json-to-supabase";
 
 const CANDLE_LIMIT = 200;
-const DEFAULT_SYNC_LIMIT = 300;
+const DEFAULT_SYNC_BATCH = 0;
+const DEFAULT_SYNC_LIMIT = 100;
 
 type SymbolRow = Pick<
   Database["public"]["Tables"]["symbols"]["Row"],
@@ -24,22 +25,25 @@ type SyncTarget = {
 };
 
 export type SyncPricesResult = {
+  batch: number;
+  limit: number;
   selected: number;
   synced: number;
   failed: number;
 };
 
-export async function syncPricesToSupabase(options: { limit?: number } = {}): Promise<SyncPricesResult> {
+export async function syncPricesToSupabase(options: { batch?: number; limit?: number } = {}): Promise<SyncPricesResult> {
   loadEnvConfig(process.cwd());
 
+  const batch = options.batch ?? DEFAULT_SYNC_BATCH;
   const limit = options.limit ?? DEFAULT_SYNC_LIMIT;
-  const targets = await getSyncTargets(limit);
+  const targets = await getSyncTargets({ batch, limit });
   const symbols = targets.map((target) => target.symbol);
 
-  console.log(`Sync target: ${symbols.length} ma (${targets[0]?.source ?? "supabase"}).`);
+  console.log(`Sync target: batch ${batch}, limit ${limit}, ${symbols.length} ma (${targets[0]?.source ?? "supabase"}).`);
 
   if (isVercelProduction()) {
-    return syncPricesDirectlyToSupabase(targets);
+    return syncPricesDirectlyToSupabase(targets, { batch, limit });
   }
 
   console.log("Sync buoc 1/2: fetch du lieu moi va cap nhat JSON local...");
@@ -52,13 +56,18 @@ export async function syncPricesToSupabase(options: { limit?: number } = {}): Pr
 
   console.log(`Sync hoan tat. Da cap nhat ${importedSymbols} ma.`);
   return {
+    batch,
+    limit,
     selected: targets.length,
     synced: importedSymbols,
     failed: Math.max(0, targets.length - importedSymbols),
   };
 }
 
-async function syncPricesDirectlyToSupabase(targets: SyncTarget[]): Promise<SyncPricesResult> {
+async function syncPricesDirectlyToSupabase(
+  targets: SyncTarget[],
+  options: { batch: number; limit: number },
+): Promise<SyncPricesResult> {
   console.log("Vercel production detected: sync truc tiep vao Supabase, khong ghi local JSON.");
 
   let synced = 0;
@@ -82,13 +91,18 @@ async function syncPricesDirectlyToSupabase(targets: SyncTarget[]): Promise<Sync
   console.log(`Sync production hoan tat. Chon ${targets.length} ma, thanh cong ${synced}, fail ${failed}.`);
 
   return {
+    batch: options.batch,
+    limit: options.limit,
     selected: targets.length,
     synced,
     failed,
   };
 }
 
-async function getSyncTargets(limit: number): Promise<SyncTarget[]> {
+async function getSyncTargets(options: { batch: number; limit: number }): Promise<SyncTarget[]> {
+  const from = options.batch * options.limit;
+  const to = from + options.limit - 1;
+
   try {
     const supabase = createSupabaseAdminClient();
     const { data, error } = await supabase
@@ -97,7 +111,7 @@ async function getSyncTargets(limit: number): Promise<SyncTarget[]> {
       .eq("auto_sync", true)
       .order("liquidity_rank", { ascending: true, nullsFirst: false })
       .order("symbol", { ascending: true })
-      .limit(limit);
+      .range(from, to);
 
     if (error) {
       throw error;
@@ -117,20 +131,23 @@ async function getSyncTargets(limit: number): Promise<SyncTarget[]> {
     }
 
     console.log("Supabase chua co symbols auto_sync=true, fallback ve danh sach mac dinh.");
-    return getFallbackTargets(limit);
+    return getFallbackTargets(options);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     console.warn(`Khong doc duoc symbols auto_sync tu Supabase (${message}), fallback ve danh sach mac dinh.`);
-    return getFallbackTargets(limit);
+    return getFallbackTargets(options);
   }
 }
 
-function getFallbackTargets(limit: number): SyncTarget[] {
-  return STOCKS.slice(0, limit).map((stock, index) => ({
+function getFallbackTargets(options: { batch: number; limit: number }): SyncTarget[] {
+  const from = options.batch * options.limit;
+  const to = from + options.limit;
+
+  return STOCKS.slice(from, to).map((stock, index) => ({
     symbol: stock.symbol,
     tier: "A",
     autoSync: true,
-    liquidityRank: index + 1,
+    liquidityRank: from + index + 1,
     source: "fallback",
   }));
 }

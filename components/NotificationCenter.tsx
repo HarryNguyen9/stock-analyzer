@@ -6,9 +6,21 @@ import { generateStockNotifications, type NotificationType } from "@/lib/notific
 import { vi } from "@/lib/i18n/vi";
 import type { StockSummary } from "@/types/stock";
 
+type NotificationFilter = "all" | "bullish" | "risk";
+
 export function NotificationCenter({ stocks }: { stocks: StockSummary[] }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [filter, setFilter] = useState<NotificationFilter>("all");
   const notifications = useMemo(() => generateStockNotifications(stocks), [stocks]);
+  const filteredNotifications = useMemo(
+    () =>
+      notifications.filter((notification) => {
+        if (filter === "all") return true;
+        if (filter === "bullish") return notification.type === "bullish";
+        return notification.type === "warning" || notification.type === "bearish";
+      }),
+    [filter, notifications],
+  );
 
   return (
     <>
@@ -49,15 +61,25 @@ export function NotificationCenter({ stocks }: { stocks: StockSummary[] }) {
               </button>
             </div>
 
-            {notifications.length > 0 ? (
+            <div className="mb-3 grid grid-cols-3 gap-2 rounded-lg bg-slate-100 p-1">
+              {(["all", "bullish", "risk"] as const).map((item) => (
+                <button
+                  key={item}
+                  type="button"
+                  onClick={() => setFilter(item)}
+                  className={`rounded-md px-2 py-2 text-xs font-semibold ${
+                    filter === item ? "bg-white text-slate-950 shadow-sm" : "text-slate-500"
+                  }`}
+                >
+                  {vi.home.notifications.tabs[item]}
+                </button>
+              ))}
+            </div>
+
+            {filteredNotifications.length > 0 ? (
               <div className="max-h-[58vh] space-y-3 overflow-y-auto pr-1">
-                {notifications.map((notification) => (
-                  <Link
-                    key={notification.id}
-                    href={`/stock/${notification.symbol}`}
-                    onClick={() => setIsOpen(false)}
-                    className="block rounded-lg border border-slate-200 bg-slate-50 p-3 transition hover:border-slate-300 hover:bg-white"
-                  >
+                {filteredNotifications.map((notification) => {
+                  const content = (
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
@@ -84,8 +106,26 @@ export function NotificationCenter({ stocks }: { stocks: StockSummary[] }) {
                         P{notification.priority}
                       </span>
                     </div>
-                  </Link>
-                ))}
+                  );
+
+                  return notification.href ? (
+                    <Link
+                      key={notification.id}
+                      href={notification.href}
+                      onClick={() => setIsOpen(false)}
+                      className="block rounded-lg border border-slate-200 bg-slate-50 p-3 transition hover:border-slate-300 hover:bg-white"
+                    >
+                      {content}
+                    </Link>
+                  ) : (
+                    <div
+                      key={notification.id}
+                      className="rounded-lg border border-slate-200 bg-slate-50 p-3"
+                    >
+                      {content}
+                    </div>
+                  );
+                })}
               </div>
             ) : (
               <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-6 text-center">

@@ -8,6 +8,8 @@ export const runtime = "nodejs";
 type CronSuccessResponse = {
   ok: true;
   jobId: string | null;
+  batch: number;
+  limit: number;
   selected: number;
   synced: number;
   failed: number;
@@ -51,13 +53,15 @@ async function handleSyncPricesCron(
       return jsonError(new Error("Khong co quyen chay cron sync."), 401);
     }
 
-    const limit = getLimitFromRequest(request);
+    const batch = getNumberParam(request, "batch", 0, 0, Number.MAX_SAFE_INTEGER);
+    const limit = getNumberParam(request, "limit", 100, 1, 300);
     jobId = await createSyncJob({
-      limit: limit ?? 300,
+      batch,
+      limit,
       trigger: "cron-route",
       method: request.method,
     });
-    const result = await syncPricesToSupabase({ limit });
+    const result = await syncPricesToSupabase({ batch, limit });
     const durationMs = Date.now() - startedAt;
 
     await updateSyncJob(jobId, {
@@ -72,6 +76,8 @@ async function handleSyncPricesCron(
     return Response.json({
       ok: true,
       jobId,
+      batch: result.batch,
+      limit: result.limit,
       selected: result.selected,
       synced: result.synced,
       failed: result.failed,
@@ -90,15 +96,15 @@ async function handleSyncPricesCron(
   }
 }
 
-function getLimitFromRequest(request: Request): number | undefined {
-  const value = new URL(request.url).searchParams.get("limit");
+function getNumberParam(request: Request, key: string, fallback: number, min: number, max: number): number {
+  const value = new URL(request.url).searchParams.get(key);
 
   if (!value) {
-    return undefined;
+    return fallback;
   }
 
-  const limit = Number(value);
-  return Number.isInteger(limit) && limit > 0 ? limit : undefined;
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed >= min ? Math.min(parsed, max) : fallback;
 }
 
 async function createSyncJob(metadata: Json): Promise<string | null> {

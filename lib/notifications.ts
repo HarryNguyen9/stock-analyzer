@@ -13,6 +13,8 @@ export type StockNotification = {
   type: NotificationType;
   priority: number;
   createdAt: string;
+  href?: string;
+  groupCount?: number;
 };
 
 type NotificationCandidate = {
@@ -26,10 +28,15 @@ type NotificationCandidate = {
 
 const MIN_SIGNAL_PRIORITY = 80;
 const MIN_SIGNAL_STRENGTH = 4;
+const MAX_NOTIFICATIONS = 10;
+const MAX_PER_SYMBOL = 2;
 
 export function generateStockNotifications(stocks: StockSummary[]): StockNotification[] {
   const dedupe = new Set<string>();
-  const notifications: StockNotification[] = [];
+  const notificationsBySymbol = new Map<string, StockNotification[]>();
+  const highScoreNotifications: StockNotification[] = [];
+  const breakoutNotifications: StockNotification[] = [];
+  const riskNotifications: StockNotification[] = [];
 
   for (const stock of stocks) {
     if (stock.dataStatus !== "ready") {
@@ -49,7 +56,7 @@ export function generateStockNotifications(stocks: StockSummary[]): StockNotific
       }
 
       dedupe.add(dedupeKey);
-      notifications.push({
+      const notification = {
         id: dedupeKey,
         symbol: stock.symbol,
         title: candidate.title,
@@ -58,11 +65,36 @@ export function generateStockNotifications(stocks: StockSummary[]): StockNotific
         type: candidate.type,
         priority: candidate.priority,
         createdAt,
-      });
+        href: `/stock/${stock.symbol}`,
+      };
+      const symbolNotifications = notificationsBySymbol.get(stock.symbol) ?? [];
+      symbolNotifications.push(notification);
+      notificationsBySymbol.set(stock.symbol, symbolNotifications);
+
+      if (signalCode === "HIGH_TECHNICAL_SCORE") {
+        highScoreNotifications.push(notification);
+      }
+
+      if (candidate.signal?.category === "breakout") {
+        breakoutNotifications.push(notification);
+      }
+
+      if (candidate.type === "warning" || candidate.type === "bearish") {
+        riskNotifications.push(notification);
+      }
     }
   }
 
-  return notifications.sort(sortNotifications);
+  const compactNotifications = [...notificationsBySymbol.values()]
+    .flatMap((items) => items.sort(sortNotifications).slice(0, MAX_PER_SYMBOL))
+    .sort(sortNotifications);
+  const grouped = [
+    createGroupNotification("breakout", breakoutNotifications),
+    createGroupNotification("high-score", highScoreNotifications),
+    createGroupNotification("risk", riskNotifications),
+  ].filter((item): item is StockNotification => item !== null);
+
+  return [...grouped, ...compactNotifications].sort(sortNotifications).slice(0, MAX_NOTIFICATIONS);
 }
 
 function getNotificationCandidates(stock: StockSummary): NotificationCandidate[] {
@@ -71,12 +103,12 @@ function getNotificationCandidates(stock: StockSummary): NotificationCandidate[]
 
   if (stock.score >= 80) {
     candidates.push({
-      signal: notableSignals[0] ?? null,
+      signal: null,
       title: `${stock.symbol} có điểm kỹ thuật cao`,
       message: `Điểm kỹ thuật ${stock.score}/100, trạng thái ${stock.status.toLowerCase()}.`,
-      signalLabel: notableSignals[0]?.labelVi ?? "Điểm kỹ thuật cao",
+      signalLabel: "Điểm kỹ thuật cao",
       type: "bullish",
-      priority: Math.max(90, notableSignals[0]?.priority ?? 0),
+      priority: 90,
     });
   }
 
@@ -115,18 +147,68 @@ function isNotableSignal(signal: Signal): boolean {
   }
 
   if (signal.category === "breakout") {
-    return signal.sentiment !== "neutral";
+    return signal.sentiment !== "neutral" && signal.priority >= 90;
   }
 
   if (signal.category === "volume") {
-    return signal.sentiment === "bullish";
+    return signal.sentiment === "bullish" && signal.priority >= 86;
   }
 
   if (signal.category === "risk") {
-    return signal.sentiment === "bearish";
+    return signal.sentiment === "bearish" && signal.priority >= 90;
   }
 
   return signal.code === "GOLDEN_CROSS" || signal.code === "DEATH_CROSS";
+}
+
+function createGroupNotification(
+  kind: "breakout" | "high-score" | "risk",
+  notifications: StockNotification[],
+): StockNotification | null {
+  const uniqueSymbols = new Set(notifications.map((item) => item.symbol));
+
+  if (uniqueSymbols.size < 3) {
+    return null;
+  }
+
+  const latestCreatedAt = notifications
+    .map((item) => item.createdAt)
+    .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0];
+  const config = {
+    breakout: {
+      title: `${uniqueSymbols.size} mã đang có tín hiệu breakout`,
+      message: "Nhiều mã đang vượt vùng kỹ thuật quan trọng, ưu tiên kiểm tra thanh khoản xác nhận.",
+      signalLabel: "Breakout",
+      type: "bullish" as const,
+      priority: 99,
+    },
+    "high-score": {
+      title: `${uniqueSymbols.size} mã có điểm kỹ thuật cao`,
+      message: "Nhóm cổ phiếu này đang có score từ 80 trở lên.",
+      signalLabel: "Score cao",
+      type: "bullish" as const,
+      priority: 96,
+    },
+    risk: {
+      title: `${uniqueSymbols.size} mã có cảnh báo rủi ro`,
+      message: "Một số mã đang xuất hiện tín hiệu suy yếu mạnh, nên rà lại vị thế.",
+      signalLabel: "Rủi ro",
+      type: "warning" as const,
+      priority: 98,
+    },
+  }[kind];
+
+  return {
+    id: `group:${kind}:${latestCreatedAt.slice(0, 10)}`,
+    symbol: "MARKET",
+    title: config.title,
+    message: config.message,
+    signalLabel: config.signalLabel,
+    type: config.type,
+    priority: config.priority,
+    createdAt: latestCreatedAt,
+    groupCount: uniqueSymbols.size,
+  };
 }
 
 function sortNotifications(a: StockNotification, b: StockNotification): number {
