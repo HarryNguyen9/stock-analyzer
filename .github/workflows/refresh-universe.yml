@@ -1,4 +1,4 @@
-name: refresh-universe
+name: Refresh universe
 
 on:
   workflow_dispatch:

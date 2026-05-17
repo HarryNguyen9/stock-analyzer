@@ -17,7 +17,12 @@ type LiquidityMetric = {
   symbol: string;
   avgVolume20: number;
   avgTradedValue20: number;
-  tradedDays20: number;
+  activeDays20: number;
+  priceRows: number;
+  latestClose: number | null;
+  liquidityScore: number;
+  eligible: boolean;
+  exclusionReason: string | null;
   score: number;
 };
 
@@ -30,12 +35,27 @@ type UniverseResponse =
       topA: number;
       topB: number;
       topC: number;
+      eligible: number;
+      excluded: number;
+      totalSymbols: number;
+      withPrices: number;
+      skippedDueToMissingPrices: number;
+      excludedReasons: Record<string, number>;
+      warning?: string;
       durationMs: number;
     }
   | {
       ok: false;
       jobId?: string | null;
       message: string;
+      warning?: string;
+      totalSymbols?: number;
+      withPrices?: number;
+      eligible?: number;
+      excluded?: number;
+      skippedDueToMissingPrices?: number;
+      excludedReasons?: Record<string, number>;
+      durationMs?: number;
       stack?: string;
     };
 
@@ -43,6 +63,22 @@ const PRICE_SCAN_LIMIT = 50_000;
 const PRICE_PAGE_SIZE = 1_000;
 const SYMBOL_PAGE_SIZE = 1_000;
 const UPDATE_CONCURRENCY = 25;
+const MIN_ACTIVE_DAYS_20 = 10;
+const MIN_AVG_TRADED_VALUE_20 = 1_000_000_000;
+const MIN_LATEST_CLOSE = 1_000;
+const MIN_PRICE_ROWS_20 = 20;
+const RANKING_RULES = {
+  lookbackSessions: 20,
+  minActiveDays20: MIN_ACTIVE_DAYS_20,
+  minAvgTradedValue20: MIN_AVG_TRADED_VALUE_20,
+  minLatestClose: MIN_LATEST_CLOSE,
+  minPriceRows20: MIN_PRICE_ROWS_20,
+  scoreWeights: {
+    avgTradedValue20: "primary",
+    activeDays20: "quality multiplier",
+    avgVolume20: "secondary",
+  },
+};
 
 export async function GET(request: Request) {
   return handleRefreshUniverse(request);
@@ -77,7 +113,7 @@ async function handleRefreshUniverse(request: Request): Promise<Response> {
     const durationMs = Date.now() - startedAt;
 
     await updateSyncJob(jobId, {
-      status: "success",
+      status: result.warning ? "warning" : "success",
       finished_at: new Date().toISOString(),
       duration_ms: durationMs,
       selected_count: result.selected,
@@ -87,9 +123,33 @@ async function handleRefreshUniverse(request: Request): Promise<Response> {
         topA: result.topA,
         topB: result.topB,
         topC: result.topC,
+        eligible: result.eligible,
+        excluded: result.excluded,
         ranked: result.ranked,
+        warning: result.warning,
+        diagnostics: result.diagnostics,
+        rankingRules: RANKING_RULES,
       },
     });
+
+    if (result.warning) {
+      return Response.json(
+        {
+          ok: false,
+          jobId,
+          message: result.warning,
+          warning: result.warning,
+          totalSymbols: result.diagnostics.totalSymbols,
+          withPrices: result.diagnostics.withPrices,
+          eligible: result.diagnostics.eligible,
+          excluded: result.diagnostics.excluded,
+          skippedDueToMissingPrices: result.diagnostics.skippedDueToMissingPrices,
+          excludedReasons: result.diagnostics.excludedReasons,
+          durationMs,
+        } satisfies UniverseResponse,
+        { status: 409 },
+      );
+    }
 
     return Response.json({
       ok: true,
@@ -99,6 +159,13 @@ async function handleRefreshUniverse(request: Request): Promise<Response> {
       topA: result.topA,
       topB: result.topB,
       topC: result.topC,
+      eligible: result.eligible,
+      excluded: result.excluded,
+      totalSymbols: result.diagnostics.totalSymbols,
+      withPrices: result.diagnostics.withPrices,
+      skippedDueToMissingPrices: result.diagnostics.skippedDueToMissingPrices,
+      excludedReasons: result.diagnostics.excludedReasons,
+      ...(result.warning ? { warning: result.warning } : {}),
       durationMs,
     } satisfies UniverseResponse);
   } catch (error) {
@@ -120,8 +187,14 @@ async function refreshUniverseRankings() {
   const supabase = createSupabaseAdminClient();
   const [symbols, prices] = await Promise.all([readSymbols(), readRecentPrices()]);
   const symbolSet = new Set(symbols.map((row) => row.symbol));
-  const metrics = calculateLiquidityMetrics(prices).filter((metric) => symbolSet.has(metric.symbol));
-  const metricBySymbol = new Map(metrics.map((metric, index) => [metric.symbol, { metric, rank: index + 1 }]));
+  const allMetrics = calculateLiquidityMetrics(prices).filter((metric) => symbolSet.has(metric.symbol));
+  const eligibleMetrics = allMetrics.filter((metric) => metric.eligible);
+  const metricBySymbol = new Map(eligibleMetrics.map((metric, index) => [metric.symbol, { metric, rank: index + 1 }]));
+  const missingPriceSymbols = symbols.length - allMetrics.length;
+  const excludedReasons = countExcludedReasons(allMetrics);
+  const warning = eligibleMetrics.length === 0
+    ? "Not enough eligible symbols to safely refresh universe"
+    : undefined;
 
   let updated = 0;
   let failed = 0;
@@ -129,18 +202,41 @@ async function refreshUniverseRankings() {
   let topB = 0;
   let topC = 0;
 
-  for (let index = 0; index < symbols.length; index += UPDATE_CONCURRENCY) {
-    const batch = symbols.slice(index, index + UPDATE_CONCURRENCY);
+  if (eligibleMetrics.length === 0) {
+    return {
+      selected: symbols.length,
+      updated: 0,
+      failed: 0,
+      ranked: allMetrics.length,
+      eligible: 0,
+      excluded: symbols.length,
+      topA: 0,
+      topB: 0,
+      topC: 0,
+      warning,
+      diagnostics: {
+        totalSymbols: symbols.length,
+        withPrices: allMetrics.length,
+        eligible: 0,
+        excluded: symbols.length,
+        skippedDueToMissingPrices: missingPriceSymbols,
+        excludedReasons,
+      },
+    };
+  }
+
+  for (let index = 0; index < eligibleMetrics.length; index += UPDATE_CONCURRENCY) {
+    const batch = eligibleMetrics.slice(index, index + UPDATE_CONCURRENCY);
     const settled = await Promise.allSettled(
-      batch.map(async (row) => {
-        const ranked = metricBySymbol.get(row.symbol);
+      batch.map(async (metric) => {
+        const ranked = metricBySymbol.get(metric.symbol);
         const tier = getTier(ranked?.rank ?? null);
         const update: SymbolUpdate = {
           liquidity_rank: ranked?.rank ?? null,
           tier,
           auto_sync: tier === "A",
         };
-        const { error } = await supabase.from("symbols").update(update).eq("symbol", row.symbol);
+        const { error } = await supabase.from("symbols").update(update).eq("symbol", metric.symbol);
 
         if (error) {
           throw error;
@@ -165,7 +261,18 @@ async function refreshUniverseRankings() {
     selected: symbols.length,
     updated,
     failed,
-    ranked: metrics.length,
+    ranked: allMetrics.length,
+    eligible: eligibleMetrics.length,
+    excluded: Math.max(0, symbols.length - eligibleMetrics.length),
+    warning,
+    diagnostics: {
+      totalSymbols: symbols.length,
+      withPrices: allMetrics.length,
+      eligible: eligibleMetrics.length,
+      excluded: Math.max(0, symbols.length - eligibleMetrics.length),
+      skippedDueToMissingPrices: missingPriceSymbols,
+      excludedReasons,
+    },
     topA,
     topB,
     topC,
@@ -241,27 +348,88 @@ function calculateLiquidityMetrics(prices: PriceRow[]): LiquidityMetric[] {
 
   return Array.from(grouped.entries())
     .map(([symbol, rows]) => {
-      const tradedRows = rows.filter((row) => Number(row.volume) > 0);
+      const sortedRows = [...rows].sort((a, b) => b.date.localeCompare(a.date));
+      const latest = sortedRows[0] ?? null;
+      const activeRows = rows.filter((row) => Number(row.volume) > 0);
       const avgVolume20 = average(rows.map((row) => Number(row.volume)));
       const avgTradedValue20 = average(rows.map((row) => Number(row.close) * Number(row.volume)));
-      const tradedDays20 = tradedRows.length;
+      const activeDays20 = activeRows.length;
+      const latestClose = latest ? Number(latest.close) : null;
+      const exclusionReason = getExclusionReason({
+        activeDays20,
+        avgTradedValue20,
+        latestClose,
+        priceRows: rows.length,
+      });
+      const activeQuality = Math.min(1, activeDays20 / 20);
+      const valueScore = Math.log10(Math.max(1, avgTradedValue20));
+      const volumeScore = Math.log10(Math.max(1, avgVolume20));
+      const liquidityScore = exclusionReason
+        ? 0
+        : valueScore * 100 * activeQuality + volumeScore * 8;
 
       return {
         symbol,
         avgVolume20,
         avgTradedValue20,
-        tradedDays20,
-        score: avgTradedValue20 * Math.max(0.2, tradedDays20 / 20),
+        activeDays20,
+        priceRows: rows.length,
+        latestClose,
+        liquidityScore,
+        eligible: exclusionReason === null,
+        exclusionReason,
+        score: liquidityScore,
       };
     })
-    .filter((metric) => metric.tradedDays20 > 0)
     .sort(
       (a, b) =>
-        b.score - a.score ||
+        Number(b.eligible) - Number(a.eligible) ||
+        b.liquidityScore - a.liquidityScore ||
         b.avgTradedValue20 - a.avgTradedValue20 ||
+        b.activeDays20 - a.activeDays20 ||
         b.avgVolume20 - a.avgVolume20 ||
         a.symbol.localeCompare(b.symbol),
     );
+}
+
+function getExclusionReason(input: {
+  activeDays20: number;
+  avgTradedValue20: number;
+  latestClose: number | null;
+  priceRows: number;
+}): string | null {
+  if (input.priceRows === 0 || input.latestClose === null || !Number.isFinite(input.latestClose)) {
+    return "missing-price-data";
+  }
+
+  if (input.priceRows < MIN_PRICE_ROWS_20) {
+    return "insufficient-price-rows";
+  }
+
+  if (input.activeDays20 < MIN_ACTIVE_DAYS_20) {
+    return "low-active-days";
+  }
+
+  if (input.avgTradedValue20 <= 0 || input.avgTradedValue20 < MIN_AVG_TRADED_VALUE_20) {
+    return "low-traded-value";
+  }
+
+  if (input.latestClose <= 0 || input.latestClose < MIN_LATEST_CLOSE) {
+    return "low-latest-close";
+  }
+
+  return null;
+}
+
+function countExcludedReasons(metrics: LiquidityMetric[]): Record<string, number> {
+  return metrics.reduce<Record<string, number>>((counts, metric) => {
+    if (!metric.exclusionReason) {
+      return counts;
+    }
+
+    counts[metric.exclusionReason] = (counts[metric.exclusionReason] ?? 0) + 1;
+    return counts;
+  }, {});
 }
 
 function average(values: number[]): number {
