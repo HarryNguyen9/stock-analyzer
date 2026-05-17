@@ -172,8 +172,10 @@ function getStandardPriority(signal: Signal): number {
     CONSOLIDATION_RANGE: 42,
   };
 
-  if (typeof byCode[signal.code] === "number") {
-    return byCode[signal.code];
+  const codePriority = byCode[signal.code];
+
+  if (typeof codePriority === "number") {
+    return codePriority;
   }
 
   if (signal.sentiment === "neutral") {
