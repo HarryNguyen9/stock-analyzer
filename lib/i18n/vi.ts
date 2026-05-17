@@ -61,6 +61,25 @@ export const vi = {
     dataError: "Có mã lỗi dữ liệu",
   },
   stock: {
+    ai: {
+      button: "AI phân tích",
+      title: "AI phân tích kỹ thuật",
+      subtitle: "Dựa trên dữ liệu kỹ thuật hiện tại",
+      close: "Đóng",
+      loading: "AI đang phân tích dữ liệu kỹ thuật...",
+      technicalScore: "Điểm kỹ thuật",
+      retry: "Phân tích lại",
+      fallbackError: "Không phân tích được dữ liệu kỹ thuật.",
+      emptyPoint: "Chưa có điểm nổi bật.",
+      disclaimer:
+        "Phân tích này chỉ mang tính tham khảo kỹ thuật, không phải khuyến nghị mua/bán và ứng dụng không chịu trách nhiệm cho quyết định đầu tư.",
+      sections: {
+        summary: "Tóm tắt nhanh",
+        bullish: "Điểm tích cực",
+        risk: "Rủi ro cần chú ý",
+        watch: "Điều nên theo dõi tiếp",
+      },
+    },
     technicalSignals: "Tín hiệu kỹ thuật",
     technicalSummary: "Tóm tắt kỹ thuật",
     signalDetailToggle: "Chi tiết",
