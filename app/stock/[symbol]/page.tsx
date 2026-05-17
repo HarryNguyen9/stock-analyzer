@@ -3,10 +3,10 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CandlestickChart } from "@/components/CandlestickChart";
 import { ScoreGauge } from "@/components/ScoreGauge";
-import { SignalCard } from "@/components/SignalCard";
 import { STOCKS, STOCK_SYMBOLS } from "@/data/symbols";
-import { analyzeTechnical } from "@/lib/analysis";
 import { getHistoricalPricesResult } from "@/lib/data-source/prices";
+import { readLatestTechnicalSnapshot } from "@/lib/data-source/supabase-provider";
+import { createTechnicalSnapshot, debugTechnicalSnapshot } from "@/lib/data-source/technical-snapshot";
 import { isStockSymbol } from "@/lib/mock-ohlcv";
 import { round } from "@/lib/indicators";
 import { vi } from "@/lib/i18n/vi";
@@ -55,8 +55,15 @@ export default async function StockDetailPage({ params }: StockPageProps) {
   }
 
   const candles = priceResult.data;
-  const analysis = analyzeTechnical(candles);
-  const signalGroups = groupTechnicalSignals(analysis.advancedSignals ?? []);
+  const technicalRow = await readLatestTechnicalSnapshot(symbol);
+  const technical = createTechnicalSnapshot(
+    candles,
+    technicalRow?.technical_score ?? null,
+    technicalRow?.signals ?? null,
+  );
+  debugTechnicalSnapshot(symbol, "detail", technical);
+  const analysis = technical.analysis;
+  const signalGroups = groupTechnicalSignals(technical.signals);
   const latest = candles[candles.length - 1];
   const previous = candles[candles.length - 2];
   const change = latest.close - previous.close;
@@ -88,11 +95,11 @@ export default async function StockDetailPage({ params }: StockPageProps) {
             </div>
 
             <div className="flex items-center gap-5 rounded-lg border border-slate-200 bg-slate-50 p-4">
-              <ScoreGauge score={analysis.score} />
+              <ScoreGauge score={technical.score} />
               <div>
                 <p className="text-sm text-slate-500">{vi.stock.technicalScore}</p>
                 <p className="mt-1 text-2xl font-semibold text-slate-950">
-                  {scoreLabel(analysis.score)}
+                  {scoreLabel(technical.score)}
                 </p>
               </div>
             </div>
@@ -186,8 +193,8 @@ export default async function StockDetailPage({ params }: StockPageProps) {
           </section>
 
           <div className="grid gap-4">
-            {analysis.signals.map((signal) => (
-              <SignalCard key={signal.title} signal={signal} />
+            {technical.signals.slice(0, 3).map((signal) => (
+              <TechnicalSignalBadge key={signal.code} signal={signal} />
             ))}
           </div>
         </aside>

@@ -76,6 +76,7 @@ function getFreshnessView(dataFreshness: DataFreshnessResult) {
   const statusTextByStatus = {
     synced: vi.home.dataSynced,
     stale: vi.home.dataStale,
+    "market-closed": vi.home.dataMarketClosed,
     empty: vi.home.dataEmpty,
     "local-fallback": vi.home.dataLocalFallback,
   } satisfies Record<DataFreshnessResult["status"], string>;
@@ -83,6 +84,7 @@ function getFreshnessView(dataFreshness: DataFreshnessResult) {
   const statusClassByStatus = {
     synced: "bg-emerald-100 text-emerald-700",
     stale: "bg-amber-100 text-amber-700",
+    "market-closed": "bg-slate-200 text-slate-700",
     empty: "bg-slate-200 text-slate-600",
     "local-fallback": "bg-sky-100 text-sky-700",
   } satisfies Record<DataFreshnessResult["status"], string>;

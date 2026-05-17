@@ -1,8 +1,8 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { STOCKS } from "@/data/symbols";
-import { analyzeTechnical } from "@/lib/analysis";
 import { fallbackProvider } from "@/lib/data-source/fallback-provider";
+import { createTechnicalSnapshot } from "@/lib/data-source/technical-snapshot";
 import { round } from "@/lib/indicators";
 import { vi } from "@/lib/i18n/vi";
 import type { AppDataProvider, PriceDataResult } from "@/lib/data-source/provider";
@@ -62,7 +62,7 @@ export function toStockSummary(
   const data = result.data;
   const latest = data[data.length - 1];
   const previous = data[data.length - 2];
-  const analysis = analyzeTechnical(data);
+  const technical = createTechnicalSnapshot(data, null);
 
   return {
     ...stock,
@@ -70,10 +70,10 @@ export function toStockSummary(
     dayChangePercent: round(((latest.close - previous.close) / previous.close) * 100),
     latestDate: latest.date,
     latestVolume: latest.volume,
-    score: analysis.score,
-    status: getScoreStatus(analysis.score),
-    signal: analysis.advancedSignals?.[0]?.labelVi ?? analysis.signals[0].label,
-    topSignals: analysis.advancedSignals?.slice(0, 2),
+    score: technical.score,
+    status: technical.status,
+    signal: technical.signals[0]?.labelVi ?? vi.stock.notAvailable,
+    topSignals: technical.signals.slice(0, 2),
     dataStatus: "ready",
   };
 }
@@ -130,12 +130,6 @@ export function isOHLCV(item: unknown): item is OHLCV {
     typeof item.volume === "number" &&
     Number.isFinite(item.volume)
   );
-}
-
-function getScoreStatus(score: number): StockSummary["status"] {
-  if (score >= 70) return vi.score.constructive;
-  if (score >= 45) return vi.score.neutral;
-  return vi.score.weak;
 }
 
 function isNodeFileNotFound(error: unknown): boolean {

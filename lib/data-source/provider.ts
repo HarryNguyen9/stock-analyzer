@@ -22,7 +22,7 @@ export type AppDataProvider = {
   getSummaries?(): Promise<StockSummary[] | null>;
 };
 
-export type DataFreshnessStatus = "synced" | "stale" | "local-fallback" | "empty";
+export type DataFreshnessStatus = "synced" | "stale" | "market-closed" | "local-fallback" | "empty";
 
 export type DataFreshnessResult = {
   status: DataFreshnessStatus;
@@ -78,9 +78,19 @@ export async function getDataFreshness(): Promise<DataFreshnessResult> {
   }
 
   const thirtyMinutesMs = 30 * 60 * 1000;
+  const isStale = Date.now() - updatedAtTime > thirtyMinutesMs;
 
   return {
-    status: Date.now() - updatedAtTime <= thirtyMinutesMs ? "synced" : "stale",
+    status: isStale ? (isVietnamWeekend() ? "market-closed" : "stale") : "synced",
     updatedAt,
   };
+}
+
+function isVietnamWeekend(): boolean {
+  const weekday = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Ho_Chi_Minh",
+    weekday: "short",
+  }).format(new Date());
+
+  return weekday === "Sat" || weekday === "Sun";
 }

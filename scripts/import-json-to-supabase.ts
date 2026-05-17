@@ -98,7 +98,7 @@ export async function upsertPriceSetsToSupabase(priceSets: PriceSet[]): Promise<
       rsi14: analysis.indicators.rsi14,
       volume_average20: analysis.indicators.volumeAverage20,
       technical_score: analysis.score,
-      signals: analysis.signals as unknown as Json,
+      signals: (analysis.advancedSignals ?? analysis.signals) as unknown as Json,
     };
 
     const { error: indicatorError } = await supabase

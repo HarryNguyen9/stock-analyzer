@@ -15,6 +15,7 @@ export const vi = {
     dataFreshnessTitle: "Cập nhật lần cuối",
     dataSynced: "Đã đồng bộ",
     dataStale: "Dữ liệu cũ",
+    dataMarketClosed: "Thị trường nghỉ",
     dataEmpty: "Chưa có dữ liệu",
     dataLocalFallback: "Đang dùng dữ liệu cục bộ",
     dataTimezone: "GMT+7",

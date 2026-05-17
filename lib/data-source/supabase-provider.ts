@@ -1,8 +1,8 @@
 import { STOCKS } from "@/data/symbols";
+import { createTechnicalSnapshot, debugTechnicalSnapshot } from "@/lib/data-source/technical-snapshot";
 import { createSupabaseClient } from "@/lib/supabase/client";
 import type { AppDataProvider } from "@/lib/data-source/provider";
 import { isOHLCV, toStockSummary } from "@/lib/data-source/local-provider";
-import { vi } from "@/lib/i18n/vi";
 import type { OHLCV, StockSummary, StockSymbol } from "@/types/stock";
 
 const PRICE_LIMIT = 220;
@@ -24,8 +24,9 @@ type PriceRow = {
   volume: number;
 };
 
-type TechnicalScoreRow = {
+type TechnicalIndicatorRow = {
   technical_score: number | null;
+  signals: unknown | null;
 };
 
 type UpdatedAtRow = {
@@ -101,9 +102,15 @@ export const supabaseDataProvider: AppDataProvider = {
           source: "supabase",
           data,
         });
+        const technicalRow = await readLatestTechnicalSnapshot(stock.symbol);
+        const technical = createTechnicalSnapshot(
+          data,
+          technicalRow?.technical_score ?? null,
+          technicalRow?.signals ?? null,
+        );
+        debugTechnicalSnapshot(stock.symbol, "home", technical);
 
-        const score = await readLatestTechnicalScore(stock.symbol);
-        return score === null ? summary : withSupabaseScore(summary, score);
+        return withTechnicalSnapshot(summary, technical);
       }),
     );
 
@@ -225,7 +232,14 @@ async function readSupabasePrices(symbol: StockSymbol): Promise<OHLCV[] | null> 
   }
 }
 
-async function readLatestTechnicalScore(symbol: StockSymbol): Promise<number | null> {
+export async function readLatestTechnicalScore(symbol: StockSymbol): Promise<number | null> {
+  const snapshot = await readLatestTechnicalSnapshot(symbol);
+  return snapshot?.technical_score ?? null;
+}
+
+export async function readLatestTechnicalSnapshot(
+  symbol: StockSymbol,
+): Promise<TechnicalIndicatorRow | null> {
   const supabase = createSupabaseClient();
 
   if (!supabase) {
@@ -234,26 +248,31 @@ async function readLatestTechnicalScore(symbol: StockSymbol): Promise<number | n
 
   const { data, error } = await supabase
     .from("technical_indicators")
-    .select("technical_score")
+    .select("technical_score,signals")
     .eq("symbol", symbol)
     .order("date", { ascending: false })
     .limit(1)
     .maybeSingle();
 
-  const scoreRow = data as unknown as TechnicalScoreRow | null;
+  const scoreRow = data as unknown as TechnicalIndicatorRow | null;
 
-  if (error || typeof scoreRow?.technical_score !== "number") {
+  if (error || !scoreRow) {
     return null;
   }
 
-  return scoreRow.technical_score;
+  return scoreRow;
 }
 
-function withSupabaseScore(summary: StockSummary, score: number): StockSummary {
+function withTechnicalSnapshot(
+  summary: StockSummary,
+  technical: ReturnType<typeof createTechnicalSnapshot>,
+): StockSummary {
   return {
     ...summary,
-    score,
-    status: score >= 70 ? vi.score.constructive : score >= 45 ? vi.score.neutral : vi.score.weak,
+    score: technical.score,
+    status: technical.status,
+    signal: technical.signals[0]?.labelVi ?? summary.signal,
+    topSignals: technical.signals.slice(0, 2),
   };
 }
 
