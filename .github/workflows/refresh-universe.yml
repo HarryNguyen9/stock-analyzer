@@ -1,0 +1,16 @@
+name: refresh-universe
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 10 * * 1-5"
+
+jobs:
+  refresh-universe:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Call refresh universe endpoint
+        run: |
+          curl -fsS -X GET "https://stock-analyzer-sigma-one.vercel.app/api/cron/refresh-universe" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
