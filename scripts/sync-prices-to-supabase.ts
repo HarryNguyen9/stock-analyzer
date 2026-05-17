@@ -30,6 +30,8 @@ export type SyncPricesResult = {
   selected: number;
   synced: number;
   failed: number;
+  selectedSymbols: string[];
+  failedSymbols: string[];
 };
 
 export type SyncSymbolResult = {
@@ -71,6 +73,8 @@ export async function syncPricesToSupabase(options: { batch?: number; limit?: nu
     selected: targets.length,
     synced: importedSymbols,
     failed: Math.max(0, targets.length - importedSymbols),
+    selectedSymbols: symbols,
+    failedSymbols: importedSymbols === targets.length ? [] : symbols,
   };
 }
 
@@ -82,6 +86,7 @@ async function syncPricesDirectlyToSupabase(
 
   let synced = 0;
   let failed = 0;
+  const failedSymbols: string[] = [];
 
   for (const target of targets) {
     try {
@@ -94,6 +99,7 @@ async function syncPricesDirectlyToSupabase(
       const message = error instanceof Error ? error.message : String(error);
       await updateSymbolSyncStatus(target.symbol, "failed");
       failed += 1;
+      failedSymbols.push(target.symbol);
       console.error(`${target.symbol}: sync fail, bo qua ma nay (${message})`);
     }
   }
@@ -106,6 +112,8 @@ async function syncPricesDirectlyToSupabase(
     selected: targets.length,
     synced,
     failed,
+    selectedSymbols: targets.map((target) => target.symbol),
+    failedSymbols,
   };
 }
 
@@ -202,12 +210,38 @@ async function getSyncTargets(options: { batch: number; limit: number }): Promis
       }));
     }
 
+    const hasAnyAutoSync = await hasAutoSyncSymbols();
+
+    if (hasAnyAutoSync) {
+      console.log(`Supabase batch ${options.batch} khong co symbol nao trong range hien tai.`);
+      return [];
+    }
+
     console.log("Supabase chua co symbols auto_sync=true, fallback ve danh sach mac dinh.");
     return getFallbackTargets(options);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     console.warn(`Khong doc duoc symbols auto_sync tu Supabase (${message}), fallback ve danh sach mac dinh.`);
     return getFallbackTargets(options);
+  }
+}
+
+async function hasAutoSyncSymbols(): Promise<boolean> {
+  try {
+    const supabase = createSupabaseAdminClient();
+    const { data, error } = await supabase
+      .from("symbols")
+      .select("symbol")
+      .eq("auto_sync", true)
+      .limit(1);
+
+    if (error) {
+      throw error;
+    }
+
+    return Boolean(data && data.length > 0);
+  } catch {
+    return false;
   }
 }
 

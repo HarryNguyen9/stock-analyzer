@@ -71,6 +71,12 @@ async function handleSyncPricesCron(
       selected_count: result.selected,
       success_count: result.synced,
       failed_count: result.failed,
+      metadata: {
+        batch: result.batch,
+        limit: result.limit,
+        selectedSymbols: result.selectedSymbols,
+        failedSymbols: result.failedSymbols,
+      },
     });
 
     return Response.json({
