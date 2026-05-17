@@ -29,6 +29,8 @@ export function analyzePatterns(context: AnalysisContext) {
         code: "HIGHER_HIGH_HIGHER_LOW",
         labelVi: "Đỉnh đáy nâng dần",
         descriptionVi: "Cấu trúc ngắn hạn đang tạo higher high và higher low.",
+        explanationVi: "Các đỉnh sau cao hơn đỉnh trước và các đáy sau cũng cao hơn đáy trước.",
+        implicationVi: "Cấu trúc này thường phản ánh xu hướng tăng đang hình thành hoặc được duy trì.",
         category: "pattern",
         sentiment: "bullish",
         strength: 3,
@@ -43,6 +45,8 @@ export function analyzePatterns(context: AnalysisContext) {
         code: "LOWER_HIGH_LOWER_LOW",
         labelVi: "Đỉnh đáy hạ dần",
         descriptionVi: "Cấu trúc ngắn hạn đang tạo lower high và lower low.",
+        explanationVi: "Các nhịp hồi tạo đỉnh thấp hơn và các nhịp giảm tạo đáy thấp hơn.",
+        implicationVi: "Cấu trúc này thường cho thấy bên bán đang kiểm soát nhịp giá ngắn hạn.",
         category: "pattern",
         sentiment: "bearish",
         strength: 3,
@@ -57,6 +61,8 @@ export function analyzePatterns(context: AnalysisContext) {
         code: "CONSOLIDATION_RANGE",
         labelVi: "Tích lũy biên hẹp",
         descriptionVi: "Giá đi ngang trong biên độ hẹp, phù hợp để theo dõi breakout.",
+        explanationVi: "Biên dao động gần đây thu hẹp, giá chưa chọn hướng tăng hoặc giảm rõ ràng.",
+        implicationVi: "Giai đoạn tích lũy có thể tạo nền cho breakout, nhưng cần chờ tín hiệu xác nhận.",
         category: "pattern",
         sentiment: "neutral",
         strength: 2,
@@ -71,6 +77,12 @@ export function analyzePatterns(context: AnalysisContext) {
         code: gapUp ? "GAP_UP" : "GAP_DOWN",
         labelVi: gapUp ? "Gap up" : "Gap down",
         descriptionVi: gapUp ? "Giá mở khoảng trống tăng so với phiên trước." : "Giá mở khoảng trống giảm so với phiên trước.",
+        explanationVi: gapUp
+          ? "Vùng giá thấp nhất của phiên hiện tại cao hơn vùng giá cao nhất của phiên trước."
+          : "Vùng giá cao nhất của phiên hiện tại thấp hơn vùng giá thấp nhất của phiên trước.",
+        implicationVi: gapUp
+          ? "Gap up thường cho thấy kỳ vọng tích cực đột ngột, nhưng cần xem giá có giữ được khoảng trống hay không."
+          : "Gap down thường phản ánh áp lực bán mạnh, đặc biệt nếu giá không hồi lại vùng gap.",
         category: "pattern",
         sentiment: gapUp ? "bullish" : "bearish",
         strength: 3,

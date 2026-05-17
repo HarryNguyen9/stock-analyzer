@@ -13,6 +13,8 @@ export function analyzeVolatility(context: AnalysisContext) {
         code: "BOLLINGER_SQUEEZE",
         labelVi: "Bollinger squeeze",
         descriptionVi: "Dải Bollinger đang co hẹp, thị trường có thể chuẩn bị biến động mạnh.",
+        explanationVi: "Biên độ dao động 20 phiên đang bị nén lại, khiến dải Bollinger hẹp hơn bình thường.",
+        implicationVi: "Sau giai đoạn nén, giá thường có một nhịp biến động mạnh; cần chờ hướng breakout để xác nhận.",
         category: "volatility",
         sentiment: "neutral",
         strength: 3,

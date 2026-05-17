@@ -15,6 +15,8 @@ export type Signal = {
   code: string;
   labelVi: string;
   descriptionVi: string;
+  explanationVi: string;
+  implicationVi: string;
   category: SignalCategory;
   sentiment: SignalSentiment;
   strength: 1 | 2 | 3 | 4 | 5;

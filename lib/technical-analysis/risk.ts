@@ -28,6 +28,12 @@ export function analyzeRisk(
         descriptionVi: brokenMA50
           ? "Giá đóng cửa xuống dưới MA50, rủi ro xu hướng tăng lên."
           : "Giá đóng cửa xuống dưới MA20, nhịp ngắn hạn yếu đi.",
+        explanationVi: brokenMA50
+          ? "Giá mất đường trung bình trung hạn, cho thấy vùng hỗ trợ động quan trọng không còn giữ được."
+          : "Giá mất đường trung bình ngắn hạn, cho thấy lực mua gần đây đang suy yếu.",
+        implicationVi: brokenMA50
+          ? "Tín hiệu này thường cần ưu tiên quản trị rủi ro vì xu hướng trung hạn có thể chuyển xấu."
+          : "Đây là cảnh báo sớm; nên theo dõi liệu giá có lấy lại MA20 trong vài phiên tới hay không.",
         category: "risk",
         sentiment: "bearish",
         strength: brokenMA50 ? 5 : 4,
@@ -42,6 +48,8 @@ export function analyzeRisk(
         code: "HEAVY_SELLING_VOLUME",
         labelVi: "Volume bán mạnh",
         descriptionVi: "Phiên giảm đi kèm khối lượng cao hơn rõ rệt so với trung bình.",
+        explanationVi: "Giá giảm trong khi thanh khoản tăng, cho thấy lực bán chủ động đang mạnh hơn bình thường.",
+        implicationVi: "Tín hiệu này thường hàm ý áp lực phân phối hoặc thoát hàng ngắn hạn đang tăng.",
         category: "risk",
         sentiment: "bearish",
         strength: 5,
@@ -56,6 +64,8 @@ export function analyzeRisk(
         code: "MACD_BEARISH",
         labelVi: "MACD suy yếu",
         descriptionVi: "MACD histogram âm, động lượng ngắn hạn đang nghiêng về bên bán.",
+        explanationVi: "Đường MACD đang thấp hơn đường tín hiệu, tạo histogram dưới mốc 0.",
+        implicationVi: "Động lượng giảm đang chiếm ưu thế; nếu đi kèm gãy MA hoặc volume bán, rủi ro cao hơn.",
         category: "risk",
         sentiment: "bearish",
         strength: 4,

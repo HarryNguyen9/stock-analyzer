@@ -294,15 +294,33 @@ function TechnicalSignalBadge({ signal }: { signal: Signal }) {
         : "border-slate-200 bg-white text-slate-700";
 
   return (
-    <div className={`rounded-lg border p-3 ${toneClass}`}>
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-sm font-semibold">{signal.labelVi}</p>
-        <span className="shrink-0 rounded-full bg-white/70 px-2 py-0.5 text-xs font-medium">
-          {signal.strength}/5
-        </span>
+    <details className={`group rounded-lg border p-3 ${toneClass}`}>
+      <summary className="flex cursor-pointer list-none items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-sm font-semibold">{signal.labelVi}</p>
+          <p className="mt-1 text-sm leading-5 opacity-80">{signal.descriptionVi}</p>
+        </div>
+        <div className="flex shrink-0 flex-col items-end gap-1">
+          <span className="rounded-full bg-white/70 px-2 py-0.5 text-xs font-medium">
+            {signal.strength}/5
+          </span>
+          <span className="text-xs font-medium opacity-70 group-open:hidden">
+            {vi.stock.signalDetailToggle}
+          </span>
+        </div>
+      </summary>
+
+      <div className="mt-3 space-y-3 border-t border-current/10 pt-3 text-sm leading-5">
+        <div>
+          <p className="font-semibold opacity-90">{vi.stock.signalExplanation}</p>
+          <p className="mt-1 opacity-80">{signal.explanationVi}</p>
+        </div>
+        <div>
+          <p className="font-semibold opacity-90">{vi.stock.signalImplication}</p>
+          <p className="mt-1 opacity-80">{signal.implicationVi}</p>
+        </div>
       </div>
-      <p className="mt-1 text-sm leading-5 opacity-80">{signal.descriptionVi}</p>
-    </div>
+    </details>
   );
 }
 

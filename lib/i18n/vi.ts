@@ -56,6 +56,9 @@ export const vi = {
   stock: {
     technicalSignals: "Tín hiệu kỹ thuật",
     technicalSummary: "Tóm tắt kỹ thuật",
+    signalDetailToggle: "Chi tiết",
+    signalExplanation: "Vì sao xuất hiện",
+    signalImplication: "Hàm ý thường gặp",
     scoreBreakdown: "Cấu phần điểm kỹ thuật",
     scoreBreakdownItems: {
       trend: {

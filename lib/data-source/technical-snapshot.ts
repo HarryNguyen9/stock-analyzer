@@ -1,5 +1,5 @@
 import { generateTechnicalAnalysis, type Signal, type TechnicalAnalysisResult } from "@/lib/technical-analysis";
-import { sortSignalsByPriority } from "@/lib/signals";
+import { getSignalExplanationVi, sortSignalsByPriority } from "@/lib/signals";
 import { vi } from "@/lib/i18n/vi";
 import type { OHLCV, StockSummary } from "@/types/stock";
 
@@ -55,28 +55,70 @@ function parseSupabaseSignals(value: unknown): Signal[] {
     return [];
   }
 
-  return value.filter(isSignal);
+  return value.map(toSignal).filter((signal): signal is Signal => signal !== null);
 }
 
-function isSignal(value: unknown): value is Signal {
+function toSignal(value: unknown): Signal | null {
+  if (typeof value !== "object" || value === null) {
+    return null;
+  }
+
+  const record = value as Record<string, unknown>;
+  const category = record.category;
+  const sentiment = record.sentiment;
+  const strength = record.strength;
+
+  if (
+    typeof record.code !== "string" ||
+    typeof record.labelVi !== "string" ||
+    typeof record.descriptionVi !== "string" ||
+    !isSignalCategory(category) ||
+    !isSignalSentiment(sentiment) ||
+    !isSignalStrength(strength) ||
+    typeof record.priority !== "number"
+  ) {
+    return null;
+  }
+
+  const fallbackExplanation = getSignalExplanationVi(record.code);
+
+  return {
+    code: record.code,
+    labelVi: record.labelVi,
+    descriptionVi: record.descriptionVi,
+    explanationVi:
+      typeof record.explanationVi === "string" && record.explanationVi.length > 0
+        ? record.explanationVi
+        : fallbackExplanation.explanationVi,
+    implicationVi:
+      typeof record.implicationVi === "string" && record.implicationVi.length > 0
+        ? record.implicationVi
+        : fallbackExplanation.implicationVi,
+    category,
+    sentiment,
+    strength,
+    priority: record.priority,
+  };
+}
+
+function isSignalCategory(value: unknown): value is Signal["category"] {
   return (
-    typeof value === "object" &&
-    value !== null &&
-    "code" in value &&
-    "labelVi" in value &&
-    "descriptionVi" in value &&
-    "category" in value &&
-    "sentiment" in value &&
-    "strength" in value &&
-    "priority" in value &&
-    typeof value.code === "string" &&
-    typeof value.labelVi === "string" &&
-    typeof value.descriptionVi === "string" &&
-    typeof value.category === "string" &&
-    typeof value.sentiment === "string" &&
-    typeof value.strength === "number" &&
-    typeof value.priority === "number"
+    value === "trend" ||
+    value === "momentum" ||
+    value === "volume" ||
+    value === "volatility" ||
+    value === "breakout" ||
+    value === "risk" ||
+    value === "pattern"
   );
+}
+
+function isSignalSentiment(value: unknown): value is Signal["sentiment"] {
+  return value === "bullish" || value === "bearish" || value === "neutral";
+}
+
+function isSignalStrength(value: unknown): value is Signal["strength"] {
+  return value === 1 || value === 2 || value === 3 || value === 4 || value === 5;
 }
 
 function getScoreStatus(score: number): StockSummary["status"] {
