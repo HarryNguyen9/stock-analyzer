@@ -1,7 +1,7 @@
 import { FULL_SYMBOLS_METADATA, type SymbolMetadataSourceItem } from "@/data/full-symbols-metadata";
-import { SYMBOL_METADATA_OVERRIDES, type SymbolMetadataOverride } from "@/data/symbol-overrides";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { Database } from "@/lib/supabase/types";
+import { getFinalSymbolMetadata } from "@/lib/symbols/metadata-normalize";
 
 type SymbolRow = Pick<
   Database["public"]["Tables"]["symbols"]["Row"],
@@ -35,8 +35,8 @@ export async function syncSymbolMetadata(
   provider: SymbolMetadataProvider = staticMetadataProvider,
 ): Promise<SymbolMetadataSyncResult> {
   const supabase = createSupabaseAdminClient();
-  const overrideResult = applySymbolMetadataOverrides(await provider.getSymbols());
-  const sourceItems = dedupeSymbols(overrideResult.items);
+  const metadata = getFinalSymbolMetadata(await provider.getSymbols());
+  const sourceItems = metadata.items;
   const existingRows = await readExistingSymbols();
   const existingBySymbol = new Map(existingRows.map((row) => [row.symbol, row]));
   const now = new Date().toISOString();
@@ -90,45 +90,8 @@ export async function syncSymbolMetadata(
     inserted,
     updated,
     unchanged,
-    overrideAppliedCount: overrideResult.overriddenSymbols.length,
-    overriddenSymbols: overrideResult.overriddenSymbols,
-  };
-}
-
-function applySymbolMetadataOverrides(items: SymbolMetadataSourceItem[]): {
-  items: SymbolMetadataSourceItem[];
-  overriddenSymbols: string[];
-} {
-  const overriddenSymbols: string[] = [];
-
-  const nextItems = items.map((item) => {
-    const symbol = item.symbol.toUpperCase();
-    const override = SYMBOL_METADATA_OVERRIDES[symbol];
-
-    if (!override) {
-      return item;
-    }
-
-    overriddenSymbols.push(symbol);
-    return applySymbolMetadataOverride({ ...item, symbol }, override);
-  });
-
-  return {
-    items: nextItems,
-    overriddenSymbols: [...new Set(overriddenSymbols)].sort((a, b) => a.localeCompare(b)),
-  };
-}
-
-function applySymbolMetadataOverride(
-  item: SymbolMetadataSourceItem,
-  override: SymbolMetadataOverride,
-): SymbolMetadataSourceItem {
-  return {
-    ...item,
-    ...(override.name !== undefined ? { name: override.name } : {}),
-    ...(override.exchange !== undefined ? { exchange: override.exchange } : {}),
-    ...(override.sector !== undefined ? { sector: override.sector } : {}),
-    ...(override.is_active !== undefined ? { isActive: override.is_active } : {}),
+    overrideAppliedCount: metadata.overriddenSymbols.length,
+    overriddenSymbols: metadata.overriddenSymbols,
   };
 }
 
@@ -168,18 +131,4 @@ function toMetadataUpdate(
 
   update.metadata_updated_at = metadataUpdatedAt;
   return update;
-}
-
-function dedupeSymbols(items: SymbolMetadataSourceItem[]): SymbolMetadataSourceItem[] {
-  const unique = new Map<string, SymbolMetadataSourceItem>();
-
-  for (const item of items) {
-    unique.set(item.symbol.toUpperCase(), {
-      ...item,
-      symbol: item.symbol.toUpperCase(),
-      isActive: item.isActive ?? true,
-    });
-  }
-
-  return [...unique.values()].sort((a, b) => a.symbol.localeCompare(b.symbol));
 }

@@ -1,6 +1,6 @@
 import { FULL_SYMBOLS_METADATA, type SymbolMetadataSourceItem } from "@/data/full-symbols-metadata";
-import { SYMBOL_METADATA_OVERRIDES } from "@/data/symbol-overrides";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { buildFinalSymbolMetadataMap } from "@/lib/symbols/metadata-normalize";
 
 type SymbolRow = {
   symbol: string;
@@ -235,24 +235,7 @@ async function readPriceRows(supabase: ReturnType<typeof createSupabaseAdminClie
 }
 
 function buildSourceMetadataMap(): Map<string, SymbolMetadataSourceItem> {
-  const sourceBySymbol = new Map<string, SymbolMetadataSourceItem>();
-
-  for (const item of FULL_SYMBOLS_METADATA) {
-    const symbol = item.symbol.toUpperCase();
-    const override = SYMBOL_METADATA_OVERRIDES[symbol];
-    const sourceItem: SymbolMetadataSourceItem = {
-      ...item,
-      symbol,
-      ...(override?.name !== undefined ? { name: override.name } : {}),
-      ...(override?.exchange !== undefined ? { exchange: override.exchange } : {}),
-      ...(override?.sector !== undefined ? { sector: override.sector } : {}),
-      ...(override?.is_active !== undefined ? { isActive: override.is_active } : {}),
-    };
-
-    sourceBySymbol.set(symbol, sourceItem);
-  }
-
-  return sourceBySymbol;
+  return buildFinalSymbolMetadataMap(FULL_SYMBOLS_METADATA);
 }
 
 function summarizePriceRows(priceRows: PriceRow[]): Map<string, { rows: number; latestUpdatedAt: string | null }> {
