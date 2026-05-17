@@ -1,17 +1,15 @@
-import { STOCKS } from "@/data/symbols";
 import { createTechnicalSnapshot, debugTechnicalSnapshot } from "@/lib/data-source/technical-snapshot";
 import { createSupabaseClient } from "@/lib/supabase/client";
 import type { AppDataProvider } from "@/lib/data-source/provider";
 import { isOHLCV, toStockSummary } from "@/lib/data-source/local-provider";
-import type { OHLCV, StockSummary, StockSymbol } from "@/types/stock";
+import type { OHLCV, StockExchange, StockMetadata, StockSummary } from "@/types/stock";
 
 const PRICE_LIMIT = 220;
-const STOCK_BY_SYMBOL = new Map(STOCKS.map((stock) => [stock.symbol, stock]));
 
 type SymbolRow = {
   symbol: string;
   name: string;
-  exchange: "HOSE" | "HNX" | "UPCOM";
+  exchange: StockExchange;
   sector: string;
 };
 
@@ -72,7 +70,8 @@ export const supabaseDataProvider: AppDataProvider = {
     const { data: symbols, error } = await supabase
       .from("symbols")
       .select("symbol,name,exchange,sector")
-      .order("symbol", { ascending: true });
+      .order("symbol", { ascending: true })
+      .limit(2000);
 
     if (error || !symbols || symbols.length === 0) {
       return null;
@@ -81,10 +80,6 @@ export const supabaseDataProvider: AppDataProvider = {
     const symbolRows = symbols as unknown as SymbolRow[];
     const results = await Promise.all(
       symbolRows.map(async (row) => {
-        if (!isKnownSymbol(row.symbol)) {
-          return null;
-        }
-
         const stock = {
           symbol: row.symbol,
           name: row.name,
@@ -114,7 +109,8 @@ export const supabaseDataProvider: AppDataProvider = {
       }),
     );
 
-    return results.every(isStockSummary) ? results : null;
+    const summaries = results.filter(isStockSummary);
+    return summaries.length > 0 ? summaries : null;
   },
 };
 
@@ -195,7 +191,7 @@ function toUpdatedAtResult(row: UpdatedAtRow | null, error: unknown): SupabaseUp
   };
 }
 
-async function readSupabasePrices(symbol: StockSymbol): Promise<OHLCV[] | null> {
+async function readSupabasePrices(symbol: string): Promise<OHLCV[] | null> {
   const supabase = createSupabaseClient();
 
   if (!supabase) {
@@ -207,7 +203,7 @@ async function readSupabasePrices(symbol: StockSymbol): Promise<OHLCV[] | null> 
       .from("stock_prices")
       .select("date,open,high,low,close,volume")
       .eq("symbol", symbol)
-      .order("date", { ascending: true })
+      .order("date", { ascending: false })
       .limit(PRICE_LIMIT);
 
     if (error) {
@@ -226,19 +222,20 @@ async function readSupabasePrices(symbol: StockSymbol): Promise<OHLCV[] | null> 
         volume: Number(row.volume),
       }))
       .filter(isOHLCV)
+      .sort((a, b) => a.date.localeCompare(b.date))
       .slice(-200);
   } catch {
     return null;
   }
 }
 
-export async function readLatestTechnicalScore(symbol: StockSymbol): Promise<number | null> {
+export async function readLatestTechnicalScore(symbol: string): Promise<number | null> {
   const snapshot = await readLatestTechnicalSnapshot(symbol);
   return snapshot?.technical_score ?? null;
 }
 
 export async function readLatestTechnicalSnapshot(
-  symbol: StockSymbol,
+  symbol: string,
 ): Promise<TechnicalIndicatorRow | null> {
   const supabase = createSupabaseClient();
 
@@ -263,6 +260,33 @@ export async function readLatestTechnicalSnapshot(
   return scoreRow;
 }
 
+export async function getSymbolMetadata(symbol: string): Promise<StockMetadata | null> {
+  const supabase = createSupabaseClient();
+
+  if (!supabase) {
+    return null;
+  }
+
+  const { data, error } = await supabase
+    .from("symbols")
+    .select("symbol,name,exchange,sector")
+    .eq("symbol", symbol.toUpperCase())
+    .maybeSingle();
+
+  if (error || !data) {
+    return null;
+  }
+
+  const row = data as unknown as SymbolRow;
+
+  return {
+    symbol: row.symbol,
+    name: row.name,
+    exchange: row.exchange,
+    sector: row.sector,
+  };
+}
+
 function withTechnicalSnapshot(
   summary: StockSummary,
   technical: ReturnType<typeof createTechnicalSnapshot>,
@@ -275,10 +299,6 @@ function withTechnicalSnapshot(
     topSignals: technical.signals.slice(0, 2),
     scannerSignals: technical.signals,
   };
-}
-
-function isKnownSymbol(symbol: string): symbol is StockSymbol {
-  return STOCK_BY_SYMBOL.has(symbol as StockSymbol);
 }
 
 function isStockSummary(value: StockSummary | null): value is StockSummary {

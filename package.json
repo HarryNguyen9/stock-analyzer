@@ -10,7 +10,8 @@
     "generate:prices": "tsx scripts/generate-local-prices.ts",
     "fetch:prices": "tsx scripts/fetch-prices.ts",
     "import:supabase": "tsx scripts/import-json-to-supabase.ts",
-    "sync:prices": "tsx scripts/sync-prices-to-supabase.ts"
+    "sync:prices": "tsx scripts/sync-prices-to-supabase.ts",
+    "seed:symbols": "tsx scripts/seed-top-symbols.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.105.4",

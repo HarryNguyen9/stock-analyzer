@@ -1,6 +1,6 @@
 import { localDataProvider } from "@/lib/data-source/local-provider";
 import { readLatestSupabaseUpdatedAt, supabaseDataProvider } from "@/lib/data-source/supabase-provider";
-import type { OHLCV, StockSummary, StockSymbol } from "@/types/stock";
+import type { OHLCV, StockSummary } from "@/types/stock";
 
 export type AppDataSource = "supabase" | "local-json" | "generated-fallback";
 
@@ -18,7 +18,7 @@ export type PriceDataResult =
     };
 
 export type AppDataProvider = {
-  getPrices(symbol: StockSymbol): Promise<PriceDataResult>;
+  getPrices(symbol: string): Promise<PriceDataResult>;
   getSummaries?(): Promise<StockSummary[] | null>;
 };
 
@@ -29,7 +29,7 @@ export type DataFreshnessResult = {
   updatedAt: string | null;
 };
 
-export async function getHistoricalPricesResult(symbol: StockSymbol): Promise<PriceDataResult> {
+export async function getHistoricalPricesResult(symbol: string): Promise<PriceDataResult> {
   const supabaseResult = await supabaseDataProvider.getPrices(symbol);
 
   if (supabaseResult.status === "ready") {

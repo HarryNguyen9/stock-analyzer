@@ -23,7 +23,13 @@ type SyncTarget = {
   source: "supabase" | "fallback";
 };
 
-export async function syncPricesToSupabase(options: { limit?: number } = {}): Promise<{ synced: number }> {
+export type SyncPricesResult = {
+  selected: number;
+  synced: number;
+  failed: number;
+};
+
+export async function syncPricesToSupabase(options: { limit?: number } = {}): Promise<SyncPricesResult> {
   loadEnvConfig(process.cwd());
 
   const limit = options.limit ?? DEFAULT_SYNC_LIMIT;
@@ -45,13 +51,18 @@ export async function syncPricesToSupabase(options: { limit?: number } = {}): Pr
   await Promise.all(symbols.map((symbol) => updateSymbolSyncStatus(symbol, "synced")));
 
   console.log(`Sync hoan tat. Da cap nhat ${importedSymbols} ma.`);
-  return { synced: importedSymbols };
+  return {
+    selected: targets.length,
+    synced: importedSymbols,
+    failed: Math.max(0, targets.length - importedSymbols),
+  };
 }
 
-async function syncPricesDirectlyToSupabase(targets: SyncTarget[]): Promise<{ synced: number }> {
+async function syncPricesDirectlyToSupabase(targets: SyncTarget[]): Promise<SyncPricesResult> {
   console.log("Vercel production detected: sync truc tiep vao Supabase, khong ghi local JSON.");
 
   let synced = 0;
+  let failed = 0;
 
   for (const target of targets) {
     try {
@@ -63,13 +74,18 @@ async function syncPricesDirectlyToSupabase(targets: SyncTarget[]): Promise<{ sy
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       await updateSymbolSyncStatus(target.symbol, "failed");
+      failed += 1;
       console.error(`${target.symbol}: sync fail, bo qua ma nay (${message})`);
     }
   }
 
-  console.log(`Sync production hoan tat. Da cap nhat ${synced} ma.`);
+  console.log(`Sync production hoan tat. Chon ${targets.length} ma, thanh cong ${synced}, fail ${failed}.`);
 
-  return { synced };
+  return {
+    selected: targets.length,
+    synced,
+    failed,
+  };
 }
 
 async function getSyncTargets(limit: number): Promise<SyncTarget[]> {
@@ -79,8 +95,8 @@ async function getSyncTargets(limit: number): Promise<SyncTarget[]> {
       .from("symbols")
       .select("symbol,tier,auto_sync,liquidity_rank")
       .eq("auto_sync", true)
-      .order("tier", { ascending: true })
       .order("liquidity_rank", { ascending: true, nullsFirst: false })
+      .order("symbol", { ascending: true })
       .limit(limit);
 
     if (error) {
@@ -90,6 +106,7 @@ async function getSyncTargets(limit: number): Promise<SyncTarget[]> {
     const rows = (data ?? []) as SymbolRow[];
 
     if (rows.length > 0) {
+      console.log(`Supabase selected ${rows.length} symbols auto_sync=true.`);
       return rows.map((row) => ({
         symbol: row.symbol.toUpperCase(),
         tier: row.tier,

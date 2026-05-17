@@ -5,7 +5,9 @@ export const runtime = "nodejs";
 
 type CronSuccessResponse = {
   ok: true;
+  selected: number;
   synced: number;
+  failed: number;
 };
 
 type CronErrorResponse = {
@@ -43,7 +45,9 @@ async function handleSyncPricesCron(
 
     return Response.json({
       ok: true,
+      selected: result.selected,
       synced: result.synced,
+      failed: result.failed,
     } satisfies CronSuccessResponse);
   } catch (error) {
     console.error("Cron sync failed:", error);

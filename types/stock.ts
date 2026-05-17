@@ -22,6 +22,15 @@ export type StockSymbol =
   | "BSR"
   | "ACV";
 
+export type StockExchange = "HOSE" | "HNX" | "UPCOM";
+
+export type StockMetadata = {
+  symbol: string;
+  name: string;
+  exchange: StockExchange;
+  sector: string;
+};
+
 export type OHLCV = {
   date: string;
   open: number;
@@ -56,9 +65,9 @@ export type TechnicalAnalysis = {
 };
 
 export type StockSummary = {
-  symbol: StockSymbol;
+  symbol: string;
   name: string;
-  exchange: "HOSE" | "HNX" | "UPCOM";
+  exchange: StockExchange;
   sector: string;
   lastClose: number;
   dayChangePercent: number;

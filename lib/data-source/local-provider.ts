@@ -6,7 +6,7 @@ import { createTechnicalSnapshot } from "@/lib/data-source/technical-snapshot";
 import { round } from "@/lib/indicators";
 import { vi } from "@/lib/i18n/vi";
 import type { AppDataProvider, PriceDataResult } from "@/lib/data-source/provider";
-import type { OHLCV, StockSummary, StockSymbol } from "@/types/stock";
+import type { OHLCV, StockMetadata, StockSummary } from "@/types/stock";
 
 export const localDataProvider: AppDataProvider = {
   async getPrices(symbol) {
@@ -41,7 +41,7 @@ export const localDataProvider: AppDataProvider = {
 };
 
 export function toStockSummary(
-  stock: (typeof STOCKS)[number],
+  stock: StockMetadata,
   result: PriceDataResult,
 ): StockSummary {
   if (result.status === "error") {
@@ -80,7 +80,7 @@ export function toStockSummary(
 }
 
 async function readLocalPrices(
-  symbol: StockSymbol,
+  symbol: string,
 ): Promise<{ status: "ready"; data: OHLCV[] } | { status: "missing" } | { status: "error"; source: "local-json"; data: []; error: string }> {
   const filePath = path.join(process.cwd(), "data", "prices", `${symbol}.json`);
 

@@ -3,31 +3,28 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CandlestickChart } from "@/components/CandlestickChart";
 import { ScoreGauge } from "@/components/ScoreGauge";
-import { STOCKS, STOCK_SYMBOLS } from "@/data/symbols";
+import { STOCKS } from "@/data/symbols";
 import { getHistoricalPricesResult } from "@/lib/data-source/prices";
-import { readLatestTechnicalSnapshot } from "@/lib/data-source/supabase-provider";
+import { getSymbolMetadata, readLatestTechnicalSnapshot } from "@/lib/data-source/supabase-provider";
 import { createTechnicalSnapshot, debugTechnicalSnapshot } from "@/lib/data-source/technical-snapshot";
-import { isStockSymbol } from "@/lib/mock-ohlcv";
 import { round } from "@/lib/indicators";
 import { vi } from "@/lib/i18n/vi";
 import { categoryLabelsVi, sortSignalsByPriority } from "@/lib/signals";
 import type { Signal, SignalCategory } from "@/lib/technical-analysis";
 import type { ScoreBreakdown } from "@/lib/technical-analysis/types";
-import type { StockSymbol } from "@/types/stock";
+import type { StockMetadata } from "@/types/stock";
 
 type StockPageProps = {
   params: Promise<{ symbol: string }>;
 };
 
 export function generateStaticParams() {
-  return STOCK_SYMBOLS.map((symbol) => ({ symbol }));
+  return [];
 }
 
 export async function generateMetadata({ params }: StockPageProps): Promise<Metadata> {
   const symbol = normalizeSymbol((await params).symbol);
-  const stock = isStockSymbol(symbol)
-    ? STOCKS.find((item) => item.symbol === symbol)
-    : undefined;
+  const stock = await getStockMetadataForPage(symbol);
 
   return {
     title: stock ? `${stock.symbol} - ${vi.stock.technicalScore}` : vi.app.notFoundTitle,
@@ -36,12 +33,7 @@ export async function generateMetadata({ params }: StockPageProps): Promise<Meta
 
 export default async function StockDetailPage({ params }: StockPageProps) {
   const symbol = normalizeSymbol((await params).symbol);
-
-  if (!isStockSymbol(symbol)) {
-    notFound();
-  }
-
-  const stock = STOCKS.find((item) => item.symbol === symbol);
+  const stock = await getStockMetadataForPage(symbol);
 
   if (!stock) {
     notFound();
@@ -350,7 +342,17 @@ function InvalidDataState({ stock, message }: { stock: { symbol: string; name: s
   );
 }
 
-function normalizeSymbol(symbol: string): StockSymbol | string {
+async function getStockMetadataForPage(symbol: string): Promise<StockMetadata | null> {
+  const supabaseStock = await getSymbolMetadata(symbol);
+
+  if (supabaseStock) {
+    return supabaseStock;
+  }
+
+  return STOCKS.find((item) => item.symbol === symbol) ?? null;
+}
+
+function normalizeSymbol(symbol: string): string {
   return symbol.toUpperCase();
 }
 
