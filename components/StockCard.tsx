@@ -2,9 +2,11 @@ import Link from "next/link";
 import type { StockSummary } from "@/types/stock";
 import { ScoreGauge } from "@/components/ScoreGauge";
 import { vi } from "@/lib/i18n/vi";
+import { sortSignalsByPriority } from "@/lib/signals";
 
 export function StockCard({ stock }: { stock: StockSummary }) {
   const isUp = stock.dayChangePercent >= 0;
+  const displaySignals = sortSignalsByPriority(stock.topSignals ?? []).slice(0, 2);
   const statusColor =
     stock.status === vi.score.constructive
       ? "text-emerald-700 bg-emerald-50 border-emerald-200"
@@ -56,9 +58,9 @@ export function StockCard({ stock }: { stock: StockSummary }) {
         {stock.dataStatus === "ready" ? stock.signal : stock.dataError}
       </p>
 
-      {stock.dataStatus === "ready" && stock.topSignals && stock.topSignals.length > 0 ? (
+      {stock.dataStatus === "ready" && displaySignals.length > 0 ? (
         <div className="mt-3 flex flex-wrap gap-2">
-          {stock.topSignals.slice(0, 2).map((signal) => (
+          {displaySignals.map((signal) => (
             <span
               key={signal.code}
               className={`rounded-full px-2.5 py-1 text-xs font-medium ${getSignalClass(signal.sentiment)}`}

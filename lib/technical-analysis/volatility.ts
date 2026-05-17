@@ -16,7 +16,7 @@ export function analyzeVolatility(context: AnalysisContext) {
         category: "volatility",
         sentiment: "neutral",
         strength: 3,
-        priority: 70,
+        priority: 68,
       }),
     );
   }

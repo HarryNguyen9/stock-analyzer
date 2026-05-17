@@ -26,7 +26,7 @@ export function analyzeTrend(context: AnalysisContext) {
         category: "trend",
         sentiment: "bullish",
         strength: 4,
-        priority: 95,
+        priority: 72,
       }),
     );
   }
@@ -40,7 +40,7 @@ export function analyzeTrend(context: AnalysisContext) {
         category: "trend",
         sentiment: "bullish",
         strength: 5,
-        priority: 100,
+        priority: 86,
       }),
     );
   }
@@ -54,7 +54,7 @@ export function analyzeTrend(context: AnalysisContext) {
         category: "trend",
         sentiment: "bearish",
         strength: 5,
-        priority: 100,
+        priority: 88,
       }),
     );
   }

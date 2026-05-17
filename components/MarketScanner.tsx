@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { vi } from "@/lib/i18n/vi";
+import { sortSignalsByPriority } from "@/lib/signals";
 import type { Signal, SignalSentiment } from "@/lib/technical-analysis/types";
 import type { StockSummary } from "@/types/stock";
 
@@ -108,7 +109,7 @@ function getScannerGroups(stocks: StockSummary[]) {
     {
       id: "highScore",
       title: vi.home.scannerGroups.highScore,
-      pickSignal: (stock) => stock.scannerSignals?.[0] ?? null,
+      pickSignal: (stock) => sortSignalsByPriority(stock.scannerSignals ?? [])[0] ?? null,
       include: (stock) => stock.score >= 70,
     },
     {
@@ -173,7 +174,7 @@ function sortScannerItems(a: ScannerItem, b: ScannerItem): number {
 }
 
 function findSignal(stock: StockSummary, predicate: (signal: Signal) => boolean): Signal | null {
-  return stock.scannerSignals?.find(predicate) ?? null;
+  return sortSignalsByPriority(stock.scannerSignals ?? []).find(predicate) ?? null;
 }
 
 function getVolumeSortValue(stock: StockSummary): number {

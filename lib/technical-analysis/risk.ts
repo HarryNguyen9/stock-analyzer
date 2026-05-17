@@ -31,7 +31,7 @@ export function analyzeRisk(
         category: "risk",
         sentiment: "bearish",
         strength: brokenMA50 ? 5 : 4,
-        priority: brokenMA50 ? 98 : 88,
+        priority: brokenMA50 ? 96 : 84,
       }),
     );
   }
@@ -45,7 +45,7 @@ export function analyzeRisk(
         category: "risk",
         sentiment: "bearish",
         strength: 5,
-        priority: 94,
+        priority: 95,
       }),
     );
   }
@@ -58,8 +58,8 @@ export function analyzeRisk(
         descriptionVi: "MACD histogram âm, động lượng ngắn hạn đang nghiêng về bên bán.",
         category: "risk",
         sentiment: "bearish",
-        strength: 3,
-        priority: 76,
+        strength: 4,
+        priority: 82,
       }),
     );
   }

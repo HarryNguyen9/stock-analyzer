@@ -30,7 +30,7 @@ export function analyzeBreakout(context: AnalysisContext, sma20: number | null) 
         category: "breakout",
         sentiment: "bullish",
         strength: 4,
-        priority: 92,
+        priority: 94,
       }),
     );
   }
@@ -44,7 +44,7 @@ export function analyzeBreakout(context: AnalysisContext, sma20: number | null) 
         category: "breakout",
         sentiment: "bearish",
         strength: 4,
-        priority: 92,
+        priority: 94,
       }),
     );
   }
@@ -58,7 +58,7 @@ export function analyzeBreakout(context: AnalysisContext, sma20: number | null) 
         category: "breakout",
         sentiment: "bullish",
         strength: 3,
-        priority: 72,
+        priority: 70,
       }),
     );
   }

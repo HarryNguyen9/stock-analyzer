@@ -1,4 +1,5 @@
 import { generateTechnicalAnalysis, type Signal, type TechnicalAnalysisResult } from "@/lib/technical-analysis";
+import { sortSignalsByPriority } from "@/lib/signals";
 import { vi } from "@/lib/i18n/vi";
 import type { OHLCV, StockSummary } from "@/types/stock";
 
@@ -20,7 +21,7 @@ export function createTechnicalSnapshot(
   const analysis = generateTechnicalAnalysis(candles);
   const parsedSupabaseSignals = parseSupabaseSignals(supabaseSignals);
   const score = supabaseScore ?? analysis.score;
-  const signals = parsedSupabaseSignals.length > 0 ? parsedSupabaseSignals : analysis.signals;
+  const signals = sortSignalsByPriority(parsedSupabaseSignals.length > 0 ? parsedSupabaseSignals : analysis.signals);
   const scoreSource = supabaseScore === null ? "runtime" : "supabase";
 
   return {

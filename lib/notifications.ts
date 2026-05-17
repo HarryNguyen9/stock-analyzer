@@ -1,4 +1,5 @@
 import type { Signal, SignalSentiment } from "@/lib/technical-analysis/types";
+import { sortSignalsByPriority } from "@/lib/signals";
 import type { StockSummary } from "@/types/stock";
 
 export type NotificationType = "bullish" | "bearish" | "warning" | "info";
@@ -23,7 +24,7 @@ type NotificationCandidate = {
   priority: number;
 };
 
-const MIN_SIGNAL_PRIORITY = 85;
+const MIN_SIGNAL_PRIORITY = 80;
 const MIN_SIGNAL_STRENGTH = 4;
 
 export function generateStockNotifications(stocks: StockSummary[]): StockNotification[] {
@@ -66,7 +67,7 @@ export function generateStockNotifications(stocks: StockSummary[]): StockNotific
 
 function getNotificationCandidates(stock: StockSummary): NotificationCandidate[] {
   const candidates: NotificationCandidate[] = [];
-  const notableSignals = (stock.scannerSignals ?? []).filter(isNotableSignal);
+  const notableSignals = sortSignalsByPriority(stock.scannerSignals ?? []).filter(isNotableSignal);
 
   if (stock.score >= 80) {
     candidates.push({

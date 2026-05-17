@@ -17,7 +17,7 @@ export function analyzeMomentum(context: AnalysisContext) {
         category: "momentum",
         sentiment: "neutral",
         strength: 3,
-        priority: 60,
+        priority: 45,
       }),
     );
   }
@@ -31,7 +31,7 @@ export function analyzeMomentum(context: AnalysisContext) {
         category: "momentum",
         sentiment: "bearish",
         strength: 3,
-        priority: 82,
+        priority: 84,
       }),
     );
   }
@@ -45,7 +45,7 @@ export function analyzeMomentum(context: AnalysisContext) {
         category: "momentum",
         sentiment: "neutral",
         strength: 3,
-        priority: 78,
+        priority: 84,
       }),
     );
   }
@@ -58,8 +58,8 @@ export function analyzeMomentum(context: AnalysisContext) {
         descriptionVi: "MACD histogram dương, động lượng ngắn hạn đang cải thiện.",
         category: "momentum",
         sentiment: "bullish",
-        strength: 3,
-        priority: 74,
+        strength: 4,
+        priority: 82,
       }),
     );
   }

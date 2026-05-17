@@ -10,7 +10,7 @@ import { createTechnicalSnapshot, debugTechnicalSnapshot } from "@/lib/data-sour
 import { isStockSymbol } from "@/lib/mock-ohlcv";
 import { round } from "@/lib/indicators";
 import { vi } from "@/lib/i18n/vi";
-import { categoryLabelsVi } from "@/lib/signals";
+import { categoryLabelsVi, sortSignalsByPriority } from "@/lib/signals";
 import type { Signal, SignalCategory } from "@/lib/technical-analysis";
 import type { ScoreBreakdown } from "@/lib/technical-analysis/types";
 import type { StockSymbol } from "@/types/stock";
@@ -275,10 +275,11 @@ function ScoreBreakdownSection({ breakdown }: { breakdown: ScoreBreakdown }) {
 
 function groupTechnicalSignals(signals: Signal[]): Array<{ category: SignalCategory; signals: Signal[] }> {
   const categories: SignalCategory[] = ["trend", "momentum", "volume", "volatility", "risk"];
+  const sortedSignals = sortSignalsByPriority(signals);
 
   return categories.map((category) => ({
     category,
-    signals: signals
+    signals: sortedSignals
       .filter((signal) => signal.category === category || (category === "volatility" && signal.category === "breakout"))
       .slice(0, 3),
   }));

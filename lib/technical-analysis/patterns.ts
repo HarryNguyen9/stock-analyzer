@@ -32,7 +32,7 @@ export function analyzePatterns(context: AnalysisContext) {
         category: "pattern",
         sentiment: "bullish",
         strength: 3,
-        priority: 68,
+        priority: 66,
       }),
     );
   }
@@ -46,7 +46,7 @@ export function analyzePatterns(context: AnalysisContext) {
         category: "pattern",
         sentiment: "bearish",
         strength: 3,
-        priority: 68,
+        priority: 66,
       }),
     );
   }
@@ -60,7 +60,7 @@ export function analyzePatterns(context: AnalysisContext) {
         category: "pattern",
         sentiment: "neutral",
         strength: 2,
-        priority: 58,
+        priority: 42,
       }),
     );
   }
@@ -74,7 +74,7 @@ export function analyzePatterns(context: AnalysisContext) {
         category: "pattern",
         sentiment: gapUp ? "bullish" : "bearish",
         strength: 3,
-        priority: 66,
+        priority: 62,
       }),
     );
   }

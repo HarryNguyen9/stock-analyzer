@@ -19,7 +19,7 @@ export function analyzeVolume(context: AnalysisContext, breakHigh20: boolean) {
         category: "volume",
         sentiment: "bullish",
         strength: volumeSpikeRatio >= 1.8 ? 5 : 4,
-        priority: 86,
+        priority: volumeSpikeRatio >= 1.8 ? 86 : 78,
       }),
     );
   }
@@ -33,7 +33,7 @@ export function analyzeVolume(context: AnalysisContext, breakHigh20: boolean) {
         category: "volume",
         sentiment: "bullish",
         strength: 5,
-        priority: 96,
+        priority: 98,
       }),
     );
   }
