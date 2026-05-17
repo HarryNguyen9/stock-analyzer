@@ -32,6 +32,12 @@ export type SyncPricesResult = {
   failed: number;
 };
 
+export type SyncSymbolResult = {
+  symbol: string;
+  refreshed: boolean;
+  prices: number;
+};
+
 export async function syncPricesToSupabase(options: { batch?: number; limit?: number } = {}): Promise<SyncPricesResult> {
   loadEnvConfig(process.cwd());
 
@@ -97,6 +103,27 @@ async function syncPricesDirectlyToSupabase(
     synced,
     failed,
   };
+}
+
+export async function syncSingleSymbolToSupabase(symbol: string): Promise<SyncSymbolResult> {
+  loadEnvConfig(process.cwd());
+
+  const normalizedSymbol = symbol.toUpperCase();
+
+  try {
+    const prices = await vnstockProvider.getDailyPrices(normalizedSymbol, CANDLE_LIMIT);
+    await upsertPriceSetsToSupabase([{ symbol: normalizedSymbol, prices }], { upsertSymbols: false });
+    await updateSymbolSyncStatus(normalizedSymbol, "synced");
+
+    return {
+      symbol: normalizedSymbol,
+      refreshed: true,
+      prices: prices.length,
+    };
+  } catch (error) {
+    await updateSymbolSyncStatus(normalizedSymbol, "failed");
+    throw error;
+  }
 }
 
 async function getSyncTargets(options: { batch: number; limit: number }): Promise<SyncTarget[]> {

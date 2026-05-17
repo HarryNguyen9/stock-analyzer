@@ -4,8 +4,10 @@ import { notFound } from "next/navigation";
 import { AiAnalysisModal } from "@/components/AiAnalysisModal";
 import { CandlestickChart } from "@/components/CandlestickChart";
 import { ScoreGauge } from "@/components/ScoreGauge";
+import { SymbolRefreshPanel } from "@/components/SymbolRefreshPanel";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { STOCKS } from "@/data/symbols";
+import { getSymbolFreshness } from "@/lib/data-source/symbol-freshness";
 import { generateTechnicalAnalysis } from "@/lib/technical-analysis";
 import { getHistoricalPricesResult } from "@/lib/data-source/prices";
 import { getSymbolMetadata, readLatestTechnicalScore } from "@/lib/data-source/supabase-provider";
@@ -43,7 +45,10 @@ export default async function StockDetailPage({ params }: StockPageProps) {
 
   // Supabase/API later: keep this call as the page data boundary. The app reads
   // local JSON only at request/build time and does not fetch market APIs in UI.
-  const priceResult = await getHistoricalPricesResult(symbol);
+  const [priceResult, freshness] = await Promise.all([
+    getHistoricalPricesResult(symbol),
+    getSymbolFreshness(symbol),
+  ]);
 
   if (priceResult.status === "error") {
     return <InvalidDataState stock={stock} message={priceResult.error} />;
@@ -108,6 +113,8 @@ export default async function StockDetailPage({ params }: StockPageProps) {
               sentimentLabel={scoreLabel(displayScore)}
             />
           </div>
+
+          <SymbolRefreshPanel symbol={stock.symbol} freshness={freshness} />
         </div>
       </section>
 
