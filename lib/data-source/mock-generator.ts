@@ -23,10 +23,10 @@ const BASE_PRICE_BY_SYMBOL: Record<StockSymbol, number> = {
   ACV: 86,
 };
 
-export function generateMockOHLCV(symbol: StockSymbol, candles = 200): OHLCV[] {
+export function generateMockOHLCV(symbol: string, candles = 200): OHLCV[] {
   const random = seededRandom(symbol);
   const dates = getTradingDates(candles);
-  const basePrice = BASE_PRICE_BY_SYMBOL[symbol];
+  const basePrice = getBasePrice(symbol);
   const trendBias = random() * 0.18 - 0.06;
   const volatility = 0.012 + random() * 0.025;
   let close = basePrice * (0.88 + random() * 0.24);
@@ -52,6 +52,14 @@ export function generateMockOHLCV(symbol: StockSymbol, candles = 200): OHLCV[] {
       volume: Math.round(volumeBase * volumePulse),
     };
   });
+}
+
+function getBasePrice(symbol: string): number {
+  return isKnownStockSymbol(symbol) ? BASE_PRICE_BY_SYMBOL[symbol] : 30 + seededRandom(symbol)() * 70;
+}
+
+function isKnownStockSymbol(symbol: string): symbol is StockSymbol {
+  return symbol in BASE_PRICE_BY_SYMBOL;
 }
 
 function getTradingDates(count: number): string[] {

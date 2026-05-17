@@ -9,6 +9,11 @@ export type Database = {
           name: string;
           exchange: "HOSE" | "HNX" | "UPCOM";
           sector: string;
+          tier: "A" | "B" | "C";
+          auto_sync: boolean;
+          liquidity_rank: number | null;
+          last_synced_at: string | null;
+          sync_status: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -17,6 +22,11 @@ export type Database = {
           name: string;
           exchange: "HOSE" | "HNX" | "UPCOM";
           sector: string;
+          tier?: "A" | "B" | "C";
+          auto_sync?: boolean;
+          liquidity_rank?: number | null;
+          last_synced_at?: string | null;
+          sync_status?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -25,6 +35,11 @@ export type Database = {
           name?: string;
           exchange?: "HOSE" | "HNX" | "UPCOM";
           sector?: string;
+          tier?: "A" | "B" | "C";
+          auto_sync?: boolean;
+          liquidity_rank?: number | null;
+          last_synced_at?: string | null;
+          sync_status?: string | null;
           created_at?: string;
           updated_at?: string;
         };

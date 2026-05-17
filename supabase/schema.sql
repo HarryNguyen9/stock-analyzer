@@ -3,6 +3,11 @@ create table if not exists public.symbols (
   name text not null,
   exchange text not null check (exchange in ('HOSE', 'HNX', 'UPCOM')),
   sector text not null,
+  tier text not null default 'C' check (tier in ('A', 'B', 'C')),
+  auto_sync boolean not null default false,
+  liquidity_rank integer,
+  last_synced_at timestamptz,
+  sync_status text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -41,6 +46,10 @@ create index if not exists stock_prices_symbol_date_idx
 
 create index if not exists technical_indicators_symbol_date_idx
   on public.technical_indicators(symbol, date desc);
+
+create index if not exists symbols_auto_sync_tier_liquidity_idx
+  on public.symbols(auto_sync, tier, liquidity_rank)
+  where auto_sync = true;
 
 create or replace function public.set_updated_at()
 returns trigger as $$

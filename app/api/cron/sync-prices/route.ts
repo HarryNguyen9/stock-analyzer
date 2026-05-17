@@ -38,7 +38,8 @@ async function handleSyncPricesCron(
       return jsonError(new Error("Khong co quyen chay cron sync."), 401);
     }
 
-    const result = await syncPricesToSupabase();
+    const limit = getLimitFromRequest(request);
+    const result = await syncPricesToSupabase({ limit });
 
     return Response.json({
       ok: true,
@@ -48,6 +49,17 @@ async function handleSyncPricesCron(
     console.error("Cron sync failed:", error);
     return jsonError(error, 500);
   }
+}
+
+function getLimitFromRequest(request: Request): number | undefined {
+  const value = new URL(request.url).searchParams.get("limit");
+
+  if (!value) {
+    return undefined;
+  }
+
+  const limit = Number(value);
+  return Number.isInteger(limit) && limit > 0 ? limit : undefined;
 }
 
 function jsonError(error: unknown, status: number): Response {

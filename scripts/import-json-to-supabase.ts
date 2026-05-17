@@ -6,7 +6,7 @@ import { STOCKS } from "../data/symbols";
 import { analyzeTechnical } from "../lib/analysis";
 import { createSupabaseAdminClient } from "../lib/supabase/admin";
 import type { Database, Json } from "../lib/supabase/types";
-import type { OHLCV, StockSymbol } from "../types/stock";
+import type { OHLCV } from "../types/stock";
 
 type SymbolInsert = Database["public"]["Tables"]["symbols"]["Insert"];
 type StockPriceInsert = Database["public"]["Tables"]["stock_prices"]["Insert"];
@@ -15,22 +15,24 @@ type IndicatorInsert = Database["public"]["Tables"]["technical_indicators"]["Ins
 const BATCH_SIZE = 500;
 
 type PriceSet = {
-  symbol: StockSymbol;
+  symbol: string;
   prices: OHLCV[];
 };
 
-export async function importJsonToSupabase(): Promise<{ importedSymbols: number }> {
+export async function importJsonToSupabase(symbols?: string[]): Promise<{ importedSymbols: number }> {
   loadEnvConfig(process.cwd());
 
+  const symbolFilter = symbols ? new Set(symbols.map((symbol) => symbol.toUpperCase())) : null;
   const pricesDir = path.join(process.cwd(), "data", "prices");
   const files = (await readdir(pricesDir))
     .filter((file) => file.endsWith(".json") && file !== "_errors.json")
+    .filter((file) => !symbolFilter || symbolFilter.has(file.replace(".json", "").toUpperCase()))
     .sort();
 
   const priceSets: PriceSet[] = [];
 
   for (const file of files) {
-    const symbol = file.replace(".json", "") as StockSymbol;
+    const symbol = file.replace(".json", "");
     const filePath = path.join(pricesDir, file);
     const prices = parsePrices(await readFile(filePath, "utf-8"));
 
@@ -40,25 +42,31 @@ export async function importJsonToSupabase(): Promise<{ importedSymbols: number 
   return upsertPriceSetsToSupabase(priceSets);
 }
 
-export async function upsertPriceSetsToSupabase(priceSets: PriceSet[]): Promise<{ importedSymbols: number }> {
+export async function upsertPriceSetsToSupabase(
+  priceSets: PriceSet[],
+  options: { upsertSymbols?: boolean } = {},
+): Promise<{ importedSymbols: number }> {
   const supabase = createSupabaseAdminClient();
+  const shouldUpsertSymbols = options.upsertSymbols ?? true;
 
-  const symbolRows: SymbolInsert[] = STOCKS.map((stock) => ({
-    symbol: stock.symbol,
-    name: stock.name,
-    exchange: stock.exchange,
-    sector: stock.sector,
-  }));
+  if (shouldUpsertSymbols) {
+    const symbolRows: SymbolInsert[] = STOCKS.map((stock) => ({
+      symbol: stock.symbol,
+      name: stock.name,
+      exchange: stock.exchange,
+      sector: stock.sector,
+    }));
 
-  const { error: symbolsError } = await supabase.from("symbols").upsert(symbolRows, {
-    onConflict: "symbol",
-  });
+    const { error: symbolsError } = await supabase.from("symbols").upsert(symbolRows, {
+      onConflict: "symbol",
+    });
 
-  if (symbolsError) {
-    throw symbolsError;
+    if (symbolsError) {
+      throw symbolsError;
+    }
+
+    console.log(`Upsert symbols: ${symbolRows.length}`);
   }
-
-  console.log(`Upsert symbols: ${symbolRows.length}`);
   let importedSymbols = 0;
 
   for (const { symbol, prices } of priceSets) {

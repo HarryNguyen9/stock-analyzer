@@ -1,5 +1,5 @@
 import { stock } from "vnstock-js";
-import type { OHLCV, StockSymbol } from "../../types/stock";
+import type { OHLCV } from "../../types/stock";
 import type { PriceProvider } from "./types";
 
 const MAX_RETRIES = 2;
@@ -15,7 +15,7 @@ export const vnstockProvider: PriceProvider = {
   },
 };
 
-export async function fetchDailyOhlcv(symbol: StockSymbol, limit: number): Promise<OHLCV[]> {
+export async function fetchDailyOhlcv(symbol: string, limit: number): Promise<OHLCV[]> {
   const start = getLookbackStartDate(limit);
   const rows = await stock.quote({ ticker: symbol, start });
   const candles = rows.map(normalizeCandle).filter((item): item is OHLCV => item !== null);

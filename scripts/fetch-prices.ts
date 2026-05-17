@@ -33,14 +33,14 @@ const CANDLE_LIMIT = 200;
 const MIN_DELAY_MS = 1_000;
 const MAX_DELAY_MS = 3_000;
 
-export async function fetchPricesToLocalJson() {
+export async function fetchPricesToLocalJson(symbols: string[] = SYMBOLS) {
   const outputDir = path.join(process.cwd(), "data", "prices");
   const errorsPath = path.join(outputDir, "_errors.json");
   const errors: PriceFetchError[] = [];
 
   await mkdir(outputDir, { recursive: true });
 
-  for (const symbol of SYMBOLS) {
+  for (const symbol of symbols) {
     const outputPath = path.join(outputDir, `${symbol}.json`);
 
     try {
@@ -94,7 +94,7 @@ async function fileExists(filePath: string): Promise<boolean> {
   }
 }
 
-function assertValidPrices(prices: OHLCV[], symbol: StockSymbol) {
+function assertValidPrices(prices: OHLCV[], symbol: string) {
   if (prices.length < 2) {
     throw new Error(`${symbol}: dữ liệu không đủ nến`);
   }
