@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AiAnalysisModal } from "@/components/AiAnalysisModal";
+import { BackButton } from "@/components/BackButton";
 import { CandlestickChart } from "@/components/CandlestickChart";
 import { ScoreGauge } from "@/components/ScoreGauge";
 import { SymbolRefreshPanel } from "@/components/SymbolRefreshPanel";
@@ -67,15 +68,23 @@ export default async function StockDetailPage({ params }: StockPageProps) {
 
   return (
     <main className="min-h-screen pb-10">
-      <section className="border-b border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950">
-        <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between gap-4">
-            <Link href="/" className="text-sm font-medium text-slate-500 hover:text-slate-950 dark:text-slate-400 dark:hover:text-white">
-              {vi.stock.backToWatchlist}
-            </Link>
-            <ThemeToggle />
+      <div className="sticky top-0 z-50 border-b border-slate-200/70 bg-white/85 backdrop-blur-md transition-colors dark:border-slate-800/80 dark:bg-slate-950/85">          <div className="mx-auto flex min-h-14 w-full max-w-7xl items-center justify-between gap-3 px-3 sm:px-6 lg:px-8">
+        <BackButton label={vi.stock.backToWatchlist} />
+          <div className="min-w-0 flex-1 text-center">
+            <div className="flex items-center justify-center gap-2">
+              <p className="truncate text-sm font-semibold text-slate-950 dark:text-white">{stock.symbol}</p>
+              <span className="rounded border border-slate-200 px-1.5 py-0.5 text-[11px] font-medium text-slate-500 dark:border-slate-700 dark:text-slate-400">
+                {stock.exchange}
+              </span>
+            </div>
+            <p className="mt-0.5 truncate text-xs text-slate-500 dark:text-slate-400 sm:hidden">{stock.name}</p>
           </div>
+          <ThemeToggle />
+        </div>
+      </div>
 
+      <section className="border-b border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950">
+        <div className="mx-auto w-full max-w-7xl px-4 py-5 sm:px-6 sm:py-6 lg:px-8">
           <div className="mt-5 grid gap-6 lg:grid-cols-[1fr_auto] lg:items-end">
             <div>
               <div className="flex flex-wrap items-center gap-3">
