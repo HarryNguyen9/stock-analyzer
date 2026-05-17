@@ -38,6 +38,10 @@ export type SyncSymbolResult = {
   prices: number;
 };
 
+type SyncSingleSymbolOptions = {
+  skipIfFetchedOlderThanExisting?: boolean;
+};
+
 export async function syncPricesToSupabase(options: { batch?: number; limit?: number } = {}): Promise<SyncPricesResult> {
   loadEnvConfig(process.cwd());
 
@@ -105,13 +109,33 @@ async function syncPricesDirectlyToSupabase(
   };
 }
 
-export async function syncSingleSymbolToSupabase(symbol: string): Promise<SyncSymbolResult> {
+export async function syncSingleSymbolToSupabase(
+  symbol: string,
+  options: SyncSingleSymbolOptions = {},
+): Promise<SyncSymbolResult> {
   loadEnvConfig(process.cwd());
 
   const normalizedSymbol = symbol.toUpperCase();
 
   try {
     const prices = await vnstockProvider.getDailyPrices(normalizedSymbol, CANDLE_LIMIT);
+    const latestFetchedDate = prices[prices.length - 1]?.date ?? null;
+    const latestExistingDate = options.skipIfFetchedOlderThanExisting
+      ? await readLatestExistingPriceDate(normalizedSymbol)
+      : null;
+
+    if (latestExistingDate && latestFetchedDate && latestFetchedDate < latestExistingDate) {
+      console.warn(
+        `${normalizedSymbol}: bo qua backfill vi provider tra ve du lieu cu hon DB (${latestFetchedDate} < ${latestExistingDate})`,
+      );
+
+      return {
+        symbol: normalizedSymbol,
+        refreshed: false,
+        prices: 0,
+      };
+    }
+
     await upsertPriceSetsToSupabase([{ symbol: normalizedSymbol, prices }], { upsertSymbols: false });
     await updateSymbolSyncStatus(normalizedSymbol, "synced");
 
@@ -123,6 +147,27 @@ export async function syncSingleSymbolToSupabase(symbol: string): Promise<SyncSy
   } catch (error) {
     await updateSymbolSyncStatus(normalizedSymbol, "failed");
     throw error;
+  }
+}
+
+async function readLatestExistingPriceDate(symbol: string): Promise<string | null> {
+  try {
+    const supabase = createSupabaseAdminClient();
+    const { data, error } = await supabase
+      .from("stock_prices")
+      .select("date")
+      .eq("symbol", symbol)
+      .order("date", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error || !data) {
+      return null;
+    }
+
+    return typeof data.date === "string" ? data.date : null;
+  } catch {
+    return null;
   }
 }
 

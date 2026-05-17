@@ -41,6 +41,25 @@ type UniverseResponse =
       withPrices: number;
       skippedDueToMissingPrices: number;
       excludedReasons: Record<string, number>;
+      avgTradedValue20: {
+        sample: number[];
+        min: number;
+        max: number;
+      };
+      sampleEligibleSymbols: Array<{
+        symbol: string;
+        avgTradedValue20: number;
+        activeDays20: number;
+        latestClose: number | null;
+      }>;
+      sampleExcludedSymbols: Array<{
+        symbol: string;
+        reason: string | null;
+        avgTradedValue20: number;
+        activeDays20: number;
+        latestClose: number | null;
+        priceRows: number;
+      }>;
       warning?: string;
       durationMs: number;
     }
@@ -55,6 +74,25 @@ type UniverseResponse =
       excluded?: number;
       skippedDueToMissingPrices?: number;
       excludedReasons?: Record<string, number>;
+      avgTradedValue20?: {
+        sample: number[];
+        min: number;
+        max: number;
+      };
+      sampleEligibleSymbols?: Array<{
+        symbol: string;
+        avgTradedValue20: number;
+        activeDays20: number;
+        latestClose: number | null;
+      }>;
+      sampleExcludedSymbols?: Array<{
+        symbol: string;
+        reason: string | null;
+        avgTradedValue20: number;
+        activeDays20: number;
+        latestClose: number | null;
+        priceRows: number;
+      }>;
       durationMs?: number;
       stack?: string;
     };
@@ -64,15 +102,14 @@ const PRICE_PAGE_SIZE = 1_000;
 const SYMBOL_PAGE_SIZE = 1_000;
 const UPDATE_CONCURRENCY = 25;
 const MIN_ACTIVE_DAYS_20 = 10;
-const MIN_AVG_TRADED_VALUE_20 = 1_000_000_000;
-const MIN_LATEST_CLOSE = 1_000;
 const MIN_PRICE_ROWS_20 = 20;
+const PRICE_UNIT_MULTIPLIER = 1_000;
 const RANKING_RULES = {
   lookbackSessions: 20,
   minActiveDays20: MIN_ACTIVE_DAYS_20,
-  minAvgTradedValue20: MIN_AVG_TRADED_VALUE_20,
-  minLatestClose: MIN_LATEST_CLOSE,
+  minLatestClose: "> 0",
   minPriceRows20: MIN_PRICE_ROWS_20,
+  priceUnitMultiplier: PRICE_UNIT_MULTIPLIER,
   scoreWeights: {
     avgTradedValue20: "primary",
     activeDays20: "quality multiplier",
@@ -145,6 +182,9 @@ async function handleRefreshUniverse(request: Request): Promise<Response> {
           excluded: result.diagnostics.excluded,
           skippedDueToMissingPrices: result.diagnostics.skippedDueToMissingPrices,
           excludedReasons: result.diagnostics.excludedReasons,
+          avgTradedValue20: result.diagnostics.avgTradedValue20,
+          sampleEligibleSymbols: result.diagnostics.sampleEligibleSymbols,
+          sampleExcludedSymbols: result.diagnostics.sampleExcludedSymbols,
           durationMs,
         } satisfies UniverseResponse,
         { status: 409 },
@@ -165,6 +205,9 @@ async function handleRefreshUniverse(request: Request): Promise<Response> {
       withPrices: result.diagnostics.withPrices,
       skippedDueToMissingPrices: result.diagnostics.skippedDueToMissingPrices,
       excludedReasons: result.diagnostics.excludedReasons,
+      avgTradedValue20: result.diagnostics.avgTradedValue20,
+      sampleEligibleSymbols: result.diagnostics.sampleEligibleSymbols,
+      sampleExcludedSymbols: result.diagnostics.sampleExcludedSymbols,
       ...(result.warning ? { warning: result.warning } : {}),
       durationMs,
     } satisfies UniverseResponse);
@@ -192,6 +235,13 @@ async function refreshUniverseRankings() {
   const metricBySymbol = new Map(eligibleMetrics.map((metric, index) => [metric.symbol, { metric, rank: index + 1 }]));
   const missingPriceSymbols = symbols.length - allMetrics.length;
   const excludedReasons = countExcludedReasons(allMetrics);
+  const diagnostics = createDiagnostics({
+    symbolsCount: symbols.length,
+    allMetrics,
+    eligibleMetrics,
+    missingPriceSymbols,
+    excludedReasons,
+  });
   const warning = eligibleMetrics.length === 0
     ? "Not enough eligible symbols to safely refresh universe"
     : undefined;
@@ -214,14 +264,7 @@ async function refreshUniverseRankings() {
       topB: 0,
       topC: 0,
       warning,
-      diagnostics: {
-        totalSymbols: symbols.length,
-        withPrices: allMetrics.length,
-        eligible: 0,
-        excluded: symbols.length,
-        skippedDueToMissingPrices: missingPriceSymbols,
-        excludedReasons,
-      },
+      diagnostics,
     };
   }
 
@@ -265,14 +308,7 @@ async function refreshUniverseRankings() {
     eligible: eligibleMetrics.length,
     excluded: Math.max(0, symbols.length - eligibleMetrics.length),
     warning,
-    diagnostics: {
-      totalSymbols: symbols.length,
-      withPrices: allMetrics.length,
-      eligible: eligibleMetrics.length,
-      excluded: Math.max(0, symbols.length - eligibleMetrics.length),
-      skippedDueToMissingPrices: missingPriceSymbols,
-      excludedReasons,
-    },
+    diagnostics,
     topA,
     topB,
     topC,
@@ -352,7 +388,9 @@ function calculateLiquidityMetrics(prices: PriceRow[]): LiquidityMetric[] {
       const latest = sortedRows[0] ?? null;
       const activeRows = rows.filter((row) => Number(row.volume) > 0);
       const avgVolume20 = average(rows.map((row) => Number(row.volume)));
-      const avgTradedValue20 = average(rows.map((row) => Number(row.close) * Number(row.volume)));
+      const avgTradedValue20 = average(
+        rows.map((row) => Number(row.close) * PRICE_UNIT_MULTIPLIER * Number(row.volume)),
+      );
       const activeDays20 = activeRows.length;
       const latestClose = latest ? Number(latest.close) : null;
       const exclusionReason = getExclusionReason({
@@ -410,11 +448,11 @@ function getExclusionReason(input: {
     return "low-active-days";
   }
 
-  if (input.avgTradedValue20 <= 0 || input.avgTradedValue20 < MIN_AVG_TRADED_VALUE_20) {
-    return "low-traded-value";
+  if (input.avgTradedValue20 <= 0) {
+    return "invalid-traded-value";
   }
 
-  if (input.latestClose <= 0 || input.latestClose < MIN_LATEST_CLOSE) {
+  if (input.latestClose <= 0) {
     return "low-latest-close";
   }
 
@@ -430,6 +468,45 @@ function countExcludedReasons(metrics: LiquidityMetric[]): Record<string, number
     counts[metric.exclusionReason] = (counts[metric.exclusionReason] ?? 0) + 1;
     return counts;
   }, {});
+}
+
+function createDiagnostics(input: {
+  symbolsCount: number;
+  allMetrics: LiquidityMetric[];
+  eligibleMetrics: LiquidityMetric[];
+  missingPriceSymbols: number;
+  excludedReasons: Record<string, number>;
+}) {
+  const values = input.allMetrics.map((metric) => metric.avgTradedValue20).filter(Number.isFinite);
+  const excludedMetrics = input.allMetrics.filter((metric) => !metric.eligible);
+
+  return {
+    totalSymbols: input.symbolsCount,
+    withPrices: input.allMetrics.length,
+    eligible: input.eligibleMetrics.length,
+    excluded: Math.max(0, input.symbolsCount - input.eligibleMetrics.length),
+    skippedDueToMissingPrices: input.missingPriceSymbols,
+    excludedReasons: input.excludedReasons,
+    avgTradedValue20: {
+      sample: values.slice(0, 5),
+      min: values.length > 0 ? Math.min(...values) : 0,
+      max: values.length > 0 ? Math.max(...values) : 0,
+    },
+    sampleEligibleSymbols: input.eligibleMetrics.slice(0, 5).map((metric) => ({
+      symbol: metric.symbol,
+      avgTradedValue20: metric.avgTradedValue20,
+      activeDays20: metric.activeDays20,
+      latestClose: metric.latestClose,
+    })),
+    sampleExcludedSymbols: excludedMetrics.slice(0, 5).map((metric) => ({
+      symbol: metric.symbol,
+      reason: metric.exclusionReason,
+      avgTradedValue20: metric.avgTradedValue20,
+      activeDays20: metric.activeDays20,
+      latestClose: metric.latestClose,
+      priceRows: metric.priceRows,
+    })),
+  };
 }
 
 function average(values: number[]): number {
