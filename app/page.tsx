@@ -1,4 +1,5 @@
 import { MarketScanner } from "@/components/MarketScanner";
+import { NotificationCenter } from "@/components/NotificationCenter";
 import { StockSearchList } from "@/components/StockSearchList";
 import { vi } from "@/lib/i18n/vi";
 import { getDataFreshness, getStockSummaries } from "@/lib/data-source/prices";
@@ -70,6 +71,7 @@ export default async function Home() {
 
       <MarketScanner stocks={stocks} />
       <StockSearchList stocks={stocks} hasDataError={hasDataError} />
+      <NotificationCenter stocks={stocks} />
     </main>
   );
 }

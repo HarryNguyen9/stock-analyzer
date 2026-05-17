@@ -65,6 +65,7 @@ export type StockSummary = {
   latestDate: string;
   latestVolume: number;
   score: number;
+  previousScore?: number;
   status: "Tích cực" | "Trung tính" | "Tiêu cực";
   signal: string;
   topSignals?: Signal[];
