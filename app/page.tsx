@@ -1,3 +1,4 @@
+import { MarketScanner } from "@/components/MarketScanner";
 import { StockSearchList } from "@/components/StockSearchList";
 import { vi } from "@/lib/i18n/vi";
 import { getDataFreshness, getStockSummaries } from "@/lib/data-source/prices";
@@ -67,6 +68,7 @@ export default async function Home() {
         </div>
       </section>
 
+      <MarketScanner stocks={stocks} />
       <StockSearchList stocks={stocks} hasDataError={hasDataError} />
     </main>
   );

@@ -273,6 +273,7 @@ function withTechnicalSnapshot(
     status: technical.status,
     signal: technical.signals[0]?.labelVi ?? summary.signal,
     topSignals: technical.signals.slice(0, 2),
+    scannerSignals: technical.signals,
   };
 }
 

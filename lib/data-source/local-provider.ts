@@ -74,6 +74,7 @@ export function toStockSummary(
     status: technical.status,
     signal: technical.signals[0]?.labelVi ?? vi.stock.notAvailable,
     topSignals: technical.signals.slice(0, 2),
+    scannerSignals: technical.signals,
     dataStatus: "ready",
   };
 }

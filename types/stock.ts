@@ -68,6 +68,7 @@ export type StockSummary = {
   status: "Tích cực" | "Trung tính" | "Tiêu cực";
   signal: string;
   topSignals?: Signal[];
+  scannerSignals?: Signal[];
   dataStatus: "ready" | "error";
   dataError?: string;
 };
