@@ -17,6 +17,8 @@ export type Database = {
           retry_count: number;
           last_error: string | null;
           next_retry_at: string | null;
+          is_active: boolean;
+          metadata_updated_at: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -33,6 +35,8 @@ export type Database = {
           retry_count?: number;
           last_error?: string | null;
           next_retry_at?: string | null;
+          is_active?: boolean;
+          metadata_updated_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -49,6 +53,8 @@ export type Database = {
           retry_count?: number;
           last_error?: string | null;
           next_retry_at?: string | null;
+          is_active?: boolean;
+          metadata_updated_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
