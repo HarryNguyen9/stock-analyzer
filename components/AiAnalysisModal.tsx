@@ -87,7 +87,7 @@ export function AiAnalysisModal({
       <button
         type="button"
         onClick={openModal}
-        className="rounded-lg border border-slate-300 bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800"
+        className="rounded-lg border border-slate-300 bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 dark:border-slate-700 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-200"
       >
         {copy.button}
       </button>
@@ -118,7 +118,7 @@ export function AiAnalysisModal({
                 <button
                   type="button"
                   onClick={() => setIsOpen(false)}
-                  className="rounded-lg px-3 py-2 text-sm font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-950 dark:hover:bg-slate-900 dark:hover:text-white"
+                  className="rounded-lg px-3 py-2 text-sm font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-950 dark:text-slate-400 dark:hover:bg-slate-900 dark:hover:text-white"
                 >
                   {copy.close}
                 </button>
@@ -150,13 +150,13 @@ export function AiAnalysisModal({
 
               {isLoading ? <LoadingState /> : null}
               {error ? (
-                <div className="mt-5 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">
+                <div className="mt-5 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">
                   {error}
                 </div>
               ) : null}
               {!isLoading && analysis ? <AnalysisResult analysis={analysis} /> : null}
 
-              <div className="mt-5 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950">
+              <div className="mt-5 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-100">
                 {analysis?.disclaimer ??
                   copy.disclaimer}
               </div>
@@ -173,7 +173,7 @@ export function AiAnalysisModal({
                 <button
                   type="button"
                   onClick={() => setIsOpen(false)}
-                  className="rounded-lg bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
+                  className="rounded-lg bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-200"
                 >
                   {copy.close}
                 </button>
@@ -191,11 +191,11 @@ function LoadingState() {
 
   return (
     <div className="mt-5 space-y-3">
-      <p className="animate-pulse text-sm font-medium text-slate-500">{copy.loading}</p>
+      <p className="animate-pulse text-sm font-medium text-slate-500 dark:text-slate-400">{copy.loading}</p>
       <div className="space-y-2">
-        <div className="h-4 w-4/5 animate-pulse rounded bg-slate-200" />
-        <div className="h-4 w-2/3 animate-pulse rounded bg-slate-200" />
-        <div className="h-20 animate-pulse rounded-lg bg-slate-100" />
+        <div className="h-4 w-4/5 animate-pulse rounded bg-slate-200 dark:bg-slate-800" />
+        <div className="h-4 w-2/3 animate-pulse rounded bg-slate-200 dark:bg-slate-800" />
+        <div className="h-20 animate-pulse rounded-lg bg-slate-100 dark:bg-slate-900" />
       </div>
     </div>
   );
@@ -239,11 +239,11 @@ function ResultBlock({ title, items }: { title: string; items: string[] }) {
 
 function getPanelAccent(sentiment?: AiAnalysis["sentiment"]): string {
   if (sentiment === "positive") {
-    return "ring-1 ring-emerald-100";
+    return "ring-1 ring-emerald-100 dark:ring-emerald-900";
   }
 
   if (sentiment === "risk") {
-    return "ring-1 ring-amber-100";
+    return "ring-1 ring-amber-100 dark:ring-amber-900";
   }
 
   return "";

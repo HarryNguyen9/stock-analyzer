@@ -37,23 +37,34 @@ export function CandlestickChart({ data }: { data: OHLCV[] }) {
       return;
     }
 
+    const getThemeOptions = () => {
+      const isDark = document.documentElement.classList.contains("dark");
+
+      return {
+        background: isDark ? "#0f172a" : "#ffffff",
+        text: isDark ? "#cbd5e1" : "#475569",
+        grid: isDark ? "#1e293b" : "#eef2f7",
+        border: isDark ? "#334155" : "#e2e8f0",
+      };
+    };
+    const theme = getThemeOptions();
     const chart = createChart(container, {
       height: 420,
       width: container.clientWidth,
       layout: {
-        background: { type: ColorType.Solid, color: "#ffffff" },
-        textColor: "#475569",
+        background: { type: ColorType.Solid, color: theme.background },
+        textColor: theme.text,
         attributionLogo: false,
       },
       grid: {
-        vertLines: { color: "#eef2f7" },
-        horzLines: { color: "#eef2f7" },
+        vertLines: { color: theme.grid },
+        horzLines: { color: theme.grid },
       },
       rightPriceScale: {
-        borderColor: "#e2e8f0",
+        borderColor: theme.border,
       },
       timeScale: {
-        borderColor: "#e2e8f0",
+        borderColor: theme.border,
         timeVisible: true,
       },
       crosshair: {
@@ -97,16 +108,41 @@ export function CandlestickChart({ data }: { data: OHLCV[] }) {
     });
 
     resizeObserver.observe(container);
+    const themeObserver = new MutationObserver(() => {
+      const nextTheme = getThemeOptions();
+      chart.applyOptions({
+        layout: {
+          background: { type: ColorType.Solid, color: nextTheme.background },
+          textColor: nextTheme.text,
+        },
+        grid: {
+          vertLines: { color: nextTheme.grid },
+          horzLines: { color: nextTheme.grid },
+        },
+        rightPriceScale: {
+          borderColor: nextTheme.border,
+        },
+        timeScale: {
+          borderColor: nextTheme.border,
+        },
+      });
+    });
+
+    themeObserver.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["class"],
+    });
 
     return () => {
       resizeObserver.disconnect();
+      themeObserver.disconnect();
       chart.remove();
     };
   }, [chartData, sma20, sma50]);
 
   return (
-    <section className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
-      <div className="mb-3 flex flex-wrap items-center gap-4 px-1 text-xs font-medium text-slate-500">
+    <section className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-950 sm:p-4">
+      <div className="mb-3 flex flex-wrap items-center gap-4 px-1 text-xs font-medium text-slate-500 dark:text-slate-400">
         <span className="flex items-center gap-2">
           <span className="h-2 w-4 rounded-sm bg-blue-600" aria-hidden />
           {vi.chart.sma20}

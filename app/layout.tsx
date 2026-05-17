@@ -16,8 +16,26 @@ export default function RootLayout({
     <html
       lang="vi"
       className="h-full antialiased"
+      suppressHydrationWarning
     >
-      <body className="min-h-full bg-slate-50 text-slate-950">{children}</body>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                try {
+                  var stored = localStorage.getItem("stock-analyzer-theme") || "system";
+                  var prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+                  var shouldDark = stored === "dark" || (stored === "system" && prefersDark);
+                  document.documentElement.classList.toggle("dark", shouldDark);
+                  document.documentElement.style.colorScheme = shouldDark ? "dark" : "light";
+                } catch (_) {}
+              })();
+            `,
+          }}
+        />
+      </head>
+      <body className="min-h-full bg-background text-foreground transition-colors">{children}</body>
     </html>
   );
 }

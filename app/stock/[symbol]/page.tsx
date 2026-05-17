@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { AiAnalysisModal } from "@/components/AiAnalysisModal";
 import { CandlestickChart } from "@/components/CandlestickChart";
 import { ScoreGauge } from "@/components/ScoreGauge";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { STOCKS } from "@/data/symbols";
 import { generateTechnicalAnalysis } from "@/lib/technical-analysis";
 import { getHistoricalPricesResult } from "@/lib/data-source/prices";
@@ -12,6 +13,7 @@ import { round } from "@/lib/indicators";
 import { vi } from "@/lib/i18n/vi";
 import { categoryLabelsVi } from "@/lib/signals";
 import type { Signal, SignalCategory } from "@/lib/technical-analysis";
+import type { ScoreBreakdown } from "@/lib/technical-analysis/types";
 import type { StockMetadata } from "@/types/stock";
 
 type StockPageProps = {
@@ -60,33 +62,36 @@ export default async function StockDetailPage({ params }: StockPageProps) {
 
   return (
     <main className="min-h-screen pb-10">
-      <section className="border-b border-slate-200 bg-white">
+      <section className="border-b border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950">
         <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-          <Link href="/" className="text-sm font-medium text-slate-500 hover:text-slate-950">
-            {vi.stock.backToWatchlist}
-          </Link>
+          <div className="flex items-center justify-between gap-4">
+            <Link href="/" className="text-sm font-medium text-slate-500 hover:text-slate-950 dark:text-slate-400 dark:hover:text-white">
+              {vi.stock.backToWatchlist}
+            </Link>
+            <ThemeToggle />
+          </div>
 
           <div className="mt-5 grid gap-6 lg:grid-cols-[1fr_auto] lg:items-end">
             <div>
               <div className="flex flex-wrap items-center gap-3">
-                <h1 className="text-4xl font-semibold tracking-normal text-slate-950 sm:text-6xl">
+                <h1 className="text-4xl font-semibold tracking-normal text-slate-950 dark:text-white sm:text-6xl">
                   {stock.symbol}
                 </h1>
-                <span className="rounded border border-slate-200 px-2 py-1 text-sm font-medium text-slate-500">
+                <span className="rounded border border-slate-200 px-2 py-1 text-sm font-medium text-slate-500 dark:border-slate-700 dark:text-slate-400">
                   {stock.exchange}
                 </span>
               </div>
-              <p className="mt-3 text-lg text-slate-600">{stock.name}</p>
-              <p className="mt-2 text-sm font-medium uppercase tracking-normal text-slate-400">
+              <p className="mt-3 text-lg text-slate-600 dark:text-slate-300">{stock.name}</p>
+              <p className="mt-2 text-sm font-medium uppercase tracking-normal text-slate-400 dark:text-slate-500">
                 {stock.sector}
               </p>
             </div>
 
-            <div className="flex items-center gap-5 rounded-lg border border-slate-200 bg-slate-50 p-4">
+            <div className="flex items-center gap-5 rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900">
               <ScoreGauge score={displayScore} />
               <div>
-                <p className="text-sm text-slate-500">{vi.stock.technicalScore}</p>
-                <p className="mt-1 text-2xl font-semibold text-slate-950">
+                <p className="text-sm text-slate-500 dark:text-slate-400">{vi.stock.technicalScore}</p>
+                <p className="mt-1 text-2xl font-semibold text-slate-950 dark:text-white">
                   {scoreLabel(displayScore)}
                 </p>
               </div>
@@ -123,11 +128,13 @@ export default async function StockDetailPage({ params }: StockPageProps) {
 
           <CandlestickChart data={candles} />
 
-          <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+          <ScoreBreakdownSection breakdown={analysis.scoreBreakdown} />
+
+          <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
               <div>
-                <h2 className="text-lg font-semibold text-slate-950">{vi.stock.technicalSignals}</h2>
-                <p className="mt-1 text-sm leading-6 text-slate-600">
+                <h2 className="text-lg font-semibold text-slate-950 dark:text-white">{vi.stock.technicalSignals}</h2>
+                <p className="mt-1 text-sm leading-6 text-slate-600 dark:text-slate-400">
                   {analysis.summaryVi ?? vi.stock.notAvailable}
                 </p>
               </div>
@@ -135,8 +142,8 @@ export default async function StockDetailPage({ params }: StockPageProps) {
 
             <div className="mt-5 grid gap-4 md:grid-cols-2">
               {signalGroups.map((group) => (
-                <div key={group.category} className="rounded-lg border border-slate-100 bg-slate-50 p-4">
-                  <h3 className="text-sm font-semibold text-slate-950">
+                <div key={group.category} className="rounded-lg border border-slate-100 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950">
+                  <h3 className="text-sm font-semibold text-slate-950 dark:text-white">
                     {categoryLabelsVi[group.category]}
                   </h3>
                   <div className="mt-3 space-y-2">
@@ -145,7 +152,7 @@ export default async function StockDetailPage({ params }: StockPageProps) {
                         <TechnicalSignalBadge key={signal.code} signal={signal} />
                       ))
                     ) : (
-                      <p className="text-sm text-slate-500">Chưa có tín hiệu nổi bật.</p>
+                      <p className="text-sm text-slate-500 dark:text-slate-400">Chưa có tín hiệu nổi bật.</p>
                     )}
                   </div>
                 </div>
@@ -155,8 +162,8 @@ export default async function StockDetailPage({ params }: StockPageProps) {
         </div>
 
         <aside className="space-y-5">
-          <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-            <h2 className="text-lg font-semibold text-slate-950">{vi.stock.indicators}</h2>
+          <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <h2 className="text-lg font-semibold text-slate-950 dark:text-white">{vi.stock.indicators}</h2>
             <dl className="mt-4 space-y-4">
               <IndicatorRow
                 label={vi.stock.indicatorLabels.sma20}
@@ -213,19 +220,86 @@ function groupTechnicalSignals(signals: Signal[]): Array<{ category: SignalCateg
   }));
 }
 
+function ScoreBreakdownSection({ breakdown }: { breakdown: ScoreBreakdown }) {
+  const items = [
+    {
+      key: "trend",
+      score: breakdown.trend,
+      max: 30,
+      label: vi.stock.scoreBreakdownItems.trend.label,
+      description: vi.stock.scoreBreakdownItems.trend.description,
+    },
+    {
+      key: "momentum",
+      score: breakdown.momentum,
+      max: 25,
+      label: vi.stock.scoreBreakdownItems.momentum.label,
+      description: vi.stock.scoreBreakdownItems.momentum.description,
+    },
+    {
+      key: "volume",
+      score: breakdown.volume,
+      max: 20,
+      label: vi.stock.scoreBreakdownItems.volume.label,
+      description: vi.stock.scoreBreakdownItems.volume.description,
+    },
+    {
+      key: "volatilityBreakout",
+      score: breakdown.volatilityBreakout,
+      max: 15,
+      label: vi.stock.scoreBreakdownItems.volatilityBreakout.label,
+      description: vi.stock.scoreBreakdownItems.volatilityBreakout.description,
+    },
+    {
+      key: "risk",
+      score: breakdown.risk,
+      max: 10,
+      label: vi.stock.scoreBreakdownItems.risk.label,
+      description: vi.stock.scoreBreakdownItems.risk.description,
+    },
+  ] as const;
+
+  return (
+    <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <h2 className="text-lg font-semibold text-slate-950 dark:text-white">{vi.stock.scoreBreakdown}</h2>
+      <div className="mt-4 space-y-4">
+        {items.map((item) => (
+          <div key={item.key}>
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-slate-950 dark:text-white">{item.label}</p>
+                <p className="mt-1 text-sm leading-5 text-slate-500 dark:text-slate-400">{item.description}</p>
+              </div>
+              <p className="shrink-0 text-sm font-semibold tabular-nums text-slate-950 dark:text-white">
+                {item.score}/{item.max}
+              </p>
+            </div>
+            <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+              <div
+                className="h-full rounded-full bg-slate-950 dark:bg-slate-100"
+                style={{ width: `${Math.max(0, Math.min(100, (item.score / item.max) * 100))}%` }}
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function TechnicalSignalBadge({ signal }: { signal: Signal }) {
   const toneClass =
     signal.sentiment === "bullish"
-      ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+      ? "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300"
       : signal.sentiment === "bearish"
-        ? "border-rose-200 bg-rose-50 text-rose-800"
-        : "border-slate-200 bg-white text-slate-700";
+        ? "border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-300"
+        : "border-slate-200 bg-white text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300";
 
   return (
     <div className={`rounded-lg border p-3 ${toneClass}`}>
       <div className="flex items-center justify-between gap-3">
         <p className="text-sm font-semibold">{signal.labelVi}</p>
-        <span className="shrink-0 rounded-full bg-white/70 px-2 py-0.5 text-xs font-medium">
+        <span className="shrink-0 rounded-full bg-white/70 px-2 py-0.5 text-xs font-medium dark:bg-slate-950/50">
           {signal.strength}/5
         </span>
       </div>
@@ -236,22 +310,22 @@ function TechnicalSignalBadge({ signal }: { signal: Signal }) {
 
 function InvalidDataState({ stock, message }: { stock: { symbol: string; name: string }; message: string }) {
   return (
-    <main className="min-h-screen bg-slate-50">
-      <section className="border-b border-slate-200 bg-white">
+    <main className="min-h-screen bg-slate-50 dark:bg-slate-950">
+      <section className="border-b border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950">
         <div className="mx-auto w-full max-w-4xl px-4 py-6 sm:px-6">
-          <Link href="/" className="text-sm font-medium text-slate-500 hover:text-slate-950">
+          <Link href="/" className="text-sm font-medium text-slate-500 hover:text-slate-950 dark:text-slate-400 dark:hover:text-white">
             {vi.stock.backToWatchlist}
           </Link>
-          <h1 className="mt-6 text-4xl font-semibold text-slate-950">{stock.symbol}</h1>
-          <p className="mt-2 text-slate-600">{stock.name}</p>
+          <h1 className="mt-6 text-4xl font-semibold text-slate-950 dark:text-white">{stock.symbol}</h1>
+          <p className="mt-2 text-slate-600 dark:text-slate-300">{stock.name}</p>
         </div>
       </section>
 
       <section className="mx-auto w-full max-w-4xl px-4 py-6 sm:px-6">
-        <div className="rounded-lg border border-amber-200 bg-amber-50 p-5 text-amber-950 shadow-sm">
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-5 text-amber-950 shadow-sm dark:border-amber-900 dark:bg-amber-950 dark:text-amber-100">
           <h2 className="text-lg font-semibold">{vi.stock.invalidDataTitle}</h2>
-          <p className="mt-2 text-sm leading-6 text-amber-900">{vi.stock.invalidDataDescription}</p>
-          <p className="mt-4 rounded border border-amber-200 bg-white/70 p-3 text-sm text-amber-900">
+          <p className="mt-2 text-sm leading-6 text-amber-900 dark:text-amber-200">{vi.stock.invalidDataDescription}</p>
+          <p className="mt-4 rounded border border-amber-200 bg-white/70 p-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-slate-950/40 dark:text-amber-100">
             {message}
           </p>
         </div>
@@ -286,11 +360,15 @@ function MetricCard({
   tone?: "neutral" | "positive" | "negative";
 }) {
   const color =
-    tone === "positive" ? "text-emerald-600" : tone === "negative" ? "text-rose-600" : "text-slate-950";
+    tone === "positive"
+      ? "text-emerald-600 dark:text-emerald-400"
+      : tone === "negative"
+        ? "text-rose-600 dark:text-rose-400"
+        : "text-slate-950 dark:text-white";
 
   return (
-    <article className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-      <p className="text-sm text-slate-500">{label}</p>
+    <article className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <p className="text-sm text-slate-500 dark:text-slate-400">{label}</p>
       <p className={`mt-2 text-xl font-semibold tabular-nums ${color}`}>{value}</p>
       {subValue ? <p className={`mt-1 text-sm font-medium ${color}`}>{subValue}</p> : null}
     </article>
@@ -299,9 +377,9 @@ function MetricCard({
 
 function IndicatorRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-center justify-between gap-4 border-b border-slate-100 pb-3 last:border-0 last:pb-0">
-      <dt className="text-sm text-slate-500">{label}</dt>
-      <dd className="text-sm font-semibold tabular-nums text-slate-950">{value}</dd>
+    <div className="flex items-center justify-between gap-4 border-b border-slate-100 pb-3 last:border-0 last:pb-0 dark:border-slate-800">
+      <dt className="text-sm text-slate-500 dark:text-slate-400">{label}</dt>
+      <dd className="text-sm font-semibold tabular-nums text-slate-950 dark:text-white">{value}</dd>
     </div>
   );
 }

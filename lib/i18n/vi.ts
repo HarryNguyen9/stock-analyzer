@@ -5,6 +5,13 @@ export const vi = {
     metadataDescription: "MVP phân tích kỹ thuật cổ phiếu Việt Nam bằng dữ liệu mẫu.",
     notFoundTitle: "Không tìm thấy mã",
   },
+  theme: {
+    label: "Giao diện",
+    light: "Sáng",
+    dark: "Tối",
+    system: "Hệ thống",
+    select: "Chọn giao diện",
+  },
   home: {
     searchLabel: "Tìm mã cổ phiếu",
     searchPlaceholder: "Nhập mã, tên công ty hoặc sàn",
