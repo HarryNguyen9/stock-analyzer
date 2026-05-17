@@ -8,11 +8,11 @@ import { readHomeScannerSnapshot } from "@/lib/scanner/snapshot";
 import type { DataFreshnessResult } from "@/lib/data-source/provider";
 
 export default async function Home() {
-  const [stocks, dataFreshness, scannerSnapshot] = await Promise.all([
+  const [stocks, dataFreshness] = await Promise.all([
     getStockSummaries(),
     getDataFreshness(),
-    readHomeScannerSnapshot(),
   ]);
+  const mergedScannerSnapshot = await readHomeScannerSnapshot(stocks);
   const averageScore =
     stocks.length > 0
       ? Math.round(stocks.reduce((total, stock) => total + stock.score, 0) / stocks.length)
@@ -78,7 +78,7 @@ export default async function Home() {
         </div>
       </section>
 
-      <MarketScanner stocks={stocks} snapshotGroups={scannerSnapshot} />
+      <MarketScanner stocks={stocks} snapshotGroups={mergedScannerSnapshot} />
       <StockSearchList stocks={stocks} hasDataError={hasDataError} />
       <NotificationCenter stocks={stocks} />
     </main>

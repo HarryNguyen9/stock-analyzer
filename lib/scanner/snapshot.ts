@@ -9,6 +9,7 @@ export const HOME_SCANNER_SNAPSHOT_TYPE = "home_scanner";
 
 type SnapshotRow = {
   data: Json;
+  updated_at?: string | null;
 };
 
 export async function refreshHomeScannerSnapshot(): Promise<boolean> {
@@ -16,6 +17,10 @@ export async function refreshHomeScannerSnapshot(): Promise<boolean> {
     const stocks = await getStockSummaries();
     const groups = getScannerGroups(stocks);
     const supabase = createSupabaseAdminClient();
+    console.info("home_scanner snapshot metadata source:", {
+      metadataSource: "supabase-symbols-via-stock-summaries",
+      symbolCount: stocks.length,
+    });
     const { error } = await supabase.from("market_snapshots").upsert(
       {
         snapshot_type: HOME_SCANNER_SNAPSHOT_TYPE,
@@ -36,12 +41,12 @@ export async function refreshHomeScannerSnapshot(): Promise<boolean> {
   }
 }
 
-export async function readHomeScannerSnapshot(): Promise<ScannerGroup[] | null> {
+export async function readHomeScannerSnapshot(currentStocks: StockSummary[] = []): Promise<ScannerGroup[] | null> {
   try {
     const supabase = createSupabaseAdminClient();
     const { data, error } = await supabase
       .from("market_snapshots")
-      .select("data")
+      .select("data,updated_at")
       .eq("snapshot_type", HOME_SCANNER_SNAPSHOT_TYPE)
       .maybeSingle();
 
@@ -50,10 +55,90 @@ export async function readHomeScannerSnapshot(): Promise<ScannerGroup[] | null> 
     }
 
     const row = data as SnapshotRow;
-    return parseScannerGroups(row.data);
-  } catch {
+    const groups = parseScannerGroups(row.data);
+
+    if (!groups) {
+      return null;
+    }
+
+    return mergeLatestMetadata(groups, currentStocks, row.updated_at);
+  } catch (error) {
+    console.warn("Khong doc duoc home_scanner snapshot, fallback runtime scanner:", error);
     return null;
   }
+}
+
+function mergeLatestMetadata(
+  groups: ScannerGroup[],
+  currentStocks: StockSummary[],
+  snapshotUpdatedAt?: string | null,
+): ScannerGroup[] {
+  if (isSnapshotStale(snapshotUpdatedAt)) {
+    console.warn("home_scanner snapshot co the da cu, van merge metadata moi nhat truoc khi render:", {
+      snapshotUpdatedAt,
+    });
+  }
+
+  if (currentStocks.length === 0) {
+    return groups;
+  }
+
+  const latestBySymbol = new Map(currentStocks.map((stock) => [stock.symbol, stock]));
+  const mismatches: Array<{ symbol: string; snapshotExchange: string; latestExchange: string }> = [];
+  const mergedGroups = groups.map((group) => ({
+    ...group,
+    items: group.items.map((item) => {
+      const latest = latestBySymbol.get(item.stock.symbol);
+
+      if (!latest) {
+        return item;
+      }
+
+      if (item.stock.exchange !== latest.exchange) {
+        mismatches.push({
+          symbol: item.stock.symbol,
+          snapshotExchange: item.stock.exchange,
+          latestExchange: latest.exchange,
+        });
+      }
+
+      return {
+        ...item,
+        stock: {
+          ...item.stock,
+          name: latest.name,
+          exchange: latest.exchange,
+          sector: latest.sector,
+          tier: latest.tier,
+          liquidityRank: latest.liquidityRank,
+        },
+      };
+    }),
+  }));
+
+  if (mismatches.length > 0) {
+    console.warn("home_scanner snapshot metadata mismatch, merged latest symbols metadata:", {
+      snapshotUpdatedAt,
+      mismatchCount: mismatches.length,
+      sample: mismatches.slice(0, 10),
+    });
+  }
+
+  return mergedGroups;
+}
+
+function isSnapshotStale(snapshotUpdatedAt?: string | null): boolean {
+  if (!snapshotUpdatedAt) {
+    return true;
+  }
+
+  const updatedAtMs = new Date(snapshotUpdatedAt).getTime();
+
+  if (!Number.isFinite(updatedAtMs)) {
+    return true;
+  }
+
+  return Date.now() - updatedAtMs > 60 * 60 * 1000;
 }
 
 function parseScannerGroups(value: unknown): ScannerGroup[] | null {

@@ -8,6 +8,8 @@ type SymbolRow = {
   exchange: string | null;
   sector: string | null;
   metadata_updated_at: string | null;
+  is_active: boolean | null;
+  auto_sync: boolean | null;
 };
 type PriceRow = {
   symbol: string;
@@ -20,16 +22,25 @@ type MetadataIssueCode =
   | "missing_sector"
   | "missing_metadata_updated_at"
   | "metadata_older_than_price_data"
-  | "source_exchange_mismatch";
+  | "source_exchange_mismatch"
+  | "inactive_auto_sync"
+  | "inactive_with_price_data";
+
+type MetadataIssueSeverity = "critical" | "warning" | "info";
 
 export type SuspiciousSymbol = {
   symbol: string;
-  issues: MetadataIssueCode[];
+  issues: Array<{
+    code: MetadataIssueCode;
+    severity: MetadataIssueSeverity;
+  }>;
   current: {
     exchange: string | null;
     name: string | null;
     sector: string | null;
     metadataUpdatedAt: string | null;
+    isActive: boolean | null;
+    autoSync: boolean | null;
   };
   source?: {
     exchange: string;
@@ -45,7 +56,12 @@ export type SuspiciousSymbol = {
 export type SymbolMetadataAuditResult = {
   total: number;
   suspiciousCount: number;
+  criticalCount: number;
+  warningCount: number;
+  infoCount: number;
+  issueSummary: Record<MetadataIssueCode, number>;
   suspiciousSymbols: SuspiciousSymbol[];
+  infoSymbols: SuspiciousSymbol[];
 };
 
 const VALID_EXCHANGES = new Set(["HOSE", "HNX", "UPCOM"]);
@@ -57,42 +73,63 @@ export async function auditSymbolMetadata(): Promise<SymbolMetadataAuditResult> 
   const sourceBySymbol = buildSourceMetadataMap();
   const pricesBySymbol = summarizePriceRows(priceRows);
   const suspiciousSymbols: SuspiciousSymbol[] = [];
+  const infoSymbols: SuspiciousSymbol[] = [];
+  const issueSummary = createEmptyIssueSummary();
+  let criticalCount = 0;
+  let warningCount = 0;
+  let infoCount = 0;
 
   for (const symbolRow of symbols) {
     const symbol = symbolRow.symbol.toUpperCase();
-    const issues: MetadataIssueCode[] = [];
+    const issues: SuspiciousSymbol["issues"] = [];
     const source = sourceBySymbol.get(symbol);
     const priceData = pricesBySymbol.get(symbol);
 
     if (!symbolRow.exchange || !VALID_EXCHANGES.has(symbolRow.exchange)) {
-      issues.push("invalid_exchange");
+      issues.push({ code: "invalid_exchange", severity: "critical" });
     }
 
     if (!symbolRow.name?.trim()) {
-      issues.push("missing_name");
+      issues.push({ code: "missing_name", severity: "critical" });
     }
 
     if (!symbolRow.sector?.trim()) {
-      issues.push("missing_sector");
+      issues.push({ code: "missing_sector", severity: "warning" });
     }
 
     if (!symbolRow.metadata_updated_at) {
-      issues.push("missing_metadata_updated_at");
+      issues.push({ code: "missing_metadata_updated_at", severity: "info" });
     }
 
     if (priceData?.latestUpdatedAt && isMetadataStale(symbolRow.metadata_updated_at)) {
-      issues.push("metadata_older_than_price_data");
+      issues.push({ code: "metadata_older_than_price_data", severity: "info" });
     }
 
     if (source && source.exchange !== symbolRow.exchange) {
-      issues.push("source_exchange_mismatch");
+      issues.push({ code: "source_exchange_mismatch", severity: "warning" });
+    }
+
+    if (symbolRow.is_active === false && symbolRow.auto_sync === true) {
+      issues.push({ code: "inactive_auto_sync", severity: "critical" });
+    }
+
+    if (symbolRow.is_active === false && priceData && priceData.rows > 0) {
+      issues.push({ code: "inactive_with_price_data", severity: "warning" });
     }
 
     if (issues.length === 0) {
       continue;
     }
 
-    suspiciousSymbols.push({
+    for (const issue of issues) {
+      issueSummary[issue.code] += 1;
+
+      if (issue.severity === "critical") criticalCount += 1;
+      if (issue.severity === "warning") warningCount += 1;
+      if (issue.severity === "info") infoCount += 1;
+    }
+
+    const auditItem: SuspiciousSymbol = {
       symbol,
       issues,
       current: {
@@ -100,6 +137,8 @@ export async function auditSymbolMetadata(): Promise<SymbolMetadataAuditResult> 
         name: symbolRow.name,
         sector: symbolRow.sector,
         metadataUpdatedAt: symbolRow.metadata_updated_at,
+        isActive: symbolRow.is_active,
+        autoSync: symbolRow.auto_sync,
       },
       ...(source
         ? {
@@ -118,13 +157,24 @@ export async function auditSymbolMetadata(): Promise<SymbolMetadataAuditResult> 
             },
           }
         : {}),
-    });
+    };
+
+    if (issues.some((issue) => issue.severity === "critical" || issue.severity === "warning")) {
+      suspiciousSymbols.push(auditItem);
+    } else if (infoSymbols.length < 20) {
+      infoSymbols.push(auditItem);
+    }
   }
 
   return {
     total: symbols.length,
     suspiciousCount: suspiciousSymbols.length,
+    criticalCount,
+    warningCount,
+    infoCount,
+    issueSummary,
     suspiciousSymbols,
+    infoSymbols,
   };
 }
 
@@ -145,7 +195,7 @@ function isMetadataStale(metadataUpdatedAt: string | null): boolean {
 async function readSymbols(supabase: ReturnType<typeof createSupabaseAdminClient>): Promise<SymbolRow[]> {
   const { data, error } = await supabase
     .from("symbols")
-    .select("symbol,name,exchange,sector,metadata_updated_at")
+    .select("symbol,name,exchange,sector,metadata_updated_at,is_active,auto_sync")
     .order("symbol", { ascending: true });
 
   if (error) {
@@ -156,6 +206,19 @@ async function readSymbols(supabase: ReturnType<typeof createSupabaseAdminClient
     ...row,
     symbol: row.symbol.toUpperCase(),
   }));
+}
+
+function createEmptyIssueSummary(): Record<MetadataIssueCode, number> {
+  return {
+    invalid_exchange: 0,
+    missing_name: 0,
+    missing_sector: 0,
+    missing_metadata_updated_at: 0,
+    metadata_older_than_price_data: 0,
+    source_exchange_mismatch: 0,
+    inactive_auto_sync: 0,
+    inactive_with_price_data: 0,
+  };
 }
 
 async function readPriceRows(supabase: ReturnType<typeof createSupabaseAdminClient>): Promise<PriceRow[]> {

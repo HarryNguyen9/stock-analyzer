@@ -11,7 +11,12 @@ type AuditSymbolMetadataResponse =
       jobId: string | null;
       total: number;
       suspiciousCount: number;
+      criticalCount: number;
+      warningCount: number;
+      infoCount: number;
+      issueSummary: Awaited<ReturnType<typeof auditSymbolMetadata>>["issueSummary"];
       suspiciousSymbols: Awaited<ReturnType<typeof auditSymbolMetadata>>["suspiciousSymbols"];
+      infoSymbols: Awaited<ReturnType<typeof auditSymbolMetadata>>["infoSymbols"];
       durationMs: number;
     }
   | {
@@ -64,7 +69,12 @@ async function handleAuditSymbolMetadata(request: Request): Promise<Response> {
       failed_count: 0,
       metadata: toJson({
         suspiciousCount: result.suspiciousCount,
+        criticalCount: result.criticalCount,
+        warningCount: result.warningCount,
+        infoCount: result.infoCount,
+        issueSummary: result.issueSummary,
         suspiciousSymbols: result.suspiciousSymbols,
+        infoSymbols: result.infoSymbols,
       }),
     });
 
@@ -73,7 +83,12 @@ async function handleAuditSymbolMetadata(request: Request): Promise<Response> {
       jobId,
       total: result.total,
       suspiciousCount: result.suspiciousCount,
+      criticalCount: result.criticalCount,
+      warningCount: result.warningCount,
+      infoCount: result.infoCount,
+      issueSummary: result.issueSummary,
       suspiciousSymbols: result.suspiciousSymbols,
+      infoSymbols: result.infoSymbols,
       durationMs,
     } satisfies AuditSymbolMetadataResponse);
   } catch (error) {
