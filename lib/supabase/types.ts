@@ -14,6 +14,9 @@ export type Database = {
           liquidity_rank: number | null;
           last_synced_at: string | null;
           sync_status: string | null;
+          retry_count: number;
+          last_error: string | null;
+          next_retry_at: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -27,6 +30,9 @@ export type Database = {
           liquidity_rank?: number | null;
           last_synced_at?: string | null;
           sync_status?: string | null;
+          retry_count?: number;
+          last_error?: string | null;
+          next_retry_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -40,6 +46,9 @@ export type Database = {
           liquidity_rank?: number | null;
           last_synced_at?: string | null;
           sync_status?: string | null;
+          retry_count?: number;
+          last_error?: string | null;
+          next_retry_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };

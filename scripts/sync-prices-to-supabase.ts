@@ -15,6 +15,7 @@ type SymbolRow = Pick<
   Database["public"]["Tables"]["symbols"]["Row"],
   "symbol" | "tier" | "auto_sync" | "liquidity_rank"
 >;
+type SymbolRetryRow = Pick<Database["public"]["Tables"]["symbols"]["Row"], "retry_count">;
 
 type SyncTarget = {
   symbol: string;
@@ -97,7 +98,7 @@ async function syncPricesDirectlyToSupabase(
       console.log(`${target.symbol}: da fetch va upsert ${prices.length} nen tu ${vnstockProvider.name}`);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      await updateSymbolSyncStatus(target.symbol, "failed");
+      await updateSymbolSyncStatus(target.symbol, "failed", message);
       failed += 1;
       failedSymbols.push(target.symbol);
       console.error(`${target.symbol}: sync fail, bo qua ma nay (${message})`);
@@ -153,7 +154,11 @@ export async function syncSingleSymbolToSupabase(
       prices: prices.length,
     };
   } catch (error) {
-    await updateSymbolSyncStatus(normalizedSymbol, "failed");
+    await updateSymbolSyncStatus(
+      normalizedSymbol,
+      "failed",
+      error instanceof Error ? error.message : String(error),
+    );
     throw error;
   }
 }
@@ -258,12 +263,29 @@ function getFallbackTargets(options: { batch: number; limit: number }): SyncTarg
   }));
 }
 
-async function updateSymbolSyncStatus(symbol: string, status: "synced" | "failed") {
+export async function updateSymbolSyncStatus(
+  symbol: string,
+  status: "synced" | "failed",
+  errorMessage: string | null = null,
+) {
   try {
     const supabase = createSupabaseAdminClient();
+    const retryCount = status === "failed" ? await readSymbolRetryCount(symbol) : 0;
+    const nextRetryCount = retryCount + 1;
     const update: Database["public"]["Tables"]["symbols"]["Update"] = {
       sync_status: status,
-      ...(status === "synced" ? { last_synced_at: new Date().toISOString() } : {}),
+      ...(status === "synced"
+        ? {
+            last_synced_at: new Date().toISOString(),
+            retry_count: 0,
+            last_error: null,
+            next_retry_at: null,
+          }
+        : {
+            retry_count: nextRetryCount,
+            last_error: errorMessage,
+            next_retry_at: getNextRetryAt(nextRetryCount).toISOString(),
+          }),
     };
 
     const { error } = await supabase.from("symbols").update(update).eq("symbol", symbol);
@@ -275,6 +297,37 @@ async function updateSymbolSyncStatus(symbol: string, status: "synced" | "failed
     const message = error instanceof Error ? error.message : String(error);
     console.warn(`${symbol}: khong cap nhat duoc sync_status (${message})`);
   }
+}
+
+async function readSymbolRetryCount(symbol: string): Promise<number> {
+  try {
+    const supabase = createSupabaseAdminClient();
+    const { data, error } = await supabase
+      .from("symbols")
+      .select("retry_count")
+      .eq("symbol", symbol)
+      .maybeSingle();
+
+    if (error || !data) {
+      return 0;
+    }
+
+    const row = data as SymbolRetryRow;
+    return Number.isFinite(row.retry_count) ? row.retry_count : 0;
+  } catch {
+    return 0;
+  }
+}
+
+function getNextRetryAt(retryCount: number): Date {
+  const delayMs =
+    retryCount <= 1
+      ? 15 * 60 * 1000
+      : retryCount === 2
+        ? 60 * 60 * 1000
+        : 6 * 60 * 60 * 1000;
+
+  return new Date(Date.now() + delayMs);
 }
 
 function isVercelProduction(): boolean {
