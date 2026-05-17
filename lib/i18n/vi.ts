@@ -56,6 +56,29 @@ export const vi = {
   stock: {
     technicalSignals: "Tín hiệu kỹ thuật",
     technicalSummary: "Tóm tắt kỹ thuật",
+    scoreBreakdown: "Cấu phần điểm kỹ thuật",
+    scoreBreakdownItems: {
+      trend: {
+        label: "Xu hướng",
+        description: "Đánh giá vị trí giá so với MA/EMA và giao cắt xu hướng.",
+      },
+      momentum: {
+        label: "Động lượng",
+        description: "Đánh giá RSI, MACD và tốc độ thay đổi giá.",
+      },
+      volume: {
+        label: "Khối lượng",
+        description: "Đánh giá dòng tiền qua volume và xác nhận breakout.",
+      },
+      volatilityBreakout: {
+        label: "Breakout/Biến động",
+        description: "Đánh giá phá đỉnh, phá đáy, Bollinger và ATR.",
+      },
+      risk: {
+        label: "Rủi ro",
+        description: "Đánh giá tín hiệu suy yếu như gãy MA, RSI quá mua, bán mạnh.",
+      },
+    },
     backToWatchlist: "Về danh sách",
     technicalScore: "Điểm kỹ thuật",
     lastClose: "Giá đóng",
