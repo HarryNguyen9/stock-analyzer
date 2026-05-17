@@ -29,6 +29,8 @@ export type StockMetadata = {
   name: string;
   exchange: StockExchange;
   sector: string;
+  tier?: "A" | "B" | "C";
+  liquidityRank?: number | null;
 };
 
 export type OHLCV = {
@@ -69,6 +71,8 @@ export type StockSummary = {
   name: string;
   exchange: StockExchange;
   sector: string;
+  tier?: "A" | "B" | "C";
+  liquidityRank?: number | null;
   lastClose: number;
   dayChangePercent: number;
   latestDate: string;

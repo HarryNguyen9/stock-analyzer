@@ -11,6 +11,8 @@ type SymbolRow = {
   name: string;
   exchange: StockExchange;
   sector: string;
+  tier: "A" | "B" | "C";
+  liquidity_rank: number | null;
 };
 
 type PriceRow = {
@@ -69,7 +71,7 @@ export const supabaseDataProvider: AppDataProvider = {
 
     const { data: symbols, error } = await supabase
       .from("symbols")
-      .select("symbol,name,exchange,sector")
+      .select("symbol,name,exchange,sector,tier,liquidity_rank")
       .order("symbol", { ascending: true })
       .limit(2000);
 
@@ -85,6 +87,8 @@ export const supabaseDataProvider: AppDataProvider = {
           name: row.name,
           exchange: row.exchange,
           sector: row.sector,
+          tier: row.tier,
+          liquidityRank: row.liquidity_rank,
         };
         const data = await readSupabasePrices(stock.symbol);
 
@@ -269,7 +273,7 @@ export async function getSymbolMetadata(symbol: string): Promise<StockMetadata |
 
   const { data, error } = await supabase
     .from("symbols")
-    .select("symbol,name,exchange,sector")
+    .select("symbol,name,exchange,sector,tier,liquidity_rank")
     .eq("symbol", symbol.toUpperCase())
     .maybeSingle();
 
@@ -284,6 +288,8 @@ export async function getSymbolMetadata(symbol: string): Promise<StockMetadata |
     name: row.name,
     exchange: row.exchange,
     sector: row.sector,
+    tier: row.tier,
+    liquidityRank: row.liquidity_rank,
   };
 }
 

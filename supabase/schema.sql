@@ -41,6 +41,22 @@ create table if not exists public.technical_indicators (
   unique(symbol, date)
 );
 
+create extension if not exists pgcrypto;
+
+create table if not exists public.sync_jobs (
+  id uuid primary key default gen_random_uuid(),
+  job_type text not null,
+  status text not null,
+  started_at timestamptz not null default now(),
+  finished_at timestamptz,
+  duration_ms integer,
+  selected_count integer not null default 0,
+  success_count integer not null default 0,
+  failed_count integer not null default 0,
+  error_message text,
+  metadata jsonb
+);
+
 create index if not exists stock_prices_symbol_date_idx
   on public.stock_prices(symbol, date desc);
 
@@ -50,6 +66,12 @@ create index if not exists technical_indicators_symbol_date_idx
 create index if not exists symbols_auto_sync_tier_liquidity_idx
   on public.symbols(auto_sync, tier, liquidity_rank)
   where auto_sync = true;
+
+create index if not exists sync_jobs_started_at_idx
+  on public.sync_jobs(started_at desc);
+
+create index if not exists sync_jobs_job_type_started_at_idx
+  on public.sync_jobs(job_type, started_at desc);
 
 create or replace function public.set_updated_at()
 returns trigger as $$
@@ -77,6 +99,7 @@ for each row execute function public.set_updated_at();
 alter table public.symbols enable row level security;
 alter table public.stock_prices enable row level security;
 alter table public.technical_indicators enable row level security;
+alter table public.sync_jobs enable row level security;
 
 drop policy if exists "Allow public read symbols" on public.symbols;
 create policy "Allow public read symbols"

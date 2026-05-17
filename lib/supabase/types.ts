@@ -126,6 +126,48 @@ export type Database = {
         };
         Relationships: [];
       };
+      sync_jobs: {
+        Row: {
+          id: string;
+          job_type: string;
+          status: string;
+          started_at: string;
+          finished_at: string | null;
+          duration_ms: number | null;
+          selected_count: number;
+          success_count: number;
+          failed_count: number;
+          error_message: string | null;
+          metadata: Json | null;
+        };
+        Insert: {
+          id?: string;
+          job_type: string;
+          status: string;
+          started_at?: string;
+          finished_at?: string | null;
+          duration_ms?: number | null;
+          selected_count?: number;
+          success_count?: number;
+          failed_count?: number;
+          error_message?: string | null;
+          metadata?: Json | null;
+        };
+        Update: {
+          id?: string;
+          job_type?: string;
+          status?: string;
+          started_at?: string;
+          finished_at?: string | null;
+          duration_ms?: number | null;
+          selected_count?: number;
+          success_count?: number;
+          failed_count?: number;
+          error_message?: string | null;
+          metadata?: Json | null;
+        };
+        Relationships: [];
+      };
     };
     Views: {};
     Functions: {};

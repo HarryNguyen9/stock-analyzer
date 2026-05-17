@@ -3,7 +3,10 @@
 import { useMemo, useState } from "react";
 import { StockCard } from "@/components/StockCard";
 import { vi } from "@/lib/i18n/vi";
+import { sortSignalsByPriority } from "@/lib/signals";
 import type { StockSummary } from "@/types/stock";
+
+const FEATURED_LIMIT = 24;
 
 export function StockSearchList({
   stocks,
@@ -14,9 +17,10 @@ export function StockSearchList({
 }) {
   const [query, setQuery] = useState("");
   const normalizedQuery = normalizeSearch(query);
-  const filteredStocks = useMemo(() => {
+  const isSearching = normalizedQuery.length > 0;
+  const displayStocks = useMemo(() => {
     if (!normalizedQuery) {
-      return stocks;
+      return getFeaturedStocks(stocks);
     }
 
     return stocks.filter((stock) =>
@@ -54,10 +58,12 @@ export function StockSearchList({
       </div>
 
       <div className="mb-4 mt-5 flex items-center justify-between gap-4">
-        <h2 className="text-lg font-semibold text-slate-950">{vi.home.watchlist}</h2>
+        <h2 className="text-lg font-semibold text-slate-950">
+          {isSearching ? vi.home.searchResultTitle : vi.home.featuredSymbols}
+        </h2>
         <div className="text-right">
           <p className="text-sm font-medium text-slate-600">
-            {vi.home.searchResults(filteredStocks.length)}
+            {vi.home.searchResults(displayStocks.length)}
           </p>
           <p className="text-xs text-slate-500">
             {hasDataError ? vi.home.dataError : vi.home.localData}
@@ -65,9 +71,9 @@ export function StockSearchList({
         </div>
       </div>
 
-      {filteredStocks.length > 0 ? (
+      {displayStocks.length > 0 ? (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {filteredStocks.map((stock) => (
+          {displayStocks.map((stock) => (
             <StockCard key={stock.symbol} stock={stock} />
           ))}
         </div>
@@ -78,6 +84,38 @@ export function StockSearchList({
         </div>
       )}
     </section>
+  );
+}
+
+function getFeaturedStocks(stocks: StockSummary[]): StockSummary[] {
+  return [...stocks]
+    .sort((a, b) => getFeaturedScore(b) - getFeaturedScore(a))
+    .slice(0, FEATURED_LIMIT);
+}
+
+function getFeaturedScore(stock: StockSummary): number {
+  const signals = sortSignalsByPriority(stock.scannerSignals ?? []);
+  const topSignal = signals[0];
+  const hasBreakout = signals.some((signal) => signal.category === "breakout");
+  const volumeSignal = signals.find((signal) => signal.category === "volume");
+  const liquidityBoost =
+    stock.tier === "A"
+      ? 18
+      : stock.tier === "B"
+        ? 8
+        : 0;
+  const rankBoost =
+    typeof stock.liquidityRank === "number"
+      ? Math.max(0, 30 - Math.min(30, stock.liquidityRank / 5))
+      : 0;
+
+  return (
+    stock.score * 1.2 +
+    (topSignal?.priority ?? 0) * 0.7 +
+    (hasBreakout ? 18 : 0) +
+    (volumeSignal ? volumeSignal.priority / 4 + volumeSignal.strength * 2 : 0) +
+    liquidityBoost +
+    rankBoost
   );
 }
 
