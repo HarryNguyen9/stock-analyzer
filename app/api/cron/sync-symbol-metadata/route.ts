@@ -13,6 +13,8 @@ type MetadataSyncResponse =
       inserted: number;
       updated: number;
       unchanged: number;
+      overrideAppliedCount: number;
+      overriddenSymbols: string[];
       durationMs: number;
     }
   | {
@@ -66,6 +68,8 @@ async function handleSyncSymbolMetadata(request: Request): Promise<Response> {
         inserted: result.inserted,
         updated: result.updated,
         unchanged: result.unchanged,
+        overrideAppliedCount: result.overrideAppliedCount,
+        overriddenSymbols: result.overriddenSymbols,
       },
     });
 
@@ -76,6 +80,8 @@ async function handleSyncSymbolMetadata(request: Request): Promise<Response> {
       inserted: result.inserted,
       updated: result.updated,
       unchanged: result.unchanged,
+      overrideAppliedCount: result.overrideAppliedCount,
+      overriddenSymbols: result.overriddenSymbols,
       durationMs,
     } satisfies MetadataSyncResponse);
   } catch (error) {

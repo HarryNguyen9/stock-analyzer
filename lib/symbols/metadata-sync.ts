@@ -1,4 +1,5 @@
 import { FULL_SYMBOLS_METADATA, type SymbolMetadataSourceItem } from "@/data/full-symbols-metadata";
+import { SYMBOL_METADATA_OVERRIDES, type SymbolMetadataOverride } from "@/data/symbol-overrides";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { Database } from "@/lib/supabase/types";
 
@@ -14,6 +15,8 @@ export type SymbolMetadataSyncResult = {
   inserted: number;
   updated: number;
   unchanged: number;
+  overrideAppliedCount: number;
+  overriddenSymbols: string[];
 };
 
 export type SymbolMetadataProvider = {
@@ -32,7 +35,8 @@ export async function syncSymbolMetadata(
   provider: SymbolMetadataProvider = staticMetadataProvider,
 ): Promise<SymbolMetadataSyncResult> {
   const supabase = createSupabaseAdminClient();
-  const sourceItems = dedupeSymbols(await provider.getSymbols());
+  const overrideResult = applySymbolMetadataOverrides(await provider.getSymbols());
+  const sourceItems = dedupeSymbols(overrideResult.items);
   const existingRows = await readExistingSymbols();
   const existingBySymbol = new Map(existingRows.map((row) => [row.symbol, row]));
   const now = new Date().toISOString();
@@ -86,6 +90,45 @@ export async function syncSymbolMetadata(
     inserted,
     updated,
     unchanged,
+    overrideAppliedCount: overrideResult.overriddenSymbols.length,
+    overriddenSymbols: overrideResult.overriddenSymbols,
+  };
+}
+
+function applySymbolMetadataOverrides(items: SymbolMetadataSourceItem[]): {
+  items: SymbolMetadataSourceItem[];
+  overriddenSymbols: string[];
+} {
+  const overriddenSymbols: string[] = [];
+
+  const nextItems = items.map((item) => {
+    const symbol = item.symbol.toUpperCase();
+    const override = SYMBOL_METADATA_OVERRIDES[symbol];
+
+    if (!override) {
+      return item;
+    }
+
+    overriddenSymbols.push(symbol);
+    return applySymbolMetadataOverride({ ...item, symbol }, override);
+  });
+
+  return {
+    items: nextItems,
+    overriddenSymbols: [...new Set(overriddenSymbols)].sort((a, b) => a.localeCompare(b)),
+  };
+}
+
+function applySymbolMetadataOverride(
+  item: SymbolMetadataSourceItem,
+  override: SymbolMetadataOverride,
+): SymbolMetadataSourceItem {
+  return {
+    ...item,
+    ...(override.name !== undefined ? { name: override.name } : {}),
+    ...(override.exchange !== undefined ? { exchange: override.exchange } : {}),
+    ...(override.sector !== undefined ? { sector: override.sector } : {}),
+    ...(override.is_active !== undefined ? { isActive: override.is_active } : {}),
   };
 }
 
