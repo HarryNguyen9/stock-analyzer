@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { formatTechnicalScore } from "@/lib/ai/score-format";
 import { vi } from "@/lib/i18n/vi";
 
 type AiAnalysis = {
@@ -62,7 +61,6 @@ export function AiAnalysisModal({
   const [error, setError] = useState<string | null>(null);
   const copy = vi.stock.ai;
   const modalScore = aiInput?.technicalScore ?? analysis?.technicalScore ?? score;
-  const modalScoreText = formatTechnicalScore(modalScore);
   const modalSentimentLabel = aiInput?.status ?? sentimentLabel;
 
   useEffect(() => {
@@ -173,7 +171,7 @@ export function AiAnalysisModal({
                 </div>
                 <div className="mt-4 flex items-center justify-between rounded-lg bg-white px-3 py-2 dark:bg-slate-950">
                   <span className="text-sm text-slate-500 dark:text-slate-400">{copy.technicalScore}</span>
-                  <span className="text-sm font-semibold text-slate-950 dark:text-white">{modalScoreText}</span>
+                  <span className="text-sm font-semibold text-slate-950 dark:text-white">{modalScore}/100</span>
                 </div>
               </div>
 

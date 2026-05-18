@@ -65,7 +65,7 @@ Chỉ phân tích dựa trên dữ liệu được cung cấp bên dưới.
 Không bịa giá, không bịa tin tức, không dùng thông tin ngoài dữ liệu.
 Không khuyến nghị mua/bán. Không dự đoán chắc chắn.
 Trả lời tiếng Việt, ngắn gọn, dễ đọc trên mobile.
-Điểm kỹ thuật bắt buộc hiển thị chính xác là ${formatTechnicalScore(input.technicalScore)}, không tự thay đổi.
+Nếu nhắc đến điểm kỹ thuật, bắt buộc dùng đúng technicalScore trong dữ liệu, không tự tính lại.
 
 Dữ liệu canonical cho AI modal:
 ${JSON.stringify(buildPromptContext(input), null, 2)}
@@ -87,7 +87,7 @@ function buildPromptContext(input: AiTechnicalInput) {
     metadata: input.metadata,
     latestPrice: input.latestPrice,
     changePercent: input.changePercent,
-    technicalScore: normalizeTechnicalScore(input.technicalScore),
+    technicalScore: input.technicalScore,
     scoreSource: input.scoreSource,
     status: input.status,
     topSignals: input.topSignals,
@@ -108,7 +108,7 @@ function normalizeGeminiResult(value: unknown, input: AiTechnicalInput): AiTechn
     disclaimer: getString(value.disclaimer),
     sentiment: value.sentiment === "positive" || value.sentiment === "risk" ? value.sentiment : "neutral",
     source: "gemini",
-    technicalScore: normalizeTechnicalScore(input.technicalScore),
+    technicalScore: input.technicalScore,
     scoreSource: input.scoreSource,
     diagnostics: {
       aiSummaryScore: null,
