@@ -72,6 +72,8 @@ export const vi = {
     searchResultTitle: "Kết quả tìm kiếm",
     mockOnly: "Dữ liệu mẫu",
     localData: "Dữ liệu local",
+    marketData: "Dữ liệu thị trường",
+    lowLiquidity: "Thanh khoản thấp",
     dataError: "Có mã lỗi dữ liệu",
   },
   stock: {

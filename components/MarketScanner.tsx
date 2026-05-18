@@ -1,12 +1,25 @@
 import Link from "next/link";
 import { formatTechnicalScore } from "@/lib/ai/score-format";
 import { vi } from "@/lib/i18n/vi";
-import { getScannerGroups, getScoreSentiment, type ScannerGroup, type ScannerItem } from "@/lib/scanner/groups";
+import {
+  getScannerDiagnostics,
+  getScannerGroups,
+  getScannerQualityThresholds,
+  getScoreSentiment,
+  type ScannerGroup,
+  type ScannerItem,
+} from "@/lib/scanner/groups";
 import type { SignalSentiment } from "@/lib/technical-analysis/types";
 import type { StockSummary } from "@/types/stock";
 
 export function MarketScanner({ stocks, snapshotGroups }: { stocks: StockSummary[]; snapshotGroups?: ScannerGroup[] | null }) {
-  const groups = (snapshotGroups ?? getScannerGroups(stocks)).filter((group) => group.items.length > 0);
+  const sourceGroups = snapshotGroups ?? getScannerGroups(stocks);
+  const diagnostics = snapshotGroups ? null : getScannerDiagnostics(sourceGroups);
+  const groups = sourceGroups.filter((group) => group.items.length > 0);
+
+  if (diagnostics) {
+    console.info("market scanner quality diagnostics", diagnostics);
+  }
 
   if (groups.length === 0) {
     return null;
@@ -67,6 +80,9 @@ function ScannerCard({ item }: { item: ScannerItem }) {
             {item.stock.dayChangePercent.toFixed(2)}%
           </p>
           <p className="mt-1 text-xs font-medium text-slate-500 dark:text-slate-400">{formatTechnicalScore(item.stock.score)}</p>
+          {isLowLiquidity(item.stock) ? (
+            <p className="mt-1 text-[11px] font-medium text-amber-600 dark:text-amber-400">{vi.home.lowLiquidity}</p>
+          ) : null}
         </div>
       </div>
 
@@ -80,6 +96,11 @@ function ScannerCard({ item }: { item: ScannerItem }) {
       </div>
     </Link>
   );
+}
+
+function isLowLiquidity(stock: ScannerItem["stock"]): boolean {
+  const quality = getScannerQualityThresholds();
+  return (stock.avgVolume20 ?? 0) < quality.minAvgVolume20 && (stock.avgTradedValue20 ?? 0) < quality.minTradedValue20;
 }
 
 function getSentimentClass(sentiment: SignalSentiment): string {

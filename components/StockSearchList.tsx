@@ -66,7 +66,7 @@ export function StockSearchList({
             {vi.home.searchResults(displayStocks.length)}
           </p>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            {hasDataError ? vi.home.dataError : vi.home.localData}
+            {hasDataError ? vi.home.dataError : vi.home.marketData}
           </p>
         </div>
       </div>
@@ -98,6 +98,9 @@ function getFeaturedScore(stock: StockSummary): number {
   const topSignal = signals[0];
   const hasBreakout = signals.some((signal) => signal.category === "breakout");
   const volumeSignal = signals.find((signal) => signal.category === "volume");
+  const liquidityScore =
+    Math.log10(Math.max(1, stock.avgTradedValue20 ?? 0)) * 8 +
+    Math.log10(Math.max(1, stock.avgVolume20 ?? 0)) * 3;
   const liquidityBoost =
     stock.tier === "A"
       ? 18
@@ -114,6 +117,7 @@ function getFeaturedScore(stock: StockSummary): number {
     (topSignal?.priority ?? 0) * 0.7 +
     (hasBreakout ? 18 : 0) +
     (volumeSignal ? volumeSignal.priority / 4 + volumeSignal.strength * 2 : 0) +
+    liquidityScore +
     liquidityBoost +
     rankBoost
   );

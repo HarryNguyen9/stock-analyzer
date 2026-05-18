@@ -1,5 +1,5 @@
 import { getStockSummaries } from "@/lib/data-source/prices";
-import { getScannerGroups, type ScannerGroup } from "@/lib/scanner/groups";
+import { getScannerDiagnostics, getScannerGroups, type ScannerGroup } from "@/lib/scanner/groups";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { Json } from "@/lib/supabase/types";
 import type { Signal } from "@/lib/technical-analysis/types";
@@ -16,10 +16,12 @@ export async function refreshHomeScannerSnapshot(): Promise<boolean> {
   try {
     const stocks = await getStockSummaries();
     const groups = getScannerGroups(stocks);
+    const diagnostics = getScannerDiagnostics(groups);
     const supabase = createSupabaseAdminClient();
     console.info("home_scanner snapshot metadata source:", {
       metadataSource: "supabase-symbols-via-stock-summaries",
       symbolCount: stocks.length,
+      scannerDiagnostics: diagnostics,
     });
     const { error } = await supabase.from("market_snapshots").upsert(
       {
@@ -228,6 +230,7 @@ function parseScannerItem(value: unknown): ScannerGroup["items"][number] | null 
     signal: parseSignal(value.signal),
     sortSignalPriority: toNumber(value.sortSignalPriority),
     sortVolumeSpike: toNumber(value.sortVolumeSpike),
+    sortLiquidity: toNumber(value.sortLiquidity),
   };
 }
 
@@ -260,6 +263,8 @@ function parseStockSummary(value: Record<string, unknown>): StockSummary | null 
     dayChangePercent: value.dayChangePercent,
     latestDate: value.latestDate,
     latestVolume: value.latestVolume,
+    avgVolume20: typeof value.avgVolume20 === "number" ? value.avgVolume20 : undefined,
+    avgTradedValue20: typeof value.avgTradedValue20 === "number" ? value.avgTradedValue20 : undefined,
     score: value.score,
     previousScore: typeof value.previousScore === "number" ? value.previousScore : undefined,
     status: value.status as StockSummary["status"],

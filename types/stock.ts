@@ -77,6 +77,8 @@ export type StockSummary = {
   dayChangePercent: number;
   latestDate: string;
   latestVolume: number;
+  avgVolume20?: number;
+  avgTradedValue20?: number;
   score: number;
   previousScore?: number;
   status: "Tích cực" | "Trung tính" | "Tiêu cực";

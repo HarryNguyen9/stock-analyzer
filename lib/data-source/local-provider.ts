@@ -62,6 +62,7 @@ export function toStockSummary(
   const data = result.data;
   const latest = data[data.length - 1];
   const previous = data[data.length - 2];
+  const liquidity = getLiquiditySnapshot(data);
   const technical = createTechnicalSnapshot(data, null);
 
   return {
@@ -70,12 +71,30 @@ export function toStockSummary(
     dayChangePercent: round(((latest.close - previous.close) / previous.close) * 100),
     latestDate: latest.date,
     latestVolume: latest.volume,
+    avgVolume20: liquidity.avgVolume20,
+    avgTradedValue20: liquidity.avgTradedValue20,
     score: technical.score,
     status: technical.status,
     signal: technical.signals[0]?.labelVi ?? vi.stock.notAvailable,
     topSignals: technical.signals.slice(0, 2),
     scannerSignals: technical.signals,
     dataStatus: "ready",
+  };
+}
+
+function getLiquiditySnapshot(data: OHLCV[]): { avgVolume20: number; avgTradedValue20: number } {
+  const candles = data.slice(-20);
+
+  if (candles.length === 0) {
+    return { avgVolume20: 0, avgTradedValue20: 0 };
+  }
+
+  const totalVolume = candles.reduce((total, candle) => total + candle.volume, 0);
+  const totalTradedValue = candles.reduce((total, candle) => total + candle.close * 1000 * candle.volume, 0);
+
+  return {
+    avgVolume20: Math.round(totalVolume / candles.length),
+    avgTradedValue20: Math.round(totalTradedValue / candles.length),
   };
 }
 
