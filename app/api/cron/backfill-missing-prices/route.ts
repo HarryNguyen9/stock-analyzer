@@ -16,6 +16,8 @@ type BackfillResponse =
       selected: number;
       synced: number;
       failed: number;
+      failedSymbols: BackfillFailedSymbol[];
+      sampleSyncedSymbols: string[];
       remainingMissing: number;
       stoppedEarly: boolean;
       stopReason: "time_guard" | null;
@@ -30,6 +32,7 @@ type BackfillResponse =
 
 type SyncJobInsert = Database["public"]["Tables"]["sync_jobs"]["Insert"];
 type SyncJobUpdate = Database["public"]["Tables"]["sync_jobs"]["Update"];
+type BackfillFailedSymbol = { symbol: string; error: string };
 
 const DEFAULT_LIMIT = 5;
 const MAX_LIMIT = 10;
@@ -75,6 +78,8 @@ async function handleBackfillMissingPrices(request: Request): Promise<Response> 
     let synced = 0;
     let failed = 0;
     let stoppedEarly = false;
+    const failedSymbols: BackfillFailedSymbol[] = [];
+    const sampleSyncedSymbols: string[] = [];
 
     for (const item of missingSymbols) {
       if (Date.now() - startedAt >= SOFT_TIME_LIMIT_MS) {
@@ -85,13 +90,22 @@ async function handleBackfillMissingPrices(request: Request): Promise<Response> 
       try {
         await syncWithRetry(item.symbol);
         synced += 1;
+        if (sampleSyncedSymbols.length < 10) {
+          sampleSyncedSymbols.push(item.symbol);
+        }
         processedSymbols.push({ symbol: item.symbol, status: "synced" });
       } catch (error) {
+        const message = getShortErrorMessage(error);
         failed += 1;
+        failedSymbols.push({
+          symbol: item.symbol,
+          error: message,
+        });
+        await markBackfillFailed(item.symbol, message);
         processedSymbols.push({
           symbol: item.symbol,
           status: "failed",
-          message: error instanceof Error ? error.message : String(error),
+          message,
         });
       }
     }
@@ -110,6 +124,8 @@ async function handleBackfillMissingPrices(request: Request): Promise<Response> 
       metadata: {
         remainingMissing,
         processedSymbols,
+        failedSymbols,
+        sampleSyncedSymbols,
         stoppedEarly,
         stopReason: stoppedEarly ? "time_guard" : null,
       },
@@ -124,6 +140,8 @@ async function handleBackfillMissingPrices(request: Request): Promise<Response> 
       selected: missingSymbols.length,
       synced,
       failed,
+      failedSymbols,
+      sampleSyncedSymbols,
       remainingMissing,
       stoppedEarly,
       stopReason: stoppedEarly ? "time_guard" : null,
@@ -161,6 +179,30 @@ async function syncWithRetry(symbol: string) {
   }
 
   throw lastError instanceof Error ? lastError : new Error(String(lastError));
+}
+
+async function markBackfillFailed(symbol: string, errorMessage: string) {
+  try {
+    const supabase = createSupabaseAdminClient();
+    const { error } = await supabase
+      .from("symbols")
+      .update({
+        sync_status: "backfill_failed",
+        last_error: errorMessage,
+      })
+      .eq("symbol", symbol);
+
+    if (error) {
+      throw error;
+    }
+  } catch (error) {
+    console.warn(`${symbol}: khong cap nhat duoc backfill_failed (${getShortErrorMessage(error)})`);
+  }
+}
+
+function getShortErrorMessage(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error);
+  return message.replace(/\s+/g, " ").trim().slice(0, 220) || "Unknown backfill error";
 }
 
 function getNumberParam(request: Request, key: string, fallback: number, min: number, max: number): number {
