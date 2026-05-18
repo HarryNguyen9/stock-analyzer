@@ -15,6 +15,12 @@ type MetadataSyncResponse =
       unchanged: number;
       overrideAppliedCount: number;
       overriddenSymbols: string[];
+      source: string;
+      providerName: string;
+      fetchedCount: number;
+      fallbackUsed: boolean;
+      staticFallbackUsed: boolean;
+      sampleChangedSymbols: string[];
       durationMs: number;
     }
   | {
@@ -70,7 +76,22 @@ async function handleSyncSymbolMetadata(request: Request): Promise<Response> {
         unchanged: result.unchanged,
         overrideAppliedCount: result.overrideAppliedCount,
         overriddenSymbols: result.overriddenSymbols,
+        source: result.source,
+        providerName: result.providerName,
+        fetchedCount: result.fetchedCount,
+        fallbackUsed: result.fallbackUsed,
+        staticFallbackUsed: result.staticFallbackUsed,
+        sampleChangedSymbols: result.sampleChangedSymbols,
       },
+    });
+
+    console.info("sync-symbol-metadata completed", {
+      source: result.source,
+      providerName: result.providerName,
+      fetchedCount: result.fetchedCount,
+      fallbackUsed: result.fallbackUsed,
+      staticFallbackUsed: result.staticFallbackUsed,
+      sampleChangedSymbols: result.sampleChangedSymbols,
     });
 
     return Response.json({
@@ -82,6 +103,12 @@ async function handleSyncSymbolMetadata(request: Request): Promise<Response> {
       unchanged: result.unchanged,
       overrideAppliedCount: result.overrideAppliedCount,
       overriddenSymbols: result.overriddenSymbols,
+      source: result.source,
+      providerName: result.providerName,
+      fetchedCount: result.fetchedCount,
+      fallbackUsed: result.fallbackUsed,
+      staticFallbackUsed: result.staticFallbackUsed,
+      sampleChangedSymbols: result.sampleChangedSymbols,
       durationMs,
     } satisfies MetadataSyncResponse);
   } catch (error) {

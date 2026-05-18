@@ -7,11 +7,12 @@ import { CandlestickChart } from "@/components/CandlestickChart";
 import { ScoreGauge } from "@/components/ScoreGauge";
 import { SymbolRefreshPanel } from "@/components/SymbolRefreshPanel";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { STOCKS } from "@/data/symbols";
 import { getSymbolFreshness } from "@/lib/data-source/symbol-freshness";
 import { generateTechnicalAnalysis } from "@/lib/technical-analysis";
 import { getHistoricalPricesResult } from "@/lib/data-source/prices";
 import { getSymbolMetadata, readLatestTechnicalScore } from "@/lib/data-source/supabase-provider";
+import { isSupabaseClientConfigured } from "@/lib/supabase/client";
+import { STOCKS } from "@/data/symbols";
 import { round } from "@/lib/indicators";
 import { vi } from "@/lib/i18n/vi";
 import { categoryLabelsVi } from "@/lib/signals";
@@ -355,6 +356,11 @@ async function getStockMetadataForPage(symbol: string): Promise<StockMetadata | 
 
   if (supabaseStock) {
     return supabaseStock;
+  }
+
+  if (isSupabaseClientConfigured()) {
+    console.warn(`${symbol}: Supabase symbols table is configured but metadata was not found; static metadata fallback skipped.`);
+    return null;
   }
 
   return STOCKS.find((item) => item.symbol === symbol) ?? null;

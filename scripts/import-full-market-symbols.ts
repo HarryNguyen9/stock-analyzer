@@ -1,15 +1,16 @@
 import { pathToFileURL } from "node:url";
 import { loadEnvConfig } from "@next/env";
-import { FULL_MARKET_SYMBOLS } from "../data/full-market-symbols";
 import { createSupabaseAdminClient } from "../lib/supabase/admin";
+import { loadLatestSymbolMetadata } from "../lib/symbols/metadata-provider";
 import { getFinalSymbolMetadata } from "../lib/symbols/metadata-normalize";
+import type { SymbolMetadataSourceItem } from "../data/full-symbols-metadata";
 import type { Database } from "../lib/supabase/types";
 
 type SymbolInsert = Database["public"]["Tables"]["symbols"]["Insert"];
 type SymbolUpdate = Database["public"]["Tables"]["symbols"]["Update"];
 type ExistingSymbolRow = Pick<
   Database["public"]["Tables"]["symbols"]["Row"],
-  "symbol" | "name" | "exchange" | "sector" | "is_active" | "sync_status"
+  "symbol" | "name" | "exchange" | "sector" | "is_active" | "sync_status" | "metadata_updated_at"
 >;
 
 const INSERT_BATCH_SIZE = 500;
@@ -21,11 +22,17 @@ export async function importFullMarketSymbols(): Promise<{
   unchanged: number;
   overrideAppliedCount: number;
   overriddenSymbols: string[];
+  source: string;
+  providerName: string;
+  fetchedCount: number;
+  fallbackUsed: boolean;
+  staticFallbackUsed: boolean;
 }> {
   loadEnvConfig(process.cwd());
 
   const supabase = createSupabaseAdminClient();
-  const metadata = getFinalSymbolMetadata(FULL_MARKET_SYMBOLS);
+  const loaded = await loadLatestSymbolMetadata();
+  const metadata = getFinalSymbolMetadata(loaded.items);
   const existingRows = await readExistingSymbols();
   const existingBySymbol = new Map(existingRows.map((row) => [row.symbol, row]));
   const now = new Date().toISOString();
@@ -53,7 +60,7 @@ export async function importFullMarketSymbols(): Promise<{
       continue;
     }
 
-    const update = toMetadataUpdate(existing, item, isActive, now);
+    const update = toMetadataUpdate(existing, item, isActive, now, loaded.staticFallbackUsed);
 
     if (!update) {
       unchanged += 1;
@@ -87,6 +94,11 @@ export async function importFullMarketSymbols(): Promise<{
     unchanged,
     overrideAppliedCount: metadata.overriddenSymbols.length,
     overriddenSymbols: metadata.overriddenSymbols,
+    source: loaded.source,
+    providerName: loaded.providerName,
+    fetchedCount: loaded.items.length,
+    fallbackUsed: loaded.fallbackUsed,
+    staticFallbackUsed: loaded.staticFallbackUsed,
   };
 }
 
@@ -94,7 +106,7 @@ async function readExistingSymbols(): Promise<ExistingSymbolRow[]> {
   const supabase = createSupabaseAdminClient();
   const { data, error } = await supabase
     .from("symbols")
-    .select("symbol,name,exchange,sector,is_active,sync_status")
+    .select("symbol,name,exchange,sector,is_active,sync_status,metadata_updated_at")
     .order("symbol", { ascending: true })
     .limit(3000);
 
@@ -110,10 +122,15 @@ async function readExistingSymbols(): Promise<ExistingSymbolRow[]> {
 
 function toMetadataUpdate(
   existing: ExistingSymbolRow,
-  item: (typeof FULL_MARKET_SYMBOLS)[number],
+  item: SymbolMetadataSourceItem,
   isActive: boolean,
   metadataUpdatedAt: string,
+  staticFallbackUsed: boolean,
 ): SymbolUpdate | null {
+  if (staticFallbackUsed && existing.metadata_updated_at) {
+    return null;
+  }
+
   const update: SymbolUpdate = {};
 
   if (existing.name !== item.name) update.name = item.name;
@@ -143,6 +160,11 @@ if (isDirectRun(import.meta.url)) {
       console.log(`unchanged: ${result.unchanged}`);
       console.log(`overrideAppliedCount: ${result.overrideAppliedCount}`);
       console.log(`overriddenSymbols: ${result.overriddenSymbols.join(", ") || "(none)"}`);
+      console.log(`source: ${result.source}`);
+      console.log(`providerName: ${result.providerName}`);
+      console.log(`fetchedCount: ${result.fetchedCount}`);
+      console.log(`fallbackUsed: ${result.fallbackUsed}`);
+      console.log(`staticFallbackUsed: ${result.staticFallbackUsed}`);
     })
     .catch((error: unknown) => {
       console.error(error);

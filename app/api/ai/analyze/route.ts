@@ -21,6 +21,7 @@ type SymbolRow = {
   sector: string;
   tier: "A" | "B" | "C";
   liquidity_rank: number | null;
+  is_active?: boolean;
 };
 
 type PriceRow = {
@@ -111,8 +112,9 @@ async function createAiInput(symbol: string): Promise<AiTechnicalInput | null> {
   const supabase = createSupabaseAdminClient();
   const { data: symbolData, error: symbolError } = await supabase
     .from("symbols")
-    .select("symbol,name,exchange,sector,tier,liquidity_rank")
+    .select("symbol,name,exchange,sector,tier,liquidity_rank,is_active")
     .eq("symbol", symbol)
+    .eq("is_active", true)
     .maybeSingle();
 
   if (symbolError || !symbolData) {

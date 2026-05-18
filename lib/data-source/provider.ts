@@ -1,5 +1,6 @@
 import { localDataProvider } from "@/lib/data-source/local-provider";
 import { readLatestSupabaseUpdatedAt, supabaseDataProvider } from "@/lib/data-source/supabase-provider";
+import { isSupabaseClientConfigured } from "@/lib/supabase/client";
 import type { OHLCV, StockSummary } from "@/types/stock";
 
 export type AppDataSource = "supabase" | "local-json" | "generated-fallback";
@@ -44,6 +45,11 @@ export async function getStockSummariesFromProvider(): Promise<StockSummary[]> {
 
   if (supabaseSummaries && supabaseSummaries.length > 0) {
     return supabaseSummaries;
+  }
+
+  if (isSupabaseClientConfigured()) {
+    console.warn("Supabase is configured, so static local symbol metadata will not be used for stock summaries.");
+    return [];
   }
 
   return (await localDataProvider.getSummaries?.()) ?? [];
