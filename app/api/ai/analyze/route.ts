@@ -245,15 +245,17 @@ function withCacheDiagnostics(
   payload: { analysis: AiTechnicalAnalysis; input: AiTechnicalInput },
   cacheHit: boolean,
 ): { analysis: AiTechnicalAnalysis; input: AiTechnicalInput } {
+  const diagnostics = payload.analysis.diagnostics;
+
   return {
     ...payload,
     analysis: {
       ...payload.analysis,
       diagnostics: {
-        aiSummaryScore: payload.analysis.diagnostics.aiSummaryScore ?? null,
-        modelUsed: payload.analysis.diagnostics.modelUsed ?? null,
-        fallbackModelUsed: payload.analysis.diagnostics.fallbackModelUsed ?? false,
-        providerErrorStatus: payload.analysis.diagnostics.providerErrorStatus ?? null,
+        aiSummaryScore: diagnostics?.aiSummaryScore ?? null,
+        modelUsed: diagnostics?.modelUsed ?? null,
+        fallbackModelUsed: diagnostics?.fallbackModelUsed ?? false,
+        providerErrorStatus: diagnostics?.providerErrorStatus ?? null,
         cacheHit,
         scoreSource: payload.input.scoreSource,
       },

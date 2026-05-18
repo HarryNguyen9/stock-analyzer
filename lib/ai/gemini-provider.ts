@@ -164,10 +164,13 @@ function withProviderDiagnostics(
   fallbackModelUsed: boolean,
   providerErrorStatus: number | null,
 ): AiTechnicalAnalysis {
+  const diagnostics = analysis.diagnostics;
+
   return {
     ...analysis,
     diagnostics: {
-      ...analysis.diagnostics,
+      ...diagnostics,
+      aiSummaryScore: diagnostics?.aiSummaryScore ?? null,
       modelUsed,
       fallbackModelUsed,
       providerErrorStatus,
