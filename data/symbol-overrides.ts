@@ -4,8 +4,6 @@ export type SymbolMetadataOverride = Partial<Pick<SymbolMetadataSourceItem, "exc
   is_active?: boolean;
 };
 
-export const SYMBOL_METADATA_OVERRIDES: Record<string, SymbolMetadataOverride> = {
-  BSR: {
-    exchange: "HOSE",
-  },
-};
+// Emergency correction layer only. Keep empty by default so provider/imported
+// metadata remains the primary source of truth.
+export const SYMBOL_METADATA_OVERRIDES: Record<string, SymbolMetadataOverride> = {};

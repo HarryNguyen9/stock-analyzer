@@ -7,11 +7,12 @@ import { CandlestickChart } from "@/components/CandlestickChart";
 import { ScoreGauge } from "@/components/ScoreGauge";
 import { SymbolRefreshPanel } from "@/components/SymbolRefreshPanel";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { STOCKS } from "@/data/symbols";
 import { getSymbolFreshness } from "@/lib/data-source/symbol-freshness";
-import { generateTechnicalAnalysis } from "@/lib/technical-analysis";
+import { createTechnicalSnapshot } from "@/lib/data-source/technical-snapshot";
 import { getHistoricalPricesResult } from "@/lib/data-source/prices";
 import { getSymbolMetadata, readLatestTechnicalScore } from "@/lib/data-source/supabase-provider";
+import { isSupabaseClientConfigured } from "@/lib/supabase/client";
+import { STOCKS } from "@/data/symbols";
 import { round } from "@/lib/indicators";
 import { vi } from "@/lib/i18n/vi";
 import { categoryLabelsVi } from "@/lib/signals";
@@ -56,10 +57,12 @@ export default async function StockDetailPage({ params }: StockPageProps) {
   }
 
   const candles = priceResult.data;
-  const analysis = generateTechnicalAnalysis(candles);
   const supabaseScore = await readLatestTechnicalScore(symbol);
-  const displayScore = supabaseScore ?? analysis.score;
-  const signalGroups = groupTechnicalSignals(analysis.signals);
+  const technicalSnapshot = createTechnicalSnapshot(candles, supabaseScore);
+  const analysis = technicalSnapshot.analysis;
+  const displayScore = technicalSnapshot.score;
+  const displayStatus = technicalSnapshot.status;
+  const signalGroups = groupTechnicalSignals(technicalSnapshot.signals);
   const latest = candles[candles.length - 1];
   const previous = candles[candles.length - 2];
   const change = latest.close - previous.close;
@@ -106,7 +109,7 @@ export default async function StockDetailPage({ params }: StockPageProps) {
               <div>
                 <p className="text-sm text-slate-500 dark:text-slate-400">{vi.stock.technicalScore}</p>
                 <p className="mt-1 text-2xl font-semibold text-slate-950 dark:text-white">
-                  {scoreLabel(displayScore)}
+                  {displayStatus}
                 </p>
               </div>
             </div>
@@ -119,7 +122,7 @@ export default async function StockDetailPage({ params }: StockPageProps) {
               latestPrice={latest.close.toFixed(2)}
               changePercent={`${isUp ? "+" : ""}${changePercent.toFixed(2)}%`}
               score={displayScore}
-              sentimentLabel={scoreLabel(displayScore)}
+              sentimentLabel={displayStatus}
             />
           </div>
 
@@ -357,6 +360,11 @@ async function getStockMetadataForPage(symbol: string): Promise<StockMetadata | 
     return supabaseStock;
   }
 
+  if (isSupabaseClientConfigured()) {
+    console.warn(`${symbol}: Supabase symbols table is configured but metadata was not found; static metadata fallback skipped.`);
+    return null;
+  }
+
   return STOCKS.find((item) => item.symbol === symbol) ?? null;
 }
 
@@ -414,10 +422,4 @@ function formatVolume(value: number): string {
 
 function formatDate(value: string): string {
   return value.split("-").reverse().join("/");
-}
-
-function scoreLabel(score: number): string {
-  if (score >= 70) return vi.score.constructive;
-  if (score >= 45) return vi.score.neutral;
-  return vi.score.weak;
 }

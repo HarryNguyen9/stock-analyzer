@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { formatTechnicalScore } from "@/lib/ai/score-format";
 import { vi } from "@/lib/i18n/vi";
 
 type AiAnalysis = {
@@ -11,6 +12,17 @@ type AiAnalysis = {
   disclaimer: string;
   sentiment: "positive" | "neutral" | "risk";
   source: "gemini" | "fallback";
+  technicalScore: number;
+  scoreSource: "supabase" | "runtime";
+  diagnostics?: {
+    aiSummaryScore: number | null;
+  };
+};
+
+type AiInput = {
+  technicalScore: number;
+  scoreSource: "supabase" | "runtime";
+  status: string;
 };
 
 type AiAnalysisModalProps = {
@@ -28,6 +40,7 @@ type ApiResponse =
       cached: boolean;
       cooldown?: boolean;
       analysis: AiAnalysis;
+      input: AiInput;
     }
   | {
       ok: false;
@@ -44,9 +57,18 @@ export function AiAnalysisModal({
 }: AiAnalysisModalProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [analysis, setAnalysis] = useState<AiAnalysis | null>(null);
+  const [aiInput, setAiInput] = useState<AiInput | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const copy = vi.stock.ai;
+  const modalScore = aiInput?.technicalScore ?? analysis?.technicalScore ?? score;
+  const modalScoreText = formatTechnicalScore(modalScore);
+  const modalSentimentLabel = aiInput?.status ?? sentimentLabel;
+
+  useEffect(() => {
+    setAnalysis(null);
+    setAiInput(null);
+  }, [symbol, score]);
 
   async function openModal() {
     setIsOpen(true);
@@ -75,6 +97,13 @@ export function AiAnalysisModal({
       }
 
       setAnalysis(payload.analysis);
+      setAiInput(payload.input);
+      console.info("AI modal score diagnostics", {
+        symbol,
+        modalScore: payload.input.technicalScore,
+        aiSummaryScore: payload.analysis.diagnostics?.aiSummaryScore ?? null,
+        scoreSource: payload.input.scoreSource,
+      });
     } catch (fetchError) {
       setError(fetchError instanceof Error ? fetchError.message : copy.fallbackError);
     } finally {
@@ -130,7 +159,7 @@ export function AiAnalysisModal({
                     <div className="flex items-center gap-2">
                       <p className="text-2xl font-semibold text-slate-950 dark:text-white">{symbol}</p>
                       <span className="rounded-full bg-white px-2 py-0.5 text-xs font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-                        {sentimentLabel}
+                        {modalSentimentLabel}
                       </span>
                     </div>
                     <p className="mt-1 truncate text-sm text-slate-500 dark:text-slate-400">{companyName}</p>
@@ -144,7 +173,7 @@ export function AiAnalysisModal({
                 </div>
                 <div className="mt-4 flex items-center justify-between rounded-lg bg-white px-3 py-2 dark:bg-slate-950">
                   <span className="text-sm text-slate-500 dark:text-slate-400">{copy.technicalScore}</span>
-                  <span className="text-sm font-semibold text-slate-950 dark:text-white">{score}/100</span>
+                  <span className="text-sm font-semibold text-slate-950 dark:text-white">{modalScoreText}</span>
                 </div>
               </div>
 
