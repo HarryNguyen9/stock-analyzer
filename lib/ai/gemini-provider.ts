@@ -53,7 +53,7 @@ export const geminiProvider: AiProvider = {
       throw new Error("Gemini không trả về nội dung phân tích.");
     }
 
-    return normalizeGeminiResult(JSON.parse(text));
+    return normalizeGeminiResult(JSON.parse(text), input);
   },
 };
 
@@ -64,9 +64,10 @@ Chỉ phân tích dựa trên dữ liệu được cung cấp bên dưới.
 Không bịa giá, không bịa tin tức, không dùng thông tin ngoài dữ liệu.
 Không khuyến nghị mua/bán. Không dự đoán chắc chắn.
 Trả lời tiếng Việt, ngắn gọn, dễ đọc trên mobile.
+Nếu nhắc đến điểm kỹ thuật, bắt buộc dùng đúng technicalScore trong dữ liệu, không tự tính lại.
 
-Dữ liệu:
-${JSON.stringify(input, null, 2)}
+Dữ liệu canonical cho AI modal:
+${JSON.stringify(buildPromptContext(input), null, 2)}
 
 Trả về JSON đúng schema:
 {
@@ -79,7 +80,21 @@ Trả về JSON đúng schema:
 }`;
 }
 
-function normalizeGeminiResult(value: unknown): AiTechnicalAnalysis {
+function buildPromptContext(input: AiTechnicalInput) {
+  return {
+    symbol: input.symbol,
+    metadata: input.metadata,
+    latestPrice: input.latestPrice,
+    changePercent: input.changePercent,
+    technicalScore: input.technicalScore,
+    scoreSource: input.scoreSource,
+    status: input.status,
+    topSignals: input.topSignals,
+    dataUpdatedAt: input.dataUpdatedAt,
+  };
+}
+
+function normalizeGeminiResult(value: unknown, input: AiTechnicalInput): AiTechnicalAnalysis {
   if (!isRecord(value)) {
     throw new Error("Gemini response không đúng JSON object.");
   }
@@ -92,6 +107,11 @@ function normalizeGeminiResult(value: unknown): AiTechnicalAnalysis {
     disclaimer: getString(value.disclaimer),
     sentiment: value.sentiment === "positive" || value.sentiment === "risk" ? value.sentiment : "neutral",
     source: "gemini",
+    technicalScore: input.technicalScore,
+    scoreSource: input.scoreSource,
+    diagnostics: {
+      aiSummaryScore: null,
+    },
   };
 }
 

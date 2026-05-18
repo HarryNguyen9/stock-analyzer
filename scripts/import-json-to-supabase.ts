@@ -50,22 +50,29 @@ export async function upsertPriceSetsToSupabase(
   const shouldUpsertSymbols = options.upsertSymbols ?? true;
 
   if (shouldUpsertSymbols) {
-    const symbolRows: SymbolInsert[] = STOCKS.map((stock) => ({
+    const { data: existingSymbols, error: existingSymbolsError } = await supabase.from("symbols").select("symbol");
+
+    if (existingSymbolsError) {
+      throw existingSymbolsError;
+    }
+
+    const existing = new Set((existingSymbols ?? []).map((row) => row.symbol));
+    const symbolRows: SymbolInsert[] = STOCKS.filter((stock) => !existing.has(stock.symbol)).map((stock) => ({
       symbol: stock.symbol,
       name: stock.name,
       exchange: stock.exchange,
       sector: stock.sector,
     }));
 
-    const { error: symbolsError } = await supabase.from("symbols").upsert(symbolRows, {
-      onConflict: "symbol",
-    });
+    if (symbolRows.length > 0) {
+      const { error: symbolsError } = await supabase.from("symbols").insert(symbolRows);
 
-    if (symbolsError) {
-      throw symbolsError;
+      if (symbolsError) {
+        throw symbolsError;
+      }
     }
 
-    console.log(`Upsert symbols: ${symbolRows.length}`);
+    console.log(`Insert missing symbols only: ${symbolRows.length}`);
   }
   let importedSymbols = 0;
 

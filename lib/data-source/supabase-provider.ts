@@ -13,6 +13,7 @@ type SymbolRow = {
   sector: string;
   tier: "A" | "B" | "C";
   liquidity_rank: number | null;
+  is_active?: boolean;
 };
 
 type PriceRow = {
@@ -71,7 +72,8 @@ export const supabaseDataProvider: AppDataProvider = {
 
     const { data: symbols, error } = await supabase
       .from("symbols")
-      .select("symbol,name,exchange,sector,tier,liquidity_rank")
+      .select("symbol,name,exchange,sector,tier,liquidity_rank,is_active")
+      .eq("is_active", true)
       .order("symbol", { ascending: true })
       .limit(2000);
 
@@ -273,8 +275,9 @@ export async function getSymbolMetadata(symbol: string): Promise<StockMetadata |
 
   const { data, error } = await supabase
     .from("symbols")
-    .select("symbol,name,exchange,sector,tier,liquidity_rank")
+    .select("symbol,name,exchange,sector,tier,liquidity_rank,is_active")
     .eq("symbol", symbol.toUpperCase())
+    .eq("is_active", true)
     .maybeSingle();
 
   if (error || !data) {

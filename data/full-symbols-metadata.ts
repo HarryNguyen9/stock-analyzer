@@ -63,7 +63,7 @@ export const FULL_SYMBOLS_METADATA: SymbolMetadataSourceItem[] = [
   { symbol: "POW", name: "PV Power", exchange: "HOSE", sector: "Điện" },
   { symbol: "PVD", name: "PV Drilling", exchange: "HOSE", sector: "Dịch vụ năng lượng" },
   { symbol: "PVS", name: "Dịch vụ Kỹ thuật Dầu khí", exchange: "HNX", sector: "Dịch vụ năng lượng" },
-  { symbol: "BSR", name: "Lọc hóa dầu Bình Sơn", exchange: "UPCOM", sector: "Năng lượng" },
+  { symbol: "BSR", name: "Lọc hóa dầu Bình Sơn", exchange: "HOSE", sector: "Năng lượng" },
   { symbol: "OIL", name: "PV Oil", exchange: "UPCOM", sector: "Năng lượng" },
   { symbol: "DPM", name: "Đạm Phú Mỹ", exchange: "HOSE", sector: "Hóa chất/Phân bón" },
   { symbol: "DCM", name: "Đạm Cà Mau", exchange: "HOSE", sector: "Hóa chất/Phân bón" },

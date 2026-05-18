@@ -1,11 +1,12 @@
-import { FULL_SYMBOLS_METADATA, type SymbolMetadataSourceItem } from "@/data/full-symbols-metadata";
+import { loadLatestSymbolMetadata, type LoadedSymbolMetadata } from "@/lib/symbols/metadata-provider";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { Database } from "@/lib/supabase/types";
 import { getFinalSymbolMetadata } from "@/lib/symbols/metadata-normalize";
+import type { SymbolMetadataSourceItem } from "@/data/full-symbols-metadata";
 
 type SymbolRow = Pick<
   Database["public"]["Tables"]["symbols"]["Row"],
-  "symbol" | "name" | "exchange" | "sector" | "is_active"
+  "symbol" | "name" | "exchange" | "sector" | "is_active" | "metadata_updated_at"
 >;
 type SymbolInsert = Database["public"]["Tables"]["symbols"]["Insert"];
 type SymbolUpdate = Database["public"]["Tables"]["symbols"]["Update"];
@@ -17,6 +18,12 @@ export type SymbolMetadataSyncResult = {
   unchanged: number;
   overrideAppliedCount: number;
   overriddenSymbols: string[];
+  source: LoadedSymbolMetadata["source"];
+  providerName: string;
+  fetchedCount: number;
+  fallbackUsed: boolean;
+  staticFallbackUsed: boolean;
+  sampleChangedSymbols: string[];
 };
 
 export type SymbolMetadataProvider = {
@@ -24,22 +31,25 @@ export type SymbolMetadataProvider = {
   getSymbols(): Promise<SymbolMetadataSourceItem[]>;
 };
 
-const staticMetadataProvider: SymbolMetadataProvider = {
-  name: "static-full-symbols-metadata",
-  async getSymbols() {
-    return FULL_SYMBOLS_METADATA;
-  },
-};
-
 export async function syncSymbolMetadata(
-  provider: SymbolMetadataProvider = staticMetadataProvider,
+  provider?: SymbolMetadataProvider,
 ): Promise<SymbolMetadataSyncResult> {
   const supabase = createSupabaseAdminClient();
-  const metadata = getFinalSymbolMetadata(await provider.getSymbols());
+  const loaded = provider
+    ? {
+        providerName: provider.name,
+        source: "provider" as const,
+        items: await provider.getSymbols(),
+        fallbackUsed: false,
+        staticFallbackUsed: false,
+      }
+    : await loadLatestSymbolMetadata();
+  const metadata = getFinalSymbolMetadata(loaded.items);
   const sourceItems = metadata.items;
   const existingRows = await readExistingSymbols();
   const existingBySymbol = new Map(existingRows.map((row) => [row.symbol, row]));
   const now = new Date().toISOString();
+  const sampleChangedSymbols: string[] = [];
 
   let inserted = 0;
   let updated = 0;
@@ -66,10 +76,11 @@ export async function syncSymbolMetadata(
       }
 
       inserted += 1;
+      pushSample(sampleChangedSymbols, item.symbol);
       continue;
     }
 
-    const update = toMetadataUpdate(existing, item, now);
+    const update = toMetadataUpdate(existing, item, now, loaded.staticFallbackUsed);
 
     if (!update) {
       unchanged += 1;
@@ -83,6 +94,7 @@ export async function syncSymbolMetadata(
     }
 
     updated += 1;
+    pushSample(sampleChangedSymbols, item.symbol);
   }
 
   return {
@@ -92,6 +104,12 @@ export async function syncSymbolMetadata(
     unchanged,
     overrideAppliedCount: metadata.overriddenSymbols.length,
     overriddenSymbols: metadata.overriddenSymbols,
+    source: loaded.source,
+    providerName: loaded.providerName,
+    fetchedCount: loaded.items.length,
+    fallbackUsed: loaded.fallbackUsed,
+    staticFallbackUsed: loaded.staticFallbackUsed,
+    sampleChangedSymbols,
   };
 }
 
@@ -99,7 +117,7 @@ async function readExistingSymbols(): Promise<SymbolRow[]> {
   const supabase = createSupabaseAdminClient();
   const { data, error } = await supabase
     .from("symbols")
-    .select("symbol,name,exchange,sector,is_active")
+    .select("symbol,name,exchange,sector,is_active,metadata_updated_at")
     .order("symbol", { ascending: true });
 
   if (error) {
@@ -116,7 +134,12 @@ function toMetadataUpdate(
   existing: SymbolRow,
   item: SymbolMetadataSourceItem,
   metadataUpdatedAt: string,
+  staticFallbackUsed: boolean,
 ): SymbolUpdate | null {
+  if (staticFallbackUsed && existing.metadata_updated_at) {
+    return null;
+  }
+
   const isActive = item.isActive ?? true;
   const update: SymbolUpdate = {};
 
@@ -131,4 +154,10 @@ function toMetadataUpdate(
 
   update.metadata_updated_at = metadataUpdatedAt;
   return update;
+}
+
+function pushSample(samples: string[], symbol: string) {
+  if (samples.length < 20) {
+    samples.push(symbol);
+  }
 }

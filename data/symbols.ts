@@ -25,7 +25,7 @@ export const STOCKS: {
   { symbol: "PVS", name: vi.stockMeta.names.PVS, exchange: "HNX", sector: vi.stockMeta.sectors["Energy Services"] },
   { symbol: "SHS", name: vi.stockMeta.names.SHS, exchange: "HNX", sector: vi.stockMeta.sectors.Securities },
   { symbol: "HUT", name: vi.stockMeta.names.HUT, exchange: "HNX", sector: vi.stockMeta.sectors.Infrastructure },
-  { symbol: "BSR", name: vi.stockMeta.names.BSR, exchange: "UPCOM", sector: vi.stockMeta.sectors.Energy },
+  { symbol: "BSR", name: vi.stockMeta.names.BSR, exchange: "HOSE", sector: vi.stockMeta.sectors.Energy },
   { symbol: "ACV", name: vi.stockMeta.names.ACV, exchange: "UPCOM", sector: vi.stockMeta.sectors.Infrastructure },
 ];
 

@@ -26,6 +26,11 @@ export function createFallbackTechnicalAnalysis(input: AiTechnicalInput): AiTech
     disclaimer: DISCLAIMER,
     sentiment,
     source: "fallback",
+    technicalScore: input.technicalScore,
+    scoreSource: input.scoreSource,
+    diagnostics: {
+      aiSummaryScore: input.technicalScore,
+    },
   };
 }
 

@@ -61,7 +61,8 @@ export async function readHomeScannerSnapshot(currentStocks: StockSummary[] = []
       return null;
     }
 
-    return mergeLatestMetadata(groups, currentStocks, row.updated_at);
+    const latestMetadata = await readLatestSymbolMetadata();
+    return mergeLatestMetadata(groups, currentStocks, latestMetadata, row.updated_at);
   } catch (error) {
     console.warn("Khong doc duoc home_scanner snapshot, fallback runtime scanner:", error);
     return null;
@@ -71,6 +72,7 @@ export async function readHomeScannerSnapshot(currentStocks: StockSummary[] = []
 function mergeLatestMetadata(
   groups: ScannerGroup[],
   currentStocks: StockSummary[],
+  latestMetadata: Map<string, Pick<StockSummary, "symbol" | "name" | "exchange" | "sector" | "tier" | "liquidityRank">>,
   snapshotUpdatedAt?: string | null,
 ): ScannerGroup[] {
   if (isSnapshotStale(snapshotUpdatedAt)) {
@@ -79,11 +81,17 @@ function mergeLatestMetadata(
     });
   }
 
-  if (currentStocks.length === 0) {
-    return groups;
+  const latestBySymbol = new Map(currentStocks.map((stock) => [stock.symbol, stock]));
+
+  for (const [symbol, metadata] of latestMetadata) {
+    if (!latestBySymbol.has(symbol)) {
+      latestBySymbol.set(symbol, metadata as StockSummary);
+    }
   }
 
-  const latestBySymbol = new Map(currentStocks.map((stock) => [stock.symbol, stock]));
+  if (latestBySymbol.size === 0) {
+    return groups;
+  }
   const mismatches: Array<{ symbol: string; snapshotExchange: string; latestExchange: string }> = [];
   const mergedGroups = groups.map((group) => ({
     ...group,
@@ -125,6 +133,46 @@ function mergeLatestMetadata(
   }
 
   return mergedGroups;
+}
+
+async function readLatestSymbolMetadata(): Promise<
+  Map<string, Pick<StockSummary, "symbol" | "name" | "exchange" | "sector" | "tier" | "liquidityRank">>
+> {
+  const supabase = createSupabaseAdminClient();
+  const { data, error } = await supabase
+    .from("symbols")
+    .select("symbol,name,exchange,sector,tier,liquidity_rank")
+    .eq("is_active", true)
+    .order("symbol", { ascending: true })
+    .limit(3000);
+
+  if (error || !data) {
+    if (error) {
+      console.warn("Khong doc duoc symbols metadata de merge home_scanner snapshot:", error);
+    }
+    return new Map();
+  }
+
+  return new Map(
+    (data as Array<{
+      symbol: string;
+      name: string;
+      exchange: StockSummary["exchange"];
+      sector: string;
+      tier: StockSummary["tier"];
+      liquidity_rank: number | null;
+    }>).map((row) => [
+      row.symbol,
+      {
+        symbol: row.symbol,
+        name: row.name,
+        exchange: row.exchange,
+        sector: row.sector,
+        tier: row.tier,
+        liquidityRank: row.liquidity_rank,
+      },
+    ]),
+  );
 }
 
 function isSnapshotStale(snapshotUpdatedAt?: string | null): boolean {
