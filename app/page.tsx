@@ -1,4 +1,5 @@
 import { MarketScanner } from "@/components/MarketScanner";
+import { ManualSyncButton } from "@/components/ManualSyncButton";
 import { NotificationCenter } from "@/components/NotificationCenter";
 import { StockSearchList } from "@/components/StockSearchList";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -46,7 +47,10 @@ export default async function Home() {
                 </span>
               </div>
             </div>
-            <ThemeToggle />
+            <div className="flex items-start justify-between gap-3 sm:flex-col sm:items-end">
+              <ManualSyncButton />
+              <ThemeToggle />
+            </div>
           </div>
 
           <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-end">

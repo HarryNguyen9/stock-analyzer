@@ -250,7 +250,10 @@ function withCacheDiagnostics(
     analysis: {
       ...payload.analysis,
       diagnostics: {
-        ...payload.analysis.diagnostics,
+        aiSummaryScore: payload.analysis.diagnostics.aiSummaryScore ?? null,
+        modelUsed: payload.analysis.diagnostics.modelUsed ?? null,
+        fallbackModelUsed: payload.analysis.diagnostics.fallbackModelUsed ?? false,
+        providerErrorStatus: payload.analysis.diagnostics.providerErrorStatus ?? null,
         cacheHit,
         scoreSource: payload.input.scoreSource,
       },

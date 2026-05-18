@@ -54,6 +54,13 @@ export const vi = {
     dataEmpty: "Chưa có dữ liệu",
     dataLocalFallback: "Đang dùng dữ liệu cục bộ",
     dataTimezone: "GMT+7",
+    manualSync: {
+      label: "Tải lại dữ liệu",
+      loading: "Đang gửi lệnh",
+      success: "Đã gửi lệnh cập nhật. Dữ liệu sẽ được cập nhật sau vài phút.",
+      error: "Không gửi được lệnh cập nhật. Vui lòng thử lại sau.",
+      secretPrompt: "Nhập mã admin để tải lại dữ liệu",
+    },
     eyebrow: "Cổ phiếu Việt Nam",
     title: "Bảng phân tích kỹ thuật cổ phiếu Việt Nam",
     description:
