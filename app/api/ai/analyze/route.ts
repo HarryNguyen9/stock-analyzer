@@ -45,6 +45,8 @@ type AiCacheEntry = {
   input: AiTechnicalInput;
   cachedAt: number;
   dataUpdatedAt: string | null;
+  technicalScore: number;
+  scoreSource: AiTechnicalInput["scoreSource"];
 };
 
 const CACHE_TTL_MS = 5 * 60 * 1000;
@@ -67,14 +69,14 @@ export async function POST(request: Request) {
       return Response.json({ ok: false, message: "Không tìm thấy dữ liệu kỹ thuật cho mã này." }, { status: 404 });
     }
 
-    const cached = getCachedAnalysis(symbol, input.dataUpdatedAt, Boolean(body.forceRefresh));
+    const cached = getCachedAnalysis(symbol, input, Boolean(body.forceRefresh));
 
     if (cached) {
       return Response.json({ ok: true, cached: true, ...cached });
     }
 
     if (body.forceRefresh && !canForceRefresh(symbol)) {
-      const cooldown = getCachedAnalysis(symbol, input.dataUpdatedAt, false);
+      const cooldown = getCachedAnalysis(symbol, input, false);
 
       if (cooldown) {
         return Response.json({ ok: true, cached: true, cooldown: true, ...cooldown });
@@ -91,9 +93,12 @@ export async function POST(request: Request) {
       input,
       cachedAt: Date.now(),
       dataUpdatedAt: input.dataUpdatedAt,
+      technicalScore: input.technicalScore,
+      scoreSource: input.scoreSource,
     };
 
     aiCache.set(symbol, entry);
+    logAiScoreDiagnostics(input, analysis, false);
 
     return Response.json({ ok: true, cached: false, analysis, input });
   } catch (error) {
@@ -169,6 +174,7 @@ async function createAiInput(symbol: string): Promise<AiTechnicalInput | null> {
     technicalScore: snapshot.score,
     scoreBreakdown: snapshot.analysis.scoreBreakdown,
     status: snapshot.status,
+    scoreSource: snapshot.scoreSource,
     topSignals: snapshot.signals.slice(0, 6).map((signal) => ({
       code: signal.code,
       labelVi: signal.labelVi,
@@ -183,7 +189,7 @@ async function createAiInput(symbol: string): Promise<AiTechnicalInput | null> {
 
 function getCachedAnalysis(
   symbol: string,
-  dataUpdatedAt: string | null,
+  input: AiTechnicalInput,
   forceRefresh: boolean,
 ): { analysis: AiTechnicalAnalysis; input: AiTechnicalInput } | null {
   if (forceRefresh) {
@@ -197,9 +203,35 @@ function getCachedAnalysis(
   }
 
   const freshByTime = Date.now() - cached.cachedAt <= CACHE_TTL_MS;
-  const freshByData = !dataUpdatedAt || !cached.dataUpdatedAt || new Date(cached.dataUpdatedAt) >= new Date(dataUpdatedAt);
+  const freshByData = !input.dataUpdatedAt || !cached.dataUpdatedAt || new Date(cached.dataUpdatedAt) >= new Date(input.dataUpdatedAt);
+  const freshByScore = cached.technicalScore === input.technicalScore && cached.scoreSource === input.scoreSource;
 
-  return freshByTime && freshByData ? { analysis: cached.analysis, input: cached.input } : null;
+  if (!freshByScore) {
+    console.info("AI analysis cache invalidated by technical score change", {
+      symbol,
+      cachedScore: cached.technicalScore,
+      modalScore: input.technicalScore,
+      cachedScoreSource: cached.scoreSource,
+      scoreSource: input.scoreSource,
+    });
+  }
+
+  if (freshByTime && freshByData && freshByScore) {
+    logAiScoreDiagnostics(input, cached.analysis, true);
+    return { analysis: cached.analysis, input: cached.input };
+  }
+
+  return null;
+}
+
+function logAiScoreDiagnostics(input: AiTechnicalInput, analysis: AiTechnicalAnalysis, cached: boolean) {
+  console.info("AI analysis score diagnostics", {
+    symbol: input.symbol,
+    modalScore: input.technicalScore,
+    aiSummaryScore: analysis.diagnostics?.aiSummaryScore ?? null,
+    scoreSource: input.scoreSource,
+    cached,
+  });
 }
 
 function canForceRefresh(symbol: string): boolean {

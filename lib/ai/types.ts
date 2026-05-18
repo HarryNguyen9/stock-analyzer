@@ -17,6 +17,7 @@ export type AiTechnicalInput = {
   latestPrice: number;
   changePercent: number;
   technicalScore: number;
+  scoreSource: "supabase" | "runtime";
   scoreBreakdown: AiScoreBreakdownInput;
   status: string;
   topSignals: Pick<Signal, "code" | "labelVi" | "descriptionVi" | "sentiment" | "strength" | "priority">[];
@@ -31,6 +32,11 @@ export type AiTechnicalAnalysis = {
   disclaimer: string;
   sentiment: AiAnalysisSentiment;
   source: "gemini" | "fallback";
+  technicalScore: number;
+  scoreSource: AiTechnicalInput["scoreSource"];
+  diagnostics?: {
+    aiSummaryScore: number | null;
+  };
 };
 
 export type AiProvider = {

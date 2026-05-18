@@ -1,6 +1,6 @@
 import { createFallbackTechnicalAnalysis } from "@/lib/ai/fallback-summary";
 import { geminiProvider } from "@/lib/ai/gemini-provider";
-import type { AiProvider, AiTechnicalAnalysis, AiTechnicalInput } from "@/lib/ai/types";
+import type { AiAnalysisSentiment, AiProvider, AiTechnicalAnalysis, AiTechnicalInput } from "@/lib/ai/types";
 
 const fallbackProvider: AiProvider = {
   name: "fallback",
@@ -21,9 +21,71 @@ export async function analyzeWithAiProvider(input: AiTechnicalInput): Promise<Ai
   const provider = getAiProvider();
 
   try {
-    return await provider.analyzeTechnical(input);
+    return alignAnalysisToCanonicalScore(await provider.analyzeTechnical(input), input);
   } catch (error) {
     console.warn(`AI provider ${provider.name} failed:`, error);
-    return createFallbackTechnicalAnalysis(input);
+    return alignAnalysisToCanonicalScore(createFallbackTechnicalAnalysis(input), input);
   }
+}
+
+function alignAnalysisToCanonicalScore(
+  analysis: AiTechnicalAnalysis,
+  input: AiTechnicalInput,
+): AiTechnicalAnalysis {
+  const aiSummaryScore = extractScoreFromText(analysis.summary);
+  const sentiment = getCanonicalSentiment(input);
+
+  return {
+    ...analysis,
+    summary: enforceCanonicalScoreText(analysis.summary, input.technicalScore),
+    bullishPoints: analysis.bullishPoints.map((point) => enforceCanonicalScoreText(point, input.technicalScore)),
+    riskPoints: analysis.riskPoints.map((point) => enforceCanonicalScoreText(point, input.technicalScore)),
+    watchPoints: analysis.watchPoints.map((point) => enforceCanonicalScoreText(point, input.technicalScore)),
+    sentiment,
+    technicalScore: input.technicalScore,
+    scoreSource: input.scoreSource,
+    diagnostics: {
+      ...analysis.diagnostics,
+      aiSummaryScore,
+    },
+  };
+}
+
+function enforceCanonicalScoreText(value: string, technicalScore: number): string {
+  const canonical = `${technicalScore}/100`;
+  const withSlashScore = value.replace(/\b\d{1,3}\s*\/\s*100\b/g, canonical);
+
+  return withSlashScore.replace(/(điểm kỹ thuật\s+)(\d{1,3})(?!\s*\/)/gi, (_match, prefix: string) => `${prefix}${technicalScore}`);
+}
+
+function extractScoreFromText(value: string): number | null {
+  const slashMatch = value.match(/\b(\d{1,3})\s*\/\s*100\b/);
+
+  if (slashMatch) {
+    return toScore(slashMatch[1]);
+  }
+
+  const textMatch = value.match(/điểm kỹ thuật\s+(\d{1,3})(?!\s*\/)/i);
+  return textMatch ? toScore(textMatch[1]) : null;
+}
+
+function toScore(value: string): number | null {
+  const score = Number(value);
+  return Number.isInteger(score) && score >= 0 && score <= 100 ? score : null;
+}
+
+function getCanonicalSentiment(input: AiTechnicalInput): AiAnalysisSentiment {
+  const hasStrongRisk = input.topSignals.some(
+    (signal) => signal.sentiment === "bearish" && signal.priority >= 90,
+  );
+
+  if (hasStrongRisk || input.technicalScore < 45) {
+    return "risk";
+  }
+
+  if (input.technicalScore >= 70) {
+    return "positive";
+  }
+
+  return "neutral";
 }
