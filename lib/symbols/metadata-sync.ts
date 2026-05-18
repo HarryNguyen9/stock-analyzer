@@ -6,7 +6,7 @@ import type { SymbolMetadataSourceItem } from "@/data/full-symbols-metadata";
 
 type SymbolRow = Pick<
   Database["public"]["Tables"]["symbols"]["Row"],
-  "symbol" | "name" | "exchange" | "sector" | "is_active" | "metadata_updated_at"
+  "symbol" | "name" | "exchange" | "sector" | "is_active" | "metadata_updated_at" | "sync_status"
 >;
 type SymbolInsert = Database["public"]["Tables"]["symbols"]["Insert"];
 type SymbolUpdate = Database["public"]["Tables"]["symbols"]["Update"];
@@ -117,7 +117,7 @@ async function readExistingSymbols(): Promise<SymbolRow[]> {
   const supabase = createSupabaseAdminClient();
   const { data, error } = await supabase
     .from("symbols")
-    .select("symbol,name,exchange,sector,is_active,metadata_updated_at")
+    .select("symbol,name,exchange,sector,is_active,metadata_updated_at,sync_status")
     .order("symbol", { ascending: true });
 
   if (error) {
@@ -140,7 +140,7 @@ function toMetadataUpdate(
     return null;
   }
 
-  const isActive = item.isActive ?? true;
+  const isActive = existing.sync_status === "unsupported" ? false : item.isActive ?? true;
   const update: SymbolUpdate = {};
 
   if (existing.name !== item.name) update.name = item.name;

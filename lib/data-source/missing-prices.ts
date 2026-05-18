@@ -75,6 +75,7 @@ async function readSymbols(): Promise<SymbolRow[]> {
     const { data, error } = await supabase
       .from("symbols")
       .select("symbol")
+      .eq("is_active", true)
       .order("liquidity_rank", { ascending: true, nullsFirst: false })
       .order("symbol", { ascending: true })
       .range(from, to);

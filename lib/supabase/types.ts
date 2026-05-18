@@ -19,6 +19,8 @@ export type Database = {
           next_retry_at: string | null;
           is_active: boolean;
           metadata_updated_at: string | null;
+          unsupported_at: string | null;
+          unsupported_reason: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -37,6 +39,8 @@ export type Database = {
           next_retry_at?: string | null;
           is_active?: boolean;
           metadata_updated_at?: string | null;
+          unsupported_at?: string | null;
+          unsupported_reason?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -55,6 +59,8 @@ export type Database = {
           next_retry_at?: string | null;
           is_active?: boolean;
           metadata_updated_at?: string | null;
+          unsupported_at?: string | null;
+          unsupported_reason?: string | null;
           created_at?: string;
           updated_at?: string;
         };

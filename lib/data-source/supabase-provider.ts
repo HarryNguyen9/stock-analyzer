@@ -277,7 +277,6 @@ export async function getSymbolMetadata(symbol: string): Promise<StockMetadata |
     .from("symbols")
     .select("symbol,name,exchange,sector,tier,liquidity_rank,is_active")
     .eq("symbol", symbol.toUpperCase())
-    .eq("is_active", true)
     .maybeSingle();
 
   if (error || !data) {

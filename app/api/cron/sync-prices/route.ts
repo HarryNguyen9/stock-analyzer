@@ -16,6 +16,8 @@ type CronSuccessResponse = {
   selected: number;
   synced: number;
   failed: number;
+  failedTemporary: Array<{ symbol: string; error: string }>;
+  failedUnsupported: Array<{ symbol: string; error: string }>;
   snapshotUpdated: boolean;
   stoppedEarly: boolean;
   stopReason: "time_guard" | null;
@@ -99,6 +101,8 @@ async function handleSyncPricesCron(
         limitClamped: limitParam.clamped,
         selectedSymbols: result.selectedSymbols,
         failedSymbols: result.failedSymbols,
+        failedTemporary: result.failedTemporary,
+        failedUnsupported: result.failedUnsupported,
         snapshotUpdated,
         stoppedEarly: result.stoppedEarly,
         stopReason: result.stopReason,
@@ -115,6 +119,8 @@ async function handleSyncPricesCron(
       selected: result.selected,
       synced: result.synced,
       failed: result.failed,
+      failedTemporary: result.failedTemporary,
+      failedUnsupported: result.failedUnsupported,
       snapshotUpdated,
       stoppedEarly: result.stoppedEarly,
       stopReason: result.stopReason,

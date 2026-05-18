@@ -42,7 +42,7 @@ export async function importFullMarketSymbols(): Promise<{
 
   for (const item of metadata.items) {
     const existing = existingBySymbol.get(item.symbol);
-    const isActive = item.isActive ?? true;
+    const isActive = existing?.sync_status === "unsupported" ? false : item.isActive ?? true;
 
     if (!existing) {
       inserts.push({

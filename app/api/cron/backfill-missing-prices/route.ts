@@ -1,7 +1,8 @@
 import { getSymbolsMissingPriceData } from "@/lib/data-source/missing-prices";
+import { classifyProviderFailure } from "@/lib/data-source/provider-errors";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { Database, Json } from "@/lib/supabase/types";
-import { syncSingleSymbolToSupabase } from "@/scripts/sync-prices-to-supabase";
+import { markSymbolUnsupported, syncSingleSymbolToSupabase } from "@/scripts/sync-prices-to-supabase";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -17,6 +18,8 @@ type BackfillResponse =
       synced: number;
       failed: number;
       failedSymbols: BackfillFailedSymbol[];
+      failedTemporary: BackfillFailedSymbol[];
+      failedUnsupported: BackfillFailedSymbol[];
       sampleSyncedSymbols: string[];
       remainingMissing: number;
       stoppedEarly: boolean;
@@ -79,6 +82,8 @@ async function handleBackfillMissingPrices(request: Request): Promise<Response> 
     let failed = 0;
     let stoppedEarly = false;
     const failedSymbols: BackfillFailedSymbol[] = [];
+    const failedTemporary: BackfillFailedSymbol[] = [];
+    const failedUnsupported: BackfillFailedSymbol[] = [];
     const sampleSyncedSymbols: string[] = [];
 
     for (const item of missingSymbols) {
@@ -95,13 +100,22 @@ async function handleBackfillMissingPrices(request: Request): Promise<Response> 
         }
         processedSymbols.push({ symbol: item.symbol, status: "synced" });
       } catch (error) {
-        const message = getShortErrorMessage(error);
+        const failure = classifyProviderFailure(error);
+        const message = failure.message;
         failed += 1;
         failedSymbols.push({
           symbol: item.symbol,
           error: message,
         });
-        await markBackfillFailed(item.symbol, message);
+
+        if (failure.kind === "unsupported") {
+          failedUnsupported.push({ symbol: item.symbol, error: message });
+          await markSymbolUnsupported(item.symbol, message);
+        } else {
+          failedTemporary.push({ symbol: item.symbol, error: message });
+          await markBackfillFailed(item.symbol, message);
+        }
+
         processedSymbols.push({
           symbol: item.symbol,
           status: "failed",
@@ -125,6 +139,8 @@ async function handleBackfillMissingPrices(request: Request): Promise<Response> 
         remainingMissing,
         processedSymbols,
         failedSymbols,
+        failedTemporary,
+        failedUnsupported,
         sampleSyncedSymbols,
         stoppedEarly,
         stopReason: stoppedEarly ? "time_guard" : null,
@@ -141,6 +157,8 @@ async function handleBackfillMissingPrices(request: Request): Promise<Response> 
       synced,
       failed,
       failedSymbols,
+      failedTemporary,
+      failedUnsupported,
       sampleSyncedSymbols,
       remainingMissing,
       stoppedEarly,

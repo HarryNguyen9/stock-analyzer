@@ -1,4 +1,5 @@
 import { stock } from "vnstock-js";
+import { classifyProviderFailure } from "@/lib/data-source/provider-errors";
 import type { OHLCV } from "../../types/stock";
 import type { PriceProvider } from "./types";
 
@@ -35,6 +36,10 @@ async function withRetry<T>(operation: () => Promise<T>, retries: number): Promi
       return await operation();
     } catch (error) {
       lastError = error;
+
+      if (classifyProviderFailure(error).kind === "unsupported") {
+        throw error;
+      }
 
       if (attempt < retries) {
         await delay(800 * (attempt + 1));

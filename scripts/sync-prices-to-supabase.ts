@@ -1,6 +1,7 @@
 import { pathToFileURL } from "node:url";
 import { loadEnvConfig } from "@next/env";
 import { STOCKS } from "../data/symbols";
+import { classifyProviderFailure } from "../lib/data-source/provider-errors";
 import { vnstockProvider } from "../lib/data-source/vnstock-provider";
 import { createSupabaseAdminClient } from "../lib/supabase/admin";
 import type { Database } from "../lib/supabase/types";
@@ -31,6 +32,8 @@ export type SyncPricesResult = {
   selected: number;
   synced: number;
   failed: number;
+  failedTemporary: SyncFailedSymbol[];
+  failedUnsupported: SyncFailedSymbol[];
   selectedSymbols: string[];
   failedSymbols: string[];
   stoppedEarly: boolean;
@@ -45,6 +48,11 @@ export type SyncSymbolResult = {
 
 type SyncSingleSymbolOptions = {
   skipIfFetchedOlderThanExisting?: boolean;
+};
+
+export type SyncFailedSymbol = {
+  symbol: string;
+  error: string;
 };
 
 export async function syncPricesToSupabase(
@@ -78,6 +86,8 @@ export async function syncPricesToSupabase(
     selected: targets.length,
     synced: importedSymbols,
     failed: Math.max(0, targets.length - importedSymbols),
+    failedTemporary: importedSymbols === targets.length ? [] : symbols.map((symbol) => ({ symbol, error: "Local import failed." })),
+    failedUnsupported: [],
     selectedSymbols: symbols,
     failedSymbols: importedSymbols === targets.length ? [] : symbols,
     stoppedEarly: false,
@@ -95,6 +105,8 @@ async function syncPricesDirectlyToSupabase(
   let failed = 0;
   let stoppedEarly = false;
   const failedSymbols: string[] = [];
+  const failedTemporary: SyncFailedSymbol[] = [];
+  const failedUnsupported: SyncFailedSymbol[] = [];
 
   for (const target of targets) {
     if (options.shouldStop?.()) {
@@ -110,11 +122,19 @@ async function syncPricesDirectlyToSupabase(
       synced += 1;
       console.log(`${target.symbol}: da fetch va upsert ${prices.length} nen tu ${vnstockProvider.name}`);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      await updateSymbolSyncStatus(target.symbol, "failed", message);
+      const failure = classifyProviderFailure(error);
+
+      if (failure.kind === "unsupported") {
+        await markSymbolUnsupported(target.symbol, failure.message);
+        failedUnsupported.push({ symbol: target.symbol, error: failure.message });
+      } else {
+        await updateSymbolSyncStatus(target.symbol, "failed", failure.message);
+        failedTemporary.push({ symbol: target.symbol, error: failure.message });
+      }
+
       failed += 1;
       failedSymbols.push(target.symbol);
-      console.error(`${target.symbol}: sync fail, bo qua ma nay (${message})`);
+      console.error(`${target.symbol}: sync fail, bo qua ma nay (${failure.message})`);
     }
   }
 
@@ -126,6 +146,8 @@ async function syncPricesDirectlyToSupabase(
     selected: targets.length,
     synced,
     failed,
+    failedTemporary,
+    failedUnsupported,
     selectedSymbols: targets.map((target) => target.symbol),
     failedSymbols,
     stoppedEarly,
@@ -169,11 +191,14 @@ export async function syncSingleSymbolToSupabase(
       prices: prices.length,
     };
   } catch (error) {
-    await updateSymbolSyncStatus(
-      normalizedSymbol,
-      "failed",
-      error instanceof Error ? error.message : String(error),
-    );
+    const failure = classifyProviderFailure(error);
+
+    if (failure.kind === "unsupported") {
+      await markSymbolUnsupported(normalizedSymbol, failure.message);
+    } else {
+      await updateSymbolSyncStatus(normalizedSymbol, "failed", failure.message);
+    }
+
     throw error;
   }
 }
@@ -209,6 +234,7 @@ async function getSyncTargets(options: { batch: number; limit: number }): Promis
       .from("symbols")
       .select("symbol,tier,auto_sync,liquidity_rank")
       .eq("auto_sync", true)
+      .eq("is_active", true)
       .order("liquidity_rank", { ascending: true, nullsFirst: false })
       .order("symbol", { ascending: true })
       .range(from, to);
@@ -246,6 +272,30 @@ async function getSyncTargets(options: { batch: number; limit: number }): Promis
   }
 }
 
+export async function markSymbolUnsupported(symbol: string, reason: string) {
+  try {
+    const supabase = createSupabaseAdminClient();
+    const update: Database["public"]["Tables"]["symbols"]["Update"] = {
+      sync_status: "unsupported",
+      is_active: false,
+      auto_sync: false,
+      last_error: reason,
+      retry_count: 0,
+      next_retry_at: null,
+      unsupported_at: new Date().toISOString(),
+      unsupported_reason: reason,
+    };
+    const { error } = await supabase.from("symbols").update(update).eq("symbol", symbol);
+
+    if (error) {
+      throw error;
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.warn(`${symbol}: khong cap nhat duoc unsupported (${message})`);
+  }
+}
+
 async function hasAutoSyncSymbols(): Promise<boolean> {
   try {
     const supabase = createSupabaseAdminClient();
@@ -253,6 +303,7 @@ async function hasAutoSyncSymbols(): Promise<boolean> {
       .from("symbols")
       .select("symbol")
       .eq("auto_sync", true)
+      .eq("is_active", true)
       .limit(1);
 
     if (error) {
