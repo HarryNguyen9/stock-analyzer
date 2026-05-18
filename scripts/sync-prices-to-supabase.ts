@@ -33,6 +33,8 @@ export type SyncPricesResult = {
   failed: number;
   selectedSymbols: string[];
   failedSymbols: string[];
+  stoppedEarly: boolean;
+  stopReason: "time_guard" | null;
 };
 
 export type SyncSymbolResult = {
@@ -45,7 +47,9 @@ type SyncSingleSymbolOptions = {
   skipIfFetchedOlderThanExisting?: boolean;
 };
 
-export async function syncPricesToSupabase(options: { batch?: number; limit?: number } = {}): Promise<SyncPricesResult> {
+export async function syncPricesToSupabase(
+  options: { batch?: number; limit?: number; shouldStop?: () => boolean } = {},
+): Promise<SyncPricesResult> {
   loadEnvConfig(process.cwd());
 
   const batch = options.batch ?? DEFAULT_SYNC_BATCH;
@@ -56,7 +60,7 @@ export async function syncPricesToSupabase(options: { batch?: number; limit?: nu
   console.log(`Sync target: batch ${batch}, limit ${limit}, ${symbols.length} ma (${targets[0]?.source ?? "supabase"}).`);
 
   if (isVercelProduction()) {
-    return syncPricesDirectlyToSupabase(targets, { batch, limit });
+    return syncPricesDirectlyToSupabase(targets, { batch, limit, shouldStop: options.shouldStop });
   }
 
   console.log("Sync buoc 1/2: fetch du lieu moi va cap nhat JSON local...");
@@ -76,20 +80,29 @@ export async function syncPricesToSupabase(options: { batch?: number; limit?: nu
     failed: Math.max(0, targets.length - importedSymbols),
     selectedSymbols: symbols,
     failedSymbols: importedSymbols === targets.length ? [] : symbols,
+    stoppedEarly: false,
+    stopReason: null,
   };
 }
 
 async function syncPricesDirectlyToSupabase(
   targets: SyncTarget[],
-  options: { batch: number; limit: number },
+  options: { batch: number; limit: number; shouldStop?: () => boolean },
 ): Promise<SyncPricesResult> {
   console.log("Vercel production detected: sync truc tiep vao Supabase, khong ghi local JSON.");
 
   let synced = 0;
   let failed = 0;
+  let stoppedEarly = false;
   const failedSymbols: string[] = [];
 
   for (const target of targets) {
+    if (options.shouldStop?.()) {
+      stoppedEarly = true;
+      console.warn("Dung sync som do time guard truoc khi xu ly them symbol.");
+      break;
+    }
+
     try {
       const prices = await vnstockProvider.getDailyPrices(target.symbol, CANDLE_LIMIT);
       await upsertPriceSetsToSupabase([{ symbol: target.symbol, prices }], { upsertSymbols: false });
@@ -115,6 +128,8 @@ async function syncPricesDirectlyToSupabase(
     failed,
     selectedSymbols: targets.map((target) => target.symbol),
     failedSymbols,
+    stoppedEarly,
+    stopReason: stoppedEarly ? "time_guard" : null,
   };
 }
 

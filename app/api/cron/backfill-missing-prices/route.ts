@@ -10,10 +10,15 @@ type BackfillResponse =
   | {
       ok: true;
       jobId: string | null;
+      limit: number;
+      maxLimit: number;
+      limitClamped: boolean;
       selected: number;
       synced: number;
       failed: number;
       remainingMissing: number;
+      stoppedEarly: boolean;
+      stopReason: "time_guard" | null;
       durationMs: number;
     }
   | {
@@ -26,9 +31,10 @@ type BackfillResponse =
 type SyncJobInsert = Database["public"]["Tables"]["sync_jobs"]["Insert"];
 type SyncJobUpdate = Database["public"]["Tables"]["sync_jobs"]["Update"];
 
-const DEFAULT_LIMIT = 20;
-const MAX_LIMIT = 50;
+const DEFAULT_LIMIT = 5;
+const MAX_LIMIT = 10;
 const RETRIES = 1;
+const SOFT_TIME_LIMIT_MS = 240_000;
 
 export async function GET(request: Request) {
   return handleBackfillMissingPrices(request);
@@ -53,20 +59,29 @@ async function handleBackfillMissingPrices(request: Request): Promise<Response> 
       return jsonError(new Error("Khong co quyen chay backfill missing prices."), 401, jobId);
     }
 
-    const limit = getNumberParam(request, "limit", DEFAULT_LIMIT, 1, MAX_LIMIT);
+    const limitParam = getClampedNumberParam(request, "limit", DEFAULT_LIMIT, 1, MAX_LIMIT);
+    const limit = limitParam.value;
     const missingSymbols = await getSymbolsMissingPriceData({ limit });
     const processedSymbols: Array<{ symbol: string; status: "synced" | "failed"; message?: string }> = [];
     jobId = await createSyncJob({
       trigger: "backfill-missing-prices-route",
       method: request.method,
       limit,
+      maxLimit: MAX_LIMIT,
+      limitClamped: limitParam.clamped,
       selectedSymbols: missingSymbols.map((item) => item.symbol),
     });
 
     let synced = 0;
     let failed = 0;
+    let stoppedEarly = false;
 
     for (const item of missingSymbols) {
+      if (Date.now() - startedAt >= SOFT_TIME_LIMIT_MS) {
+        stoppedEarly = true;
+        break;
+      }
+
       try {
         await syncWithRetry(item.symbol);
         synced += 1;
@@ -95,16 +110,23 @@ async function handleBackfillMissingPrices(request: Request): Promise<Response> 
       metadata: {
         remainingMissing,
         processedSymbols,
+        stoppedEarly,
+        stopReason: stoppedEarly ? "time_guard" : null,
       },
     });
 
     return Response.json({
       ok: true,
       jobId,
+      limit,
+      maxLimit: MAX_LIMIT,
+      limitClamped: limitParam.clamped,
       selected: missingSymbols.length,
       synced,
       failed,
       remainingMissing,
+      stoppedEarly,
+      stopReason: stoppedEarly ? "time_guard" : null,
       durationMs,
     } satisfies BackfillResponse);
   } catch (error) {
@@ -150,6 +172,31 @@ function getNumberParam(request: Request, key: string, fallback: number, min: nu
 
   const parsed = Number(value);
   return Number.isInteger(parsed) && parsed >= min ? Math.min(parsed, max) : fallback;
+}
+
+function getClampedNumberParam(
+  request: Request,
+  key: string,
+  fallback: number,
+  min: number,
+  max: number,
+): { value: number; clamped: boolean } {
+  const value = new URL(request.url).searchParams.get(key);
+
+  if (!value) {
+    return { value: fallback, clamped: false };
+  }
+
+  const parsed = Number(value);
+
+  if (!Number.isInteger(parsed) || parsed < min) {
+    return { value: fallback, clamped: false };
+  }
+
+  return {
+    value: Math.min(parsed, max),
+    clamped: parsed > max,
+  };
 }
 
 async function createSyncJob(metadata: Json): Promise<string | null> {

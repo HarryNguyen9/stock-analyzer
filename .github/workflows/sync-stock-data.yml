@@ -12,15 +12,25 @@ jobs:
     steps:
       - name: Sync batch 0
         run: |
-          curl -fsS -X GET "https://stock-analyzer-sigma-one.vercel.app/api/cron/sync-prices?batch=0&limit=100" \
+          curl -fsS -X GET "https://stock-analyzer-sigma-one.vercel.app/api/cron/sync-prices?batch=0&limit=20&updateSnapshot=true" \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
 
       - name: Sync batch 1
         run: |
-          curl -fsS -X GET "https://stock-analyzer-sigma-one.vercel.app/api/cron/sync-prices?batch=1&limit=100" \
+          curl -fsS -X GET "https://stock-analyzer-sigma-one.vercel.app/api/cron/sync-prices?batch=1&limit=20&updateSnapshot=false" \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
 
       - name: Sync batch 2
         run: |
-          curl -fsS -X GET "https://stock-analyzer-sigma-one.vercel.app/api/cron/sync-prices?batch=2&limit=100" \
+          curl -fsS -X GET "https://stock-analyzer-sigma-one.vercel.app/api/cron/sync-prices?batch=2&limit=20&updateSnapshot=false" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
+
+      - name: Sync batch 3
+        run: |
+          curl -fsS -X GET "https://stock-analyzer-sigma-one.vercel.app/api/cron/sync-prices?batch=3&limit=20&updateSnapshot=false" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
+
+      - name: Sync batch 4
+        run: |
+          curl -fsS -X GET "https://stock-analyzer-sigma-one.vercel.app/api/cron/sync-prices?batch=4&limit=20&updateSnapshot=false" \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"

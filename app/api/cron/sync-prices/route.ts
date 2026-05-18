@@ -11,10 +11,14 @@ type CronSuccessResponse = {
   jobId: string | null;
   batch: number;
   limit: number;
+  maxLimit: number;
+  limitClamped: boolean;
   selected: number;
   synced: number;
   failed: number;
   snapshotUpdated: boolean;
+  stoppedEarly: boolean;
+  stopReason: "time_guard" | null;
   durationMs: number;
 };
 
@@ -27,6 +31,10 @@ type CronErrorResponse = {
 
 type SyncJobInsert = Database["public"]["Tables"]["sync_jobs"]["Insert"];
 type SyncJobUpdate = Database["public"]["Tables"]["sync_jobs"]["Update"];
+
+const DEFAULT_LIMIT = 20;
+const MAX_LIMIT = 25;
+const SOFT_TIME_LIMIT_MS = 240_000;
 
 export async function GET(request: Request) {
   return handleSyncPricesCron(request);
@@ -55,16 +63,26 @@ async function handleSyncPricesCron(
       return jsonError(new Error("Khong co quyen chay cron sync."), 401);
     }
 
-    const batch = getNumberParam(request, "batch", 0, 0, Number.MAX_SAFE_INTEGER);
-    const limit = getNumberParam(request, "limit", 100, 1, 300);
+    const url = new URL(request.url);
+    const batch = getNumberParam(url, "batch", 0, 0, Number.MAX_SAFE_INTEGER);
+    const limitParam = getClampedNumberParam(url, "limit", DEFAULT_LIMIT, 1, MAX_LIMIT);
+    const limit = limitParam.value;
+    const shouldUpdateSnapshot = getUpdateSnapshotFlag(url, batch);
     jobId = await createSyncJob({
       batch,
       limit,
+      maxLimit: MAX_LIMIT,
+      limitClamped: limitParam.clamped,
+      updateSnapshot: shouldUpdateSnapshot,
       trigger: "cron-route",
       method: request.method,
     });
-    const result = await syncPricesToSupabase({ batch, limit });
-    const snapshotUpdated = await refreshHomeScannerSnapshot();
+    const result = await syncPricesToSupabase({
+      batch,
+      limit,
+      shouldStop: () => Date.now() - startedAt >= SOFT_TIME_LIMIT_MS,
+    });
+    const snapshotUpdated = shouldUpdateSnapshot && !result.stoppedEarly ? await refreshHomeScannerSnapshot() : false;
     const durationMs = Date.now() - startedAt;
 
     await updateSyncJob(jobId, {
@@ -77,9 +95,13 @@ async function handleSyncPricesCron(
       metadata: {
         batch: result.batch,
         limit: result.limit,
+        maxLimit: MAX_LIMIT,
+        limitClamped: limitParam.clamped,
         selectedSymbols: result.selectedSymbols,
         failedSymbols: result.failedSymbols,
         snapshotUpdated,
+        stoppedEarly: result.stoppedEarly,
+        stopReason: result.stopReason,
       },
     });
 
@@ -88,10 +110,14 @@ async function handleSyncPricesCron(
       jobId,
       batch: result.batch,
       limit: result.limit,
+      maxLimit: MAX_LIMIT,
+      limitClamped: limitParam.clamped,
       selected: result.selected,
       synced: result.synced,
       failed: result.failed,
       snapshotUpdated,
+      stoppedEarly: result.stoppedEarly,
+      stopReason: result.stopReason,
       durationMs,
     } satisfies CronSuccessResponse);
   } catch (error) {
@@ -107,8 +133,8 @@ async function handleSyncPricesCron(
   }
 }
 
-function getNumberParam(request: Request, key: string, fallback: number, min: number, max: number): number {
-  const value = new URL(request.url).searchParams.get(key);
+function getNumberParam(url: URL, key: string, fallback: number, min: number, max: number): number {
+  const value = url.searchParams.get(key);
 
   if (!value) {
     return fallback;
@@ -116,6 +142,45 @@ function getNumberParam(request: Request, key: string, fallback: number, min: nu
 
   const parsed = Number(value);
   return Number.isInteger(parsed) && parsed >= min ? Math.min(parsed, max) : fallback;
+}
+
+function getClampedNumberParam(
+  url: URL,
+  key: string,
+  fallback: number,
+  min: number,
+  max: number,
+): { value: number; clamped: boolean } {
+  const value = url.searchParams.get(key);
+
+  if (!value) {
+    return { value: fallback, clamped: false };
+  }
+
+  const parsed = Number(value);
+
+  if (!Number.isInteger(parsed) || parsed < min) {
+    return { value: fallback, clamped: false };
+  }
+
+  return {
+    value: Math.min(parsed, max),
+    clamped: parsed > max,
+  };
+}
+
+function getUpdateSnapshotFlag(url: URL, batch: number): boolean {
+  const value = url.searchParams.get("updateSnapshot");
+
+  if (value === "true") {
+    return true;
+  }
+
+  if (value === "false") {
+    return false;
+  }
+
+  return batch === 0;
 }
 
 async function createSyncJob(metadata: Json): Promise<string | null> {
