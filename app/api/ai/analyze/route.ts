@@ -1,4 +1,5 @@
 import { analyzeWithAiProvider } from "@/lib/ai/provider";
+import { normalizeTechnicalScore } from "@/lib/ai/score-format";
 import type { AiTechnicalAnalysis, AiTechnicalInput } from "@/lib/ai/types";
 import { createTechnicalSnapshot } from "@/lib/data-source/technical-snapshot";
 import { isOHLCV } from "@/lib/data-source/local-provider";
@@ -12,6 +13,8 @@ export const runtime = "nodejs";
 type AnalyzeRequest = {
   symbol?: string;
   forceRefresh?: boolean;
+  technicalScore?: number;
+  scoreSource?: "supabase" | "runtime";
 };
 
 type SymbolRow = {
@@ -49,7 +52,7 @@ type AiCacheEntry = {
   scoreSource: AiTechnicalInput["scoreSource"];
 };
 
-const CACHE_TTL_MS = 5 * 60 * 1000;
+const CACHE_TTL_MS = 12 * 60 * 1000;
 const FORCE_REFRESH_COOLDOWN_MS = 60 * 1000;
 const aiCache = new Map<string, AiCacheEntry>();
 const forceRefreshCooldown = new Map<string, number>();
@@ -63,7 +66,10 @@ export async function POST(request: Request) {
       return Response.json({ ok: false, message: "Thiếu mã cổ phiếu." }, { status: 400 });
     }
 
-    const input = await createAiInput(symbol);
+    const detailScore = typeof body.technicalScore === "number" ? normalizeTechnicalScore(body.technicalScore) : null;
+    const detailScoreSource =
+      body.scoreSource === "supabase" || body.scoreSource === "runtime" ? body.scoreSource : null;
+    const input = await createAiInput(symbol, detailScore, detailScoreSource);
 
     if (!input) {
       return Response.json({ ok: false, message: "Không tìm thấy dữ liệu kỹ thuật cho mã này." }, { status: 404 });
@@ -72,14 +78,14 @@ export async function POST(request: Request) {
     const cached = getCachedAnalysis(symbol, input, Boolean(body.forceRefresh));
 
     if (cached) {
-      return Response.json({ ok: true, cached: true, ...cached });
+      return Response.json({ ok: true, cached: true, ...withCacheDiagnostics(cached, true) });
     }
 
     if (body.forceRefresh && !canForceRefresh(symbol)) {
       const cooldown = getCachedAnalysis(symbol, input, false);
 
       if (cooldown) {
-        return Response.json({ ok: true, cached: true, cooldown: true, ...cooldown });
+        return Response.json({ ok: true, cached: true, cooldown: true, ...withCacheDiagnostics(cooldown, true) });
       }
     }
 
@@ -97,10 +103,11 @@ export async function POST(request: Request) {
       scoreSource: input.scoreSource,
     };
 
-    aiCache.set(symbol, entry);
-    logAiScoreDiagnostics(input, analysis, false);
+    aiCache.set(getAiCacheKey(symbol, input), entry);
+    const responsePayload = withCacheDiagnostics({ analysis, input }, false);
+    logAiScoreDiagnostics(input, responsePayload.analysis, false);
 
-    return Response.json({ ok: true, cached: false, analysis, input });
+    return Response.json({ ok: true, cached: false, ...responsePayload });
   } catch (error) {
     console.error("AI analyze failed:", error);
     return Response.json(
@@ -113,7 +120,11 @@ export async function POST(request: Request) {
   }
 }
 
-async function createAiInput(symbol: string): Promise<AiTechnicalInput | null> {
+async function createAiInput(
+  symbol: string,
+  detailScore: number | null,
+  detailScoreSource: AiTechnicalInput["scoreSource"] | null,
+): Promise<AiTechnicalInput | null> {
   const supabase = createSupabaseAdminClient();
   const { data: symbolData, error: symbolError } = await supabase
     .from("symbols")
@@ -161,6 +172,8 @@ async function createAiInput(symbol: string): Promise<AiTechnicalInput | null> {
     technicalRow?.technical_score ?? null,
     technicalRow?.signals ?? null,
   );
+  const canonicalScore = detailScore ?? normalizeTechnicalScore(snapshot.score);
+  const canonicalScoreSource = detailScoreSource ?? snapshot.scoreSource;
   const latest = candles[candles.length - 1];
   const previous = candles[candles.length - 2];
   const metadata = toMetadata(symbolData as unknown as SymbolRow);
@@ -171,10 +184,10 @@ async function createAiInput(symbol: string): Promise<AiTechnicalInput | null> {
     metadata,
     latestPrice: latest.close,
     changePercent: previous.close === 0 ? 0 : ((latest.close - previous.close) / previous.close) * 100,
-    technicalScore: snapshot.score,
+    technicalScore: canonicalScore,
     scoreBreakdown: snapshot.analysis.scoreBreakdown,
-    status: snapshot.status,
-    scoreSource: snapshot.scoreSource,
+    status: getScoreStatus(canonicalScore),
+    scoreSource: canonicalScoreSource,
     topSignals: snapshot.signals.slice(0, 6).map((signal) => ({
       code: signal.code,
       labelVi: signal.labelVi,
@@ -196,7 +209,7 @@ function getCachedAnalysis(
     return null;
   }
 
-  const cached = aiCache.get(symbol);
+  const cached = aiCache.get(getAiCacheKey(symbol, input));
 
   if (!cached) {
     return null;
@@ -224,14 +237,45 @@ function getCachedAnalysis(
   return null;
 }
 
+function getAiCacheKey(symbol: string, input: AiTechnicalInput): string {
+  return [symbol, input.technicalScore, input.dataUpdatedAt ?? "no-data-updated-at"].join(":");
+}
+
+function withCacheDiagnostics(
+  payload: { analysis: AiTechnicalAnalysis; input: AiTechnicalInput },
+  cacheHit: boolean,
+): { analysis: AiTechnicalAnalysis; input: AiTechnicalInput } {
+  return {
+    ...payload,
+    analysis: {
+      ...payload.analysis,
+      diagnostics: {
+        ...payload.analysis.diagnostics,
+        cacheHit,
+        scoreSource: payload.input.scoreSource,
+      },
+    },
+  };
+}
+
 function logAiScoreDiagnostics(input: AiTechnicalInput, analysis: AiTechnicalAnalysis, cached: boolean) {
   console.info("AI analysis score diagnostics", {
     symbol: input.symbol,
-    modalScore: input.technicalScore,
+    detailScore: input.technicalScore,
+    apiScore: input.technicalScore,
     aiSummaryScore: analysis.diagnostics?.aiSummaryScore ?? null,
+    modelUsed: analysis.diagnostics?.modelUsed ?? null,
+    fallbackModelUsed: analysis.diagnostics?.fallbackModelUsed ?? false,
+    providerErrorStatus: analysis.diagnostics?.providerErrorStatus ?? null,
     scoreSource: input.scoreSource,
-    cached,
+    cacheHit: cached,
   });
+}
+
+function getScoreStatus(score: number): AiTechnicalInput["status"] {
+  if (score >= 70) return "Tích cực";
+  if (score >= 45) return "Trung tính";
+  return "Tiêu cực";
 }
 
 function canForceRefresh(symbol: string): boolean {

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { formatTechnicalScore } from "@/lib/ai/score-format";
 import { vi } from "@/lib/i18n/vi";
 import { getScannerGroups, getScoreSentiment, type ScannerGroup, type ScannerItem } from "@/lib/scanner/groups";
 import type { SignalSentiment } from "@/lib/technical-analysis/types";
@@ -65,7 +66,7 @@ function ScannerCard({ item }: { item: ScannerItem }) {
             {isUp ? "+" : ""}
             {item.stock.dayChangePercent.toFixed(2)}%
           </p>
-          <p className="mt-1 text-xs font-medium text-slate-500 dark:text-slate-400">{item.stock.score}/100</p>
+          <p className="mt-1 text-xs font-medium text-slate-500 dark:text-slate-400">{formatTechnicalScore(item.stock.score)}</p>
         </div>
       </div>
 

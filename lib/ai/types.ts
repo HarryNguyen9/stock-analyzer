@@ -36,6 +36,11 @@ export type AiTechnicalAnalysis = {
   scoreSource: AiTechnicalInput["scoreSource"];
   diagnostics?: {
     aiSummaryScore: number | null;
+    modelUsed?: string | null;
+    fallbackModelUsed?: boolean;
+    providerErrorStatus?: number | null;
+    cacheHit?: boolean;
+    scoreSource?: AiTechnicalInput["scoreSource"];
   };
 };
 

@@ -1,3 +1,4 @@
+import { formatTechnicalScore } from "@/lib/ai/score-format";
 import type { Signal, SignalSentiment } from "@/lib/technical-analysis/types";
 import { sortSignalsByPriority } from "@/lib/signals";
 import type { StockSummary } from "@/types/stock";
@@ -105,7 +106,7 @@ function getNotificationCandidates(stock: StockSummary): NotificationCandidate[]
     candidates.push({
       signal: null,
       title: `${stock.symbol} có điểm kỹ thuật cao`,
-      message: `Điểm kỹ thuật ${stock.score}/100, trạng thái ${stock.status.toLowerCase()}.`,
+      message: `Điểm kỹ thuật ${formatTechnicalScore(stock.score)}, trạng thái ${stock.status.toLowerCase()}.`,
       signalLabel: "Điểm kỹ thuật cao",
       type: "bullish",
       priority: 90,
@@ -116,7 +117,7 @@ function getNotificationCandidates(stock: StockSummary): NotificationCandidate[]
     candidates.push({
       signal: null,
       title: `${stock.symbol} cải thiện mạnh`,
-      message: `Điểm kỹ thuật tăng từ ${stock.previousScore} lên ${stock.score}.`,
+      message: `Điểm kỹ thuật tăng từ ${formatTechnicalScore(stock.previousScore)} lên ${formatTechnicalScore(stock.score)}.`,
       signalLabel: "Score tăng mạnh",
       type: "bullish",
       priority: 88,
@@ -184,7 +185,7 @@ function createGroupNotification(
     },
     "high-score": {
       title: `${uniqueSymbols.size} mã có điểm kỹ thuật cao`,
-      message: "Nhóm cổ phiếu này đang có score từ 80 trở lên.",
+      message: `Nhóm cổ phiếu này đang có score từ ${formatTechnicalScore(80)} trở lên.`,
       signalLabel: "Score cao",
       type: "bullish" as const,
       priority: 96,

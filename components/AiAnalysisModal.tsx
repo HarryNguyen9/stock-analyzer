@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { formatTechnicalScore, normalizeTechnicalScore } from "@/lib/ai/score-format";
 import { vi } from "@/lib/i18n/vi";
 
 type AiAnalysis = {
@@ -15,6 +16,11 @@ type AiAnalysis = {
   scoreSource: "supabase" | "runtime";
   diagnostics?: {
     aiSummaryScore: number | null;
+    modelUsed?: string | null;
+    fallbackModelUsed?: boolean;
+    providerErrorStatus?: number | null;
+    cacheHit?: boolean;
+    scoreSource?: "supabase" | "runtime";
   };
 };
 
@@ -30,6 +36,7 @@ type AiAnalysisModalProps = {
   latestPrice: string;
   changePercent: string;
   score: number;
+  scoreSource: "supabase" | "runtime";
   sentimentLabel: string;
 };
 
@@ -52,6 +59,7 @@ export function AiAnalysisModal({
   latestPrice,
   changePercent,
   score,
+  scoreSource,
   sentimentLabel,
 }: AiAnalysisModalProps) {
   const [isOpen, setIsOpen] = useState(false);
@@ -60,13 +68,15 @@ export function AiAnalysisModal({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const copy = vi.stock.ai;
-  const modalScore = aiInput?.technicalScore ?? analysis?.technicalScore ?? score;
+  const detailScore = normalizeTechnicalScore(score);
+  const modalScore = detailScore;
+  const modalScoreText = formatTechnicalScore(modalScore);
   const modalSentimentLabel = aiInput?.status ?? sentimentLabel;
 
   useEffect(() => {
     setAnalysis(null);
     setAiInput(null);
-  }, [symbol, score]);
+  }, [symbol, detailScore, scoreSource]);
 
   async function openModal() {
     setIsOpen(true);
@@ -86,7 +96,7 @@ export function AiAnalysisModal({
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ symbol, forceRefresh }),
+        body: JSON.stringify({ symbol, forceRefresh, technicalScore: detailScore, scoreSource }),
       });
       const payload = (await response.json()) as ApiResponse;
 
@@ -98,9 +108,13 @@ export function AiAnalysisModal({
       setAiInput(payload.input);
       console.info("AI modal score diagnostics", {
         symbol,
-        modalScore: payload.input.technicalScore,
+        detailScore,
+        modalScore,
+        apiScore: payload.input.technicalScore,
         aiSummaryScore: payload.analysis.diagnostics?.aiSummaryScore ?? null,
-        scoreSource: payload.input.scoreSource,
+        detailScoreSource: scoreSource,
+        apiScoreSource: payload.input.scoreSource,
+        cacheHit: payload.cached,
       });
     } catch (fetchError) {
       setError(fetchError instanceof Error ? fetchError.message : copy.fallbackError);
@@ -171,7 +185,7 @@ export function AiAnalysisModal({
                 </div>
                 <div className="mt-4 flex items-center justify-between rounded-lg bg-white px-3 py-2 dark:bg-slate-950">
                   <span className="text-sm text-slate-500 dark:text-slate-400">{copy.technicalScore}</span>
-                  <span className="text-sm font-semibold text-slate-950 dark:text-white">{modalScore}/100</span>
+                  <span className="text-sm font-semibold text-slate-950 dark:text-white">{modalScoreText}</span>
                 </div>
               </div>
 
@@ -230,10 +244,11 @@ function LoadingState() {
 
 function AnalysisResult({ analysis }: { analysis: AiAnalysis }) {
   const copy = vi.stock.ai;
+  const summary = normalizeSummaryScoreText(analysis.summary, analysis.technicalScore);
 
   return (
     <div className="mt-5 space-y-4">
-      <ResultBlock title={copy.sections.summary} items={[analysis.summary]} />
+      <ResultBlock title={copy.sections.summary} items={[summary]} />
       <ResultBlock title={copy.sections.bullish} items={analysis.bullishPoints} />
       <ResultBlock title={copy.sections.risk} items={analysis.riskPoints} />
       <ResultBlock title={copy.sections.watch} items={analysis.watchPoints} />
@@ -262,6 +277,10 @@ function ResultBlock({ title, items }: { title: string; items: string[] }) {
       </div>
     </section>
   );
+}
+
+function normalizeSummaryScoreText(summary: string, score: number): string {
+  return summary.replace(/\b\d{1,}\s*\/\s*100\b/g, formatTechnicalScore(score));
 }
 
 function getPanelAccent(sentiment?: AiAnalysis["sentiment"]): string {

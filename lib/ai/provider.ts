@@ -1,5 +1,6 @@
 import { createFallbackTechnicalAnalysis } from "@/lib/ai/fallback-summary";
 import { geminiProvider } from "@/lib/ai/gemini-provider";
+import { formatTechnicalScore, normalizeTechnicalScore } from "@/lib/ai/score-format";
 import type { AiAnalysisSentiment, AiProvider, AiTechnicalAnalysis, AiTechnicalInput } from "@/lib/ai/types";
 
 const fallbackProvider: AiProvider = {
@@ -33,39 +34,44 @@ function alignAnalysisToCanonicalScore(
   input: AiTechnicalInput,
 ): AiTechnicalAnalysis {
   const aiSummaryScore = extractScoreFromText(analysis.summary);
+  const canonicalScore = normalizeTechnicalScore(input.technicalScore);
   const sentiment = getCanonicalSentiment(input);
 
   return {
     ...analysis,
-    summary: enforceCanonicalScoreText(analysis.summary, input.technicalScore),
-    bullishPoints: analysis.bullishPoints.map((point) => enforceCanonicalScoreText(point, input.technicalScore)),
-    riskPoints: analysis.riskPoints.map((point) => enforceCanonicalScoreText(point, input.technicalScore)),
-    watchPoints: analysis.watchPoints.map((point) => enforceCanonicalScoreText(point, input.technicalScore)),
+    summary: enforceCanonicalScoreText(analysis.summary, canonicalScore),
+    bullishPoints: analysis.bullishPoints.map((point) => enforceCanonicalScoreText(point, canonicalScore)),
+    riskPoints: analysis.riskPoints.map((point) => enforceCanonicalScoreText(point, canonicalScore)),
+    watchPoints: analysis.watchPoints.map((point) => enforceCanonicalScoreText(point, canonicalScore)),
     sentiment,
-    technicalScore: input.technicalScore,
+    technicalScore: canonicalScore,
     scoreSource: input.scoreSource,
     diagnostics: {
       ...analysis.diagnostics,
       aiSummaryScore,
+      scoreSource: input.scoreSource,
     },
   };
 }
 
 function enforceCanonicalScoreText(value: string, technicalScore: number): string {
-  const canonical = `${technicalScore}/100`;
-  const withSlashScore = value.replace(/\b\d{1,3}\s*\/\s*100\b/g, canonical);
+  const canonical = formatTechnicalScore(technicalScore);
+  const withSlashScore = value.replace(/\b\d{1,}\s*\/\s*100\b/g, canonical);
 
-  return withSlashScore.replace(/(điểm kỹ thuật\s+)(\d{1,3})(?!\s*\/)/gi, (_match, prefix: string) => `${prefix}${technicalScore}`);
+  return withSlashScore.replace(
+    /(điểm kỹ thuật\s+)(\d{1,})(?!\s*\/)/gi,
+    (_match, prefix: string) => `${prefix}${normalizeTechnicalScore(technicalScore)}`,
+  );
 }
 
 function extractScoreFromText(value: string): number | null {
-  const slashMatch = value.match(/\b(\d{1,3})\s*\/\s*100\b/);
+  const slashMatch = value.match(/\b(\d{1,})\s*\/\s*100\b/);
 
   if (slashMatch) {
     return toScore(slashMatch[1]);
   }
 
-  const textMatch = value.match(/điểm kỹ thuật\s+(\d{1,3})(?!\s*\/)/i);
+  const textMatch = value.match(/điểm kỹ thuật\s+(\d{1,})(?!\s*\/)/i);
   return textMatch ? toScore(textMatch[1]) : null;
 }
 

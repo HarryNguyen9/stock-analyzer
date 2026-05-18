@@ -122,6 +122,7 @@ export default async function StockDetailPage({ params }: StockPageProps) {
               latestPrice={latest.close.toFixed(2)}
               changePercent={`${isUp ? "+" : ""}${changePercent.toFixed(2)}%`}
               score={displayScore}
+              scoreSource={technicalSnapshot.scoreSource}
               sentimentLabel={displayStatus}
             />
           </div>
