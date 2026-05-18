@@ -58,6 +58,10 @@ export const vi = {
     manualSync: {
       label: "Tải lại dữ liệu",
       loading: "Đang gửi lệnh",
+      sent: "Đã gửi lệnh cập nhật",
+      waiting: "Đã gửi lệnh cập nhật. Đang chờ GitHub Action chạy...",
+      updated: "Đã cập nhật dữ liệu mới",
+      timeout: "Lệnh đã gửi nhưng dữ liệu chưa đổi. Có thể workflow đang xếp hàng.",
       success: "Đã gửi lệnh cập nhật. Dữ liệu sẽ được cập nhật sau vài phút.",
       error: "Không gửi được lệnh cập nhật. Vui lòng thử lại sau.",
       secretPrompt: "Nhập mã admin để tải lại dữ liệu",
