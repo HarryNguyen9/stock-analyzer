@@ -4,6 +4,7 @@ import { createSupabaseAdminClient } from "../lib/supabase/admin";
 import type { Database } from "../lib/supabase/types";
 
 type SymbolInsert = Database["public"]["Tables"]["symbols"]["Insert"];
+type SymbolUpdate = Database["public"]["Tables"]["symbols"]["Update"];
 type Exchange = SymbolInsert["exchange"];
 type Tier = NonNullable<SymbolInsert["tier"]>;
 
@@ -69,7 +70,7 @@ const A_TIER_SYMBOLS: SeedSymbol[] = [
   { symbol: "POW", name: "PV Power", exchange: "HOSE", sector: "Điện", tier: "A", autoSync: true },
   { symbol: "PVD", name: "PV Drilling", exchange: "HOSE", sector: "Dịch vụ năng lượng", tier: "A", autoSync: true },
   { symbol: "PVS", name: "Dịch vụ Kỹ thuật Dầu khí", exchange: "HNX", sector: "Dịch vụ năng lượng", tier: "A", autoSync: true },
-  { symbol: "BSR", name: "Lọc hóa dầu Bình Sơn", exchange: "UPCOM", sector: "Năng lượng", tier: "A", autoSync: true },
+  { symbol: "BSR", name: "Lọc hóa dầu Bình Sơn", exchange: "HOSE", sector: "Năng lượng", tier: "A", autoSync: true },
   { symbol: "OIL", name: "PV Oil", exchange: "UPCOM", sector: "Năng lượng", tier: "A", autoSync: true },
   { symbol: "DPM", name: "Đạm Phú Mỹ", exchange: "HOSE", sector: "Hóa chất/Phân bón", tier: "A", autoSync: true },
   { symbol: "DCM", name: "Đạm Cà Mau", exchange: "HOSE", sector: "Hóa chất/Phân bón", tier: "A", autoSync: true },
@@ -127,17 +128,41 @@ async function seedTopSymbols() {
 
   const rows = toUpsertRows([...A_TIER_SYMBOLS, ...B_TIER_SYMBOLS]);
   const supabase = createSupabaseAdminClient();
+  const { data: existingRows, error: existingError } = await supabase.from("symbols").select("symbol");
 
-  const { error } = await supabase.from("symbols").upsert(rows, {
-    onConflict: "symbol",
-  });
+  if (existingError) {
+    throw existingError;
+  }
 
-  if (error) {
-    throw error;
+  const existing = new Set((existingRows ?? []).map((row) => row.symbol));
+  const inserts = rows.filter((row) => !existing.has(row.symbol));
+  const syncUpdates = rows.filter((row) => existing.has(row.symbol));
+
+  if (inserts.length > 0) {
+    const { error } = await supabase.from("symbols").insert(inserts);
+
+    if (error) {
+      throw error;
+    }
+  }
+
+  for (const row of syncUpdates) {
+    const update: SymbolUpdate = {
+      tier: row.tier,
+      auto_sync: row.auto_sync,
+      liquidity_rank: row.liquidity_rank,
+    };
+    const { error } = await supabase.from("symbols").update(update).eq("symbol", row.symbol);
+
+    if (error) {
+      throw error;
+    }
   }
 
   const autoSyncCount = rows.filter((row) => row.auto_sync).length;
-  console.log(`Seed symbols done: ${rows.length} ma, ${autoSyncCount} ma auto_sync=true.`);
+  console.log(
+    `Seed symbols done: ${inserts.length} inserted, ${syncUpdates.length} sync settings updated, ${autoSyncCount} ma auto_sync=true.`,
+  );
 }
 
 function toUpsertRows(seedSymbols: SeedSymbol[]): SymbolInsert[] {

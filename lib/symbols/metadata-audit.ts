@@ -1,6 +1,7 @@
-import { FULL_SYMBOLS_METADATA, type SymbolMetadataSourceItem } from "@/data/full-symbols-metadata";
+import type { SymbolMetadataSourceItem } from "@/data/full-symbols-metadata";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { buildFinalSymbolMetadataMap } from "@/lib/symbols/metadata-normalize";
+import { loadLatestSymbolMetadata } from "@/lib/symbols/metadata-provider";
 
 type SymbolRow = {
   symbol: string;
@@ -69,8 +70,11 @@ const METADATA_STALE_DAYS = 30;
 
 export async function auditSymbolMetadata(): Promise<SymbolMetadataAuditResult> {
   const supabase = createSupabaseAdminClient();
-  const [symbols, priceRows] = await Promise.all([readSymbols(supabase), readPriceRows(supabase)]);
-  const sourceBySymbol = buildSourceMetadataMap();
+  const [symbols, priceRows, sourceBySymbol] = await Promise.all([
+    readSymbols(supabase),
+    readPriceRows(supabase),
+    buildSourceMetadataMap(),
+  ]);
   const pricesBySymbol = summarizePriceRows(priceRows);
   const suspiciousSymbols: SuspiciousSymbol[] = [];
   const infoSymbols: SuspiciousSymbol[] = [];
@@ -234,8 +238,14 @@ async function readPriceRows(supabase: ReturnType<typeof createSupabaseAdminClie
   }));
 }
 
-function buildSourceMetadataMap(): Map<string, SymbolMetadataSourceItem> {
-  return buildFinalSymbolMetadataMap(FULL_SYMBOLS_METADATA);
+async function buildSourceMetadataMap(): Promise<Map<string, SymbolMetadataSourceItem>> {
+  const loaded = await loadLatestSymbolMetadata();
+
+  if (loaded.staticFallbackUsed) {
+    console.warn("metadata audit using fallback_static source after provider fetch failed");
+  }
+
+  return buildFinalSymbolMetadataMap(loaded.items);
 }
 
 function summarizePriceRows(priceRows: PriceRow[]): Map<string, { rows: number; latestUpdatedAt: string | null }> {
