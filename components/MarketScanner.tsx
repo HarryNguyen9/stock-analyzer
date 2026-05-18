@@ -4,7 +4,6 @@ import { vi } from "@/lib/i18n/vi";
 import {
   getScannerDiagnostics,
   getScannerGroups,
-  getScannerQualityThresholds,
   getScoreSentiment,
   type ScannerGroup,
   type ScannerItem,
@@ -21,10 +20,6 @@ export function MarketScanner({ stocks, snapshotGroups }: { stocks: StockSummary
     console.info("market scanner quality diagnostics", diagnostics);
   }
 
-  if (groups.length === 0) {
-    return null;
-  }
-
   return (
     <section className="mx-auto w-full max-w-7xl px-4 pt-6 sm:px-6 lg:px-8">
       <div className="mb-4 flex items-end justify-between gap-4">
@@ -34,8 +29,9 @@ export function MarketScanner({ stocks, snapshotGroups }: { stocks: StockSummary
         </div>
       </div>
 
-      <div className="space-y-5">
-        {groups.map((group) => (
+      {groups.length > 0 ? (
+        <div className="space-y-5">
+          {groups.map((group) => (
           <section key={group.id}>
             <div className="mb-3 flex items-center justify-between">
               <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">{group.title}</h3>
@@ -47,8 +43,13 @@ export function MarketScanner({ stocks, snapshotGroups }: { stocks: StockSummary
               ))}
             </div>
           </section>
-        ))}
-      </div>
+          ))}
+        </div>
+      ) : (
+        <div className="rounded-lg border border-dashed border-slate-300 bg-white p-4 text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400">
+          {vi.home.scannerEmpty}
+        </div>
+      )}
     </section>
   );
 }
@@ -80,9 +81,6 @@ function ScannerCard({ item }: { item: ScannerItem }) {
             {item.stock.dayChangePercent.toFixed(2)}%
           </p>
           <p className="mt-1 text-xs font-medium text-slate-500 dark:text-slate-400">{formatTechnicalScore(item.stock.score)}</p>
-          {isLowLiquidity(item.stock) ? (
-            <p className="mt-1 text-[11px] font-medium text-amber-600 dark:text-amber-400">{vi.home.lowLiquidity}</p>
-          ) : null}
         </div>
       </div>
 
@@ -96,11 +94,6 @@ function ScannerCard({ item }: { item: ScannerItem }) {
       </div>
     </Link>
   );
-}
-
-function isLowLiquidity(stock: ScannerItem["stock"]): boolean {
-  const quality = getScannerQualityThresholds();
-  return (stock.avgVolume20 ?? 0) < quality.minAvgVolume20 && (stock.avgTradedValue20 ?? 0) < quality.minTradedValue20;
 }
 
 function getSentimentClass(sentiment: SignalSentiment): string {

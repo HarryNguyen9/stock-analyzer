@@ -1,5 +1,10 @@
 import { getStockSummaries } from "@/lib/data-source/prices";
-import { getScannerDiagnostics, getScannerGroups, type ScannerGroup } from "@/lib/scanner/groups";
+import {
+  filterScannerGroupsByQuality,
+  getScannerDiagnostics,
+  getScannerGroups,
+  type ScannerGroup,
+} from "@/lib/scanner/groups";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { Json } from "@/lib/supabase/types";
 import type { Signal } from "@/lib/technical-analysis/types";
@@ -64,7 +69,7 @@ export async function readHomeScannerSnapshot(currentStocks: StockSummary[] = []
     }
 
     const latestMetadata = await readLatestSymbolMetadata();
-    return mergeLatestMetadata(groups, currentStocks, latestMetadata, row.updated_at);
+    return filterScannerGroupsByQuality(mergeLatestMetadata(groups, currentStocks, latestMetadata, row.updated_at));
   } catch (error) {
     console.warn("Khong doc duoc home_scanner snapshot, fallback runtime scanner:", error);
     return null;
@@ -74,7 +79,13 @@ export async function readHomeScannerSnapshot(currentStocks: StockSummary[] = []
 function mergeLatestMetadata(
   groups: ScannerGroup[],
   currentStocks: StockSummary[],
-  latestMetadata: Map<string, Pick<StockSummary, "symbol" | "name" | "exchange" | "sector" | "tier" | "liquidityRank">>,
+  latestMetadata: Map<
+    string,
+    Pick<
+      StockSummary,
+      "symbol" | "name" | "exchange" | "sector" | "tier" | "liquidityRank" | "avgVolume20" | "avgTradedValue20"
+    >
+  >,
   snapshotUpdatedAt?: string | null,
 ): ScannerGroup[] {
   if (isSnapshotStale(snapshotUpdatedAt)) {
@@ -121,6 +132,8 @@ function mergeLatestMetadata(
           sector: latest.sector,
           tier: latest.tier,
           liquidityRank: latest.liquidityRank,
+          avgVolume20: latest.avgVolume20,
+          avgTradedValue20: latest.avgTradedValue20,
         },
       };
     }),
@@ -138,7 +151,13 @@ function mergeLatestMetadata(
 }
 
 async function readLatestSymbolMetadata(): Promise<
-  Map<string, Pick<StockSummary, "symbol" | "name" | "exchange" | "sector" | "tier" | "liquidityRank">>
+  Map<
+    string,
+    Pick<
+      StockSummary,
+      "symbol" | "name" | "exchange" | "sector" | "tier" | "liquidityRank" | "avgVolume20" | "avgTradedValue20"
+    >
+  >
 > {
   const supabase = createSupabaseAdminClient();
   const { data, error } = await supabase
@@ -172,6 +191,8 @@ async function readLatestSymbolMetadata(): Promise<
         sector: row.sector,
         tier: row.tier,
         liquidityRank: row.liquidity_rank,
+        avgVolume20: undefined,
+        avgTradedValue20: undefined,
       },
     ]),
   );

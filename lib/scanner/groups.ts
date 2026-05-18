@@ -25,14 +25,15 @@ export type ScannerGroup = {
   items: ScannerItem[];
 };
 
-const MAX_ITEMS = 5;
-const DEFAULT_MIN_AVG_VOLUME20 = 500_000;
-const DEFAULT_MIN_TRADED_VALUE20 = 15_000_000_000;
+export const SCANNER_MAX_ITEMS_PER_GROUP = 5;
+export const SCANNER_MIN_AVG_VOLUME20 = 500_000;
+export const SCANNER_MIN_TRADED_VALUE20 = 10_000_000_000;
 
 export type ScannerDiagnostics = {
   filteredLowLiquidityCount: number;
   minAvgVolume20: number;
   minTradedValue20: number;
+  groupsCounts: Record<ScannerGroupId, number>;
 };
 
 export function getScannerGroups(stocks: StockSummary[]): ScannerGroup[] {
@@ -112,13 +113,14 @@ export function getScannerGroups(stocks: StockSummary[]): ScannerGroup[] {
         return true;
       })
       .sort(sortScannerItems)
-      .slice(0, MAX_ITEMS),
+      .slice(0, SCANNER_MAX_ITEMS_PER_GROUP),
   }));
 
   attachScannerDiagnostics(groups, {
     filteredLowLiquidityCount,
     minAvgVolume20: quality.minAvgVolume20,
     minTradedValue20: quality.minTradedValue20,
+    groupsCounts: getGroupsCounts(groups),
   });
 
   return groups;
@@ -132,10 +134,12 @@ export function getScoreSentiment(score: number): SignalSentiment {
 
 function sortScannerItems(a: ScannerItem, b: ScannerItem): number {
   return (
-    b.sortLiquidity - a.sortLiquidity ||
+    (b.stock.avgTradedValue20 ?? 0) - (a.stock.avgTradedValue20 ?? 0) ||
+    (b.stock.avgVolume20 ?? 0) - (a.stock.avgVolume20 ?? 0) ||
     b.sortSignalPriority - a.sortSignalPriority ||
     b.stock.score - a.stock.score ||
-    b.sortVolumeSpike - a.sortVolumeSpike
+    b.sortVolumeSpike - a.sortVolumeSpike ||
+    b.sortLiquidity - a.sortLiquidity
   );
 }
 
@@ -157,9 +161,9 @@ function getLiquiditySortValue(stock: StockSummary): number {
   return Math.log10(Math.max(1, tradedValue)) * 12 + Math.log10(Math.max(1, volume)) * 4 + exchangeBoost + rankBoost;
 }
 
-function passesScannerQuality(
+export function passesScannerQuality(
   stock: StockSummary,
-  quality: { minAvgVolume20: number; minTradedValue20: number },
+  quality: { minAvgVolume20: number; minTradedValue20: number } = getScannerQualityThresholds(),
 ): boolean {
   const avgVolume20 = stock.avgVolume20 ?? 0;
   const avgTradedValue20 = stock.avgTradedValue20 ?? 0;
@@ -173,9 +177,21 @@ function passesScannerQuality(
 
 export function getScannerQualityThresholds(): { minAvgVolume20: number; minTradedValue20: number } {
   return {
-    minAvgVolume20: getEnvNumber("SCANNER_MIN_AVG_VOLUME20", DEFAULT_MIN_AVG_VOLUME20),
-    minTradedValue20: getEnvNumber("SCANNER_MIN_TRADED_VALUE20", DEFAULT_MIN_TRADED_VALUE20),
+    minAvgVolume20: getEnvNumber("SCANNER_MIN_AVG_VOLUME20", SCANNER_MIN_AVG_VOLUME20),
+    minTradedValue20: getEnvNumber("SCANNER_MIN_TRADED_VALUE20", SCANNER_MIN_TRADED_VALUE20),
   };
+}
+
+export function filterScannerGroupsByQuality(groups: ScannerGroup[]): ScannerGroup[] {
+  const quality = getScannerQualityThresholds();
+
+  return groups.map((group) => ({
+    ...group,
+    items: group.items
+      .filter((item) => passesScannerQuality(item.stock, quality))
+      .sort(sortScannerItems)
+      .slice(0, SCANNER_MAX_ITEMS_PER_GROUP),
+  }));
 }
 
 export function getScannerDiagnostics(groups: ScannerGroup[]): ScannerDiagnostics | null {
@@ -188,6 +204,23 @@ function attachScannerDiagnostics(groups: ScannerGroup[], diagnostics: ScannerDi
     value: diagnostics,
     enumerable: false,
   });
+}
+
+function getGroupsCounts(groups: ScannerGroup[]): Record<ScannerGroupId, number> {
+  return groups.reduce(
+    (counts, group) => ({
+      ...counts,
+      [group.id]: group.items.length,
+    }),
+    {
+      highScore: 0,
+      breakout: 0,
+      volumeSpike: 0,
+      oversoldRsi: 0,
+      strongTrend: 0,
+      riskWarning: 0,
+    } satisfies Record<ScannerGroupId, number>,
+  );
 }
 
 function getEnvNumber(key: string, fallback: number): number {

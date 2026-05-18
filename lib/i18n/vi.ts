@@ -21,6 +21,7 @@ export const vi = {
     searchEmptyDescription: "Thử nhập mã cổ phiếu, tên doanh nghiệp hoặc sàn như HOSE, HNX, UPCOM.",
     scannerTitle: "Market Scanner",
     scannerSubtitle: "Các nhóm tín hiệu đáng chú ý",
+    scannerEmpty: "Chưa có đủ tín hiệu chất lượng cao.",
     scannerGroups: {
       highScore: "Điểm kỹ thuật cao",
       breakout: "Breakout",

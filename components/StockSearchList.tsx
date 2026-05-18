@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { StockCard } from "@/components/StockCard";
 import { vi } from "@/lib/i18n/vi";
+import { passesScannerQuality } from "@/lib/scanner/groups";
 import { sortSignalsByPriority } from "@/lib/signals";
 import type { StockSummary } from "@/types/stock";
 
@@ -88,7 +89,10 @@ export function StockSearchList({
 }
 
 function getFeaturedStocks(stocks: StockSummary[]): StockSummary[] {
-  return [...stocks]
+  const qualityStocks = stocks.filter((stock) => stock.dataStatus === "ready" && passesScannerQuality(stock));
+  const sourceStocks = qualityStocks.length > 0 ? qualityStocks : stocks;
+
+  return [...sourceStocks]
     .sort((a, b) => getFeaturedScore(b) - getFeaturedScore(a))
     .slice(0, FEATURED_LIMIT);
 }
