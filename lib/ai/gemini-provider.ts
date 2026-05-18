@@ -1,4 +1,5 @@
 import { createFallbackTechnicalAnalysis } from "@/lib/ai/fallback-summary";
+import { formatTechnicalScore, normalizeTechnicalScore } from "@/lib/ai/score-format";
 import type { AiProvider, AiTechnicalAnalysis, AiTechnicalInput } from "@/lib/ai/types";
 
 const GEMINI_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models";

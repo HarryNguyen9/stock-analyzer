@@ -1,3 +1,4 @@
+import { formatTechnicalScore } from "@/lib/ai/score-format";
 import type { AiTechnicalAnalysis, AiTechnicalInput } from "@/lib/ai/types";
 
 const DISCLAIMER =
@@ -7,9 +8,10 @@ export function createFallbackTechnicalAnalysis(input: AiTechnicalInput): AiTech
   const bullishSignals = input.topSignals.filter((signal) => signal.sentiment === "bullish");
   const riskSignals = input.topSignals.filter((signal) => signal.sentiment === "bearish");
   const sentiment = getSentiment(input);
+  const technicalScoreText = formatTechnicalScore(input.technicalScore);
 
   return {
-    summary: `${input.symbol} đang ở trạng thái ${input.status.toLowerCase()} với điểm kỹ thuật ${input.technicalScore}/100. Biến động gần nhất là ${formatSigned(input.changePercent)}%.`,
+    summary: `${input.symbol} đang ở trạng thái ${input.status.toLowerCase()} với điểm kỹ thuật ${technicalScoreText}. Biến động gần nhất là ${formatSigned(input.changePercent)}%.`,
     bullishPoints:
       bullishSignals.length > 0
         ? bullishSignals.slice(0, 3).map((signal) => `${signal.labelVi}: ${signal.descriptionVi}`)
@@ -19,7 +21,7 @@ export function createFallbackTechnicalAnalysis(input: AiTechnicalInput): AiTech
         ? riskSignals.slice(0, 3).map((signal) => `${signal.labelVi}: ${signal.descriptionVi}`)
         : ["Rủi ro kỹ thuật chưa nổi bật, nhưng vẫn cần theo dõi phản ứng tại các vùng hỗ trợ/kháng cự gần nhất."],
     watchPoints: [
-      `Theo dõi khả năng duy trì điểm kỹ thuật quanh vùng ${input.technicalScore}/100.`,
+      `Theo dõi khả năng duy trì điểm kỹ thuật quanh vùng ${technicalScoreText}.`,
       "Quan sát khối lượng trong các phiên tới để xác nhận sức mạnh của tín hiệu hiện tại.",
       "Ưu tiên kiểm tra lại nếu xuất hiện tín hiệu breakout hoặc cảnh báo rủi ro mới.",
     ],
