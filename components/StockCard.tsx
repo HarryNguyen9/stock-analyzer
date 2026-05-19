@@ -27,7 +27,7 @@ export function StockCard({ stock }: { stock: StockSummary }) {
               {stock.exchange}
             </span>
           </div>
-          <p className="mt-1 truncate text-sm text-slate-500 dark:text-slate-400">{stock.name}</p>
+          <p className="mt-1 break-words text-sm leading-5 text-slate-500 dark:text-slate-400">{stock.name}</p>
           <p className="mt-3 text-xs font-medium uppercase tracking-normal text-slate-400 dark:text-slate-500">
             {stock.sector}
           </p>
