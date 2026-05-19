@@ -22,7 +22,7 @@ export function MarketScanner({ stocks, snapshotGroups }: { stocks: StockSummary
 
   return (
     <section className="mx-auto w-full max-w-7xl px-4 pt-6 sm:px-6 lg:px-8">
-      <div className="rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/70 sm:p-5">
+      <div className="animate-fade-in rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/70 sm:p-5">
         <div className="mb-5 flex items-end justify-between gap-4">
           <div>
             <h2 className="text-lg font-semibold text-slate-950 dark:text-white">{vi.home.scannerTitle}</h2>
@@ -66,7 +66,7 @@ function ScannerCard({ item }: { item: ScannerItem }) {
   return (
     <Link
       href={`/stock/${item.stock.symbol}`}
-      className="w-64 shrink-0 snap-start rounded-xl border border-slate-200 bg-white p-3 shadow-sm transition hover:border-slate-300 hover:shadow-md dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700"
+      className="w-64 shrink-0 snap-start rounded-xl border border-slate-200 bg-white p-3 shadow-sm transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md active:scale-[0.99] dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700"
     >
       <div className="flex items-start justify-between gap-3">
         <div>

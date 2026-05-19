@@ -1,18 +1,29 @@
 import Link from "next/link";
-import type { MarketAlert, MarketAlertSeverity } from "@/lib/pipeline/snapshot";
+import type { MarketAlert, MarketAlertGroup, MarketAlertSeverity } from "@/lib/pipeline/snapshot";
 
 export function MarketAlerts({ alerts }: { alerts: MarketAlert[] }) {
   const topAlerts = alerts.slice(0, 8);
+  const groups = groupAlerts(topAlerts);
 
   return (
     <section className="mx-auto w-full max-w-7xl px-4 pt-6 sm:px-6 lg:px-8">
-      <div className="rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/70 sm:p-5">
+      <div className="animate-fade-in rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/70 sm:p-5">
         <SectionHeader count={topAlerts.length} />
 
         {topAlerts.length > 0 ? (
-          <div className="-mx-4 flex snap-x gap-3 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden">
-            {topAlerts.map((alert) => (
-              <AlertCard key={alert.dedupeKey} alert={alert} />
+          <div className="space-y-4">
+            {groups.map((group) => (
+              <div key={group.id}>
+                <div className="mb-2 flex items-center justify-between">
+                  <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-200">{getGroupLabel(group.id)}</h3>
+                  <span className="text-xs text-slate-400 dark:text-slate-500">{group.items.length}</span>
+                </div>
+                <div className="-mx-4 flex snap-x gap-3 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden">
+                  {group.items.map((alert, index) => (
+                    <AlertCard key={alert.dedupeKey} alert={alert} index={index} />
+                  ))}
+                </div>
+              </div>
             ))}
           </div>
         ) : (
@@ -41,9 +52,12 @@ function SectionHeader({ count }: { count: number }) {
   );
 }
 
-function AlertCard({ alert }: { alert: MarketAlert }) {
+function AlertCard({ alert, index }: { alert: MarketAlert; index: number }) {
   const content = (
-    <div className={`h-full min-h-40 w-72 shrink-0 snap-start rounded-xl border p-4 shadow-sm transition ${getToneClass(alert.severity)}`}>
+    <div
+      className={`h-full min-h-40 w-72 shrink-0 snap-start rounded-xl border p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${getToneClass(alert.severity)}`}
+      style={{ animationDelay: `${index * 40}ms` }}
+    >
       <div className="flex items-start justify-between gap-3">
         <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${getBadgeClass(alert.severity)}`}>
           {getSeverityLabel(alert.severity)}
@@ -73,6 +87,29 @@ function AlertCard({ alert }: { alert: MarketAlert }) {
   }
 
   return content;
+}
+
+function groupAlerts(alerts: MarketAlert[]): Array<{ id: MarketAlertGroup; items: MarketAlert[] }> {
+  const order: MarketAlertGroup[] = ["market", "sector", "symbol"];
+
+  return order
+    .map((id) => ({
+      id,
+      items: alerts.filter((alert) => (alert.group ?? getFallbackGroup(alert)) === id),
+    }))
+    .filter((group) => group.items.length > 0);
+}
+
+function getFallbackGroup(alert: MarketAlert): MarketAlertGroup {
+  if (alert.symbol) return "symbol";
+  if (alert.sector) return "sector";
+  return "market";
+}
+
+function getGroupLabel(group: MarketAlertGroup): string {
+  if (group === "market") return "Market";
+  if (group === "sector") return "Sector";
+  return "Symbol";
 }
 
 function getToneClass(severity: MarketAlertSeverity): string {

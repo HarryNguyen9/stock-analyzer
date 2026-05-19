@@ -24,6 +24,7 @@ export {
   readMarketAlertsSnapshot,
   refreshMarketAlertsSnapshot,
   type MarketAlert,
+  type MarketAlertGroup,
   type MarketAlertSeverity,
   type MarketAlertType,
 } from "@/lib/alerts/generate-alerts";

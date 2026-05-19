@@ -23,7 +23,7 @@ export function SectorHeatmap({ sectors }: { sectors: SectorSummary[] }) {
 
   return (
     <section className="mx-auto w-full max-w-7xl px-4 pt-6 sm:px-6 lg:px-8">
-      <div className="rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/70 sm:p-5">
+      <div className="animate-fade-in rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/70 sm:p-5">
         <div className="mb-5 flex items-end justify-between gap-4">
           <div>
             <h2 className="text-lg font-semibold text-slate-950 dark:text-white">Sức mạnh theo ngành</h2>
@@ -42,7 +42,7 @@ export function SectorHeatmap({ sectors }: { sectors: SectorSummary[] }) {
               key={sector.sector}
               type="button"
               onClick={() => setExpandedSector((current) => (current === sector.sector ? null : sector.sector))}
-              className={`min-w-72 snap-start rounded-xl border p-4 text-left shadow-sm transition sm:min-w-0 ${
+              className={`min-w-72 snap-start rounded-xl border p-4 text-left shadow-sm transition hover:-translate-y-0.5 active:scale-[0.99] sm:min-w-0 ${
                 sector.averageChangePercent >= 0
                   ? "border-emerald-200 bg-emerald-50/70 hover:border-emerald-300 dark:border-emerald-950 dark:bg-emerald-950/30"
                   : "border-rose-200 bg-rose-50/70 hover:border-rose-300 dark:border-rose-950 dark:bg-rose-950/25"

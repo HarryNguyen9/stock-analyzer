@@ -1,6 +1,7 @@
 import { getStockSummaries } from "@/lib/data-source/prices";
 import { getLiquidityScore, isLiquidEnough, MAX_ALERTS } from "@/lib/market/liquidity";
 import { readMarketBreadthSnapshot, type MarketBreadthSnapshot } from "@/lib/market/breadth";
+import { recordSnapshotHistory } from "@/lib/market/snapshot-history";
 import { readSectorHeatmapSnapshot, type SectorSummary } from "@/lib/sector/heatmap";
 import { sortSignalsByPriority } from "@/lib/signals";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -11,6 +12,7 @@ import type { StockSummary } from "@/types/stock";
 export const MARKET_ALERTS_SNAPSHOT_TYPE = "market_alerts";
 
 export type MarketAlertSeverity = "info" | "warning" | "bullish" | "bearish";
+export type MarketAlertGroup = "market" | "sector" | "symbol";
 
 export type MarketAlertType =
   | "breakout_volume"
@@ -29,6 +31,7 @@ export type MarketAlert = {
   symbol?: string;
   sector?: string;
   severity: MarketAlertSeverity;
+  group: MarketAlertGroup;
   created_at: string;
   expires_at?: string;
   priority: number;
@@ -69,9 +72,12 @@ export async function refreshMarketAlertsSnapshot(stocks?: StockSummary[]): Prom
       throw error;
     }
 
+    await recordSnapshotHistory(MARKET_ALERTS_SNAPSHOT_TYPE, alerts as unknown as Json);
+
     console.info("market_alerts snapshot updated:", {
       alertCount: alerts.length,
       symbolCount: sourceStocks.length,
+      groups: countByGroup(alerts),
     });
 
     return true;
@@ -138,62 +144,74 @@ function generateStockAlerts(stocks: StockSummary[], now: Date): MarketAlert[] {
     const rsiExtreme = signals.find((signal) => signal.code === "RSI_OVERBOUGHT" || signal.code === "RSI_OVERSOLD");
 
     if (breakoutVolume) {
-      alerts.push(createStockAlert(stock, breakoutVolume, now, {
-        type: "breakout_volume",
-        severity: "bullish",
-        priority: 100,
-        title: `${stock.symbol}: Breakout kèm volume`,
-        description: `${stock.symbol} vượt vùng kỹ thuật với thanh khoản xác nhận, đáng chú ý trong nhóm tín hiệu mạnh.`,
-      }));
+      alerts.push(
+        createStockAlert(stock, now, {
+          type: "breakout_volume",
+          severity: "bullish",
+          priority: 100 + breakoutVolume.strength,
+          title: `${stock.symbol} breakout kèm thanh khoản cao`,
+          description: `${stock.symbol} vượt vùng kỹ thuật với thanh khoản xác nhận, thuộc nhóm tín hiệu mạnh cần theo dõi.`,
+        }),
+      );
     } else if (breakHigh) {
-      alerts.push(createStockAlert(stock, breakHigh, now, {
-        type: "breakout_volume",
-        severity: "bullish",
-        priority: 92,
-        title: `${stock.symbol}: Vượt đỉnh 20 phiên`,
-        description: `${stock.symbol} đang phá vùng đỉnh ngắn hạn, nên theo dõi thêm thanh khoản xác nhận.`,
-      }));
+      alerts.push(
+        createStockAlert(stock, now, {
+          type: "breakout_volume",
+          severity: "bullish",
+          priority: 92 + breakHigh.strength,
+          title: `${stock.symbol} vượt đỉnh 20 phiên`,
+          description: `${stock.symbol} phá vùng đỉnh ngắn hạn; tín hiệu sẽ đáng tin hơn nếu thanh khoản tiếp tục xác nhận.`,
+        }),
+      );
     }
 
     if (stock.score >= scoreThreshold) {
-      alerts.push(createStockAlert(stock, null, now, {
-        type: "technical_score_threshold",
-        severity: "bullish",
-        priority: 90 + Math.min(10, stock.score - scoreThreshold),
-        title: `${stock.symbol}: Điểm kỹ thuật cao`,
-        description: `${stock.symbol} đạt ${Math.round(stock.score)}/100, đang nằm trong nhóm kỹ thuật mạnh.`,
-      }));
+      alerts.push(
+        createStockAlert(stock, now, {
+          type: "technical_score_threshold",
+          severity: "bullish",
+          priority: 90 + Math.min(10, stock.score - scoreThreshold),
+          title: `${stock.symbol} có điểm kỹ thuật cao`,
+          description: `${stock.symbol} đạt ${Math.round(stock.score)}/100, nằm trong nhóm kỹ thuật mạnh của thị trường.`,
+        }),
+      );
     }
 
     if (volumeSpike) {
-      alerts.push(createStockAlert(stock, volumeSpike, now, {
-        type: "volume_spike",
-        severity: "bullish",
-        priority: 84 + volumeSpike.strength,
-        title: `${stock.symbol}: Volume tăng mạnh`,
-        description: `${stock.symbol} có khối lượng cao hơn nền gần đây, cho thấy dòng tiền đang chú ý hơn.`,
-      }));
+      alerts.push(
+        createStockAlert(stock, now, {
+          type: "volume_spike",
+          severity: "bullish",
+          priority: 84 + volumeSpike.strength,
+          title: `${stock.symbol} volume tăng mạnh`,
+          description: `${stock.symbol} có khối lượng cao hơn nền gần đây, cho thấy dòng tiền đang chú ý hơn.`,
+        }),
+      );
     }
 
     if (rsiExtreme) {
       const isOverbought = rsiExtreme.code === "RSI_OVERBOUGHT";
-      alerts.push(createStockAlert(stock, rsiExtreme, now, {
-        type: "rsi_extreme",
-        severity: isOverbought ? "warning" : "info",
-        priority: 76 + rsiExtreme.strength,
-        title: `${stock.symbol}: ${rsiExtreme.labelVi}`,
-        description: rsiExtreme.descriptionVi,
-      }));
+      alerts.push(
+        createStockAlert(stock, now, {
+          type: "rsi_extreme",
+          severity: isOverbought ? "warning" : "info",
+          priority: 76 + rsiExtreme.strength,
+          title: `${stock.symbol} ${rsiExtreme.labelVi.toLowerCase()}`,
+          description: rsiExtreme.descriptionVi,
+        }),
+      );
     }
 
     if (Math.abs(stock.dayChangePercent) >= unusualMovePercent) {
-      alerts.push(createStockAlert(stock, null, now, {
-        type: "unusual_move",
-        severity: stock.dayChangePercent > 0 ? "bullish" : "bearish",
-        priority: 72 + Math.abs(stock.dayChangePercent),
-        title: `${stock.symbol}: Biến động mạnh`,
-        description: `${stock.symbol} biến động ${formatPercent(stock.dayChangePercent)} trong phiên gần nhất.`,
-      }));
+      alerts.push(
+        createStockAlert(stock, now, {
+          type: "unusual_move",
+          severity: stock.dayChangePercent > 0 ? "bullish" : "bearish",
+          priority: 72 + Math.abs(stock.dayChangePercent),
+          title: `${stock.symbol} biến động mạnh`,
+          description: `${stock.symbol} biến động ${formatPercent(stock.dayChangePercent)} trong phiên gần nhất.`,
+        }),
+      );
     }
   }
 
@@ -202,18 +220,27 @@ function generateStockAlerts(stocks: StockSummary[], now: Date): MarketAlert[] {
 
 function generateSectorAlerts(sectors: SectorSummary[], now: Date): MarketAlert[] {
   return sectors
-    .filter((sector) => sector.symbolCount >= 3 && sector.averageChangePercent >= 2 && sector.averageTechnicalScore >= 65)
+    .filter(
+      (sector) =>
+        sector.symbolCount >= 3 &&
+        sector.topSymbols.length > 0 &&
+        sector.averageChangePercent >= 2 &&
+        sector.averageTechnicalScore >= 65,
+    )
     .slice(0, 4)
     .map((sector) => ({
       type: "sector_strength_surge" as const,
-      title: `${sector.sector}: Sức mạnh nổi bật`,
+      title: `Ngành ${sector.sector} dẫn sóng`,
       description: `Ngành ${sector.sector} tăng trung bình ${formatPercent(sector.averageChangePercent)}, điểm kỹ thuật bình quân ${Math.round(sector.averageTechnicalScore)}.`,
       sector: sector.sector,
       severity: "bullish" as const,
+      group: "sector" as const,
       created_at: now.toISOString(),
       expires_at: addHours(now, DEFAULT_ALERT_COOLDOWN_HOURS).toISOString(),
-      priority: 80 + sector.averageChangePercent,
+      priority: 84 + sector.averageChangePercent + Math.min(6, sector.topSymbols.length),
       dedupeKey: `sector_strength_surge:${sector.sector}`,
+      liquidityScore: sector.topSymbols.reduce((total, stock) => total + stock.technicalScore, 0) / sector.topSymbols.length,
+      technicalScore: sector.averageTechnicalScore,
     }));
 }
 
@@ -229,9 +256,10 @@ function generateBreadthAlerts(breadth: MarketBreadthSnapshot, now: Date): Marke
         title: "Độ rộng thị trường tích cực",
         description: `${breadth.advancers} mã tăng so với ${breadth.decliners} mã giảm, ${breadth.percentAboveSMA20.toFixed(0)}% mã nằm trên MA20.`,
         severity: "bullish",
+        group: "market",
         created_at: now.toISOString(),
         expires_at: addHours(now, DEFAULT_ALERT_COOLDOWN_HOURS).toISOString(),
-        priority: 88,
+        priority: 92,
         dedupeKey: "market_breadth_strength:market",
       },
     ];
@@ -244,9 +272,10 @@ function generateBreadthAlerts(breadth: MarketBreadthSnapshot, now: Date): Marke
         title: "Độ rộng thị trường suy yếu",
         description: `${breadth.decliners} mã giảm so với ${breadth.advancers} mã tăng, chỉ ${breadth.percentAboveSMA20.toFixed(0)}% mã nằm trên MA20.`,
         severity: "bearish",
+        group: "market",
         created_at: now.toISOString(),
         expires_at: addHours(now, DEFAULT_ALERT_COOLDOWN_HOURS).toISOString(),
-        priority: 88,
+        priority: 92,
         dedupeKey: "market_breadth_weakness:market",
       },
     ];
@@ -257,7 +286,6 @@ function generateBreadthAlerts(breadth: MarketBreadthSnapshot, now: Date): Marke
 
 function createStockAlert(
   stock: StockSummary,
-  signal: Signal | null,
   now: Date,
   input: {
     type: MarketAlertType;
@@ -272,11 +300,13 @@ function createStockAlert(
     title: input.title,
     description: input.description,
     symbol: stock.symbol,
+    sector: stock.sector,
     severity: input.severity,
+    group: "symbol",
     created_at: now.toISOString(),
     expires_at: addHours(now, DEFAULT_ALERT_COOLDOWN_HOURS).toISOString(),
     priority: input.priority,
-    dedupeKey: `${stock.symbol}:${input.type}:${signal?.code ?? "score"}`,
+    dedupeKey: `${stock.symbol}:${input.type}`,
     liquidityScore: getLiquidityScore(stock),
     technicalScore: stock.score,
   };
@@ -295,9 +325,10 @@ function applyDedupeAndCooldown(
   for (const alert of candidates.sort(sortAlerts)) {
     const previous = previousByKey.get(alert.dedupeKey);
     const previousTime = previous ? new Date(previous.created_at).getTime() : Number.NaN;
-    const created_at = previous && Number.isFinite(previousTime) && nowMs - previousTime < cooldownMs
-      ? previous.created_at
-      : alert.created_at;
+    const strongerThanPrevious = previous ? alert.priority > previous.priority : false;
+    const shouldKeepPreviousTime =
+      previous && Number.isFinite(previousTime) && nowMs - previousTime < cooldownMs && !strongerThanPrevious;
+    const created_at = shouldKeepPreviousTime ? previous.created_at : alert.created_at;
     const expires_at = addHours(new Date(created_at), cooldownHours).toISOString();
     const nextAlert = { ...alert, created_at, expires_at };
     const current = deduped.get(alert.dedupeKey);
@@ -342,6 +373,7 @@ function parseMarketAlert(value: unknown): MarketAlert | null {
     symbol: typeof value.symbol === "string" ? value.symbol : undefined,
     sector: typeof value.sector === "string" ? value.sector : undefined,
     severity: value.severity as MarketAlertSeverity,
+    group: isMarketAlertGroup(value.group) ? value.group : value.symbol ? "symbol" : value.sector ? "sector" : "market",
     created_at: value.created_at,
     expires_at: typeof value.expires_at === "string" ? value.expires_at : undefined,
     priority: value.priority,
@@ -366,6 +398,20 @@ function severityRank(severity: MarketAlertSeverity): number {
   if (severity === "bullish") return 3;
   if (severity === "warning") return 2;
   return 1;
+}
+
+function countByGroup(alerts: MarketAlert[]): Record<MarketAlertGroup, number> {
+  return alerts.reduce(
+    (counts, alert) => ({
+      ...counts,
+      [alert.group]: counts[alert.group] + 1,
+    }),
+    { market: 0, sector: 0, symbol: 0 },
+  );
+}
+
+function isMarketAlertGroup(value: unknown): value is MarketAlertGroup {
+  return value === "market" || value === "sector" || value === "symbol";
 }
 
 function formatPercent(value: number): string {

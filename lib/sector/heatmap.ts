@@ -4,6 +4,7 @@ import {
   isLiquidEnough,
   MAX_TOP_SYMBOLS_PER_SECTOR,
 } from "@/lib/market/liquidity";
+import { recordSnapshotHistory } from "@/lib/market/snapshot-history";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { Json } from "@/lib/supabase/types";
 import type { StockSummary } from "@/types/stock";
@@ -58,7 +59,7 @@ export function buildSectorSummaries(stocks: StockSummary[]): SectorSummary[] {
     .map(([sector, items]) => {
       const averageChangePercent = average(items.map((stock) => stock.dayChangePercent));
       const averageTechnicalScore = average(items.map((stock) => stock.score));
-      const liquidItems = items.filter(isLiquidEnough);
+      const liquidItems = items.filter((stock) => isLiquidEnough(stock));
       const topSymbols = liquidItems
         .sort(
           (a, b) =>
@@ -114,6 +115,8 @@ export async function refreshSectorHeatmapSnapshot(stocks?: StockSummary[]): Pro
     if (error) {
       throw error;
     }
+
+    await recordSnapshotHistory(SECTOR_HEATMAP_SNAPSHOT_TYPE, sectors as unknown as Json);
 
     console.info("sector_heatmap snapshot updated:", {
       sectorCount: sectors.length,

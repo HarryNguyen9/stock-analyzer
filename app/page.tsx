@@ -2,6 +2,7 @@ import { DataStatusPanel } from "@/components/DataStatusPanel";
 import { MarketScanner } from "@/components/MarketScanner";
 import { MarketBreadth } from "@/components/MarketBreadth";
 import { MarketAlerts } from "@/components/MarketAlerts";
+import { MarketNarrativeCard } from "@/components/MarketNarrativeCard";
 import { HomeTabs } from "@/components/HomeTabs";
 import { SectorHeatmap } from "@/components/SectorHeatmap";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -14,6 +15,7 @@ import {
   readMarketBreadthSnapshot,
   readSectorHeatmapSnapshot,
 } from "@/lib/pipeline/snapshot";
+import { buildMarketNarrative } from "@/lib/market/narrative";
 
 export default async function Home({
   searchParams,
@@ -31,6 +33,16 @@ export default async function Home({
     timedSnapshot("market_alerts", readMarketAlertsSnapshot(), []),
   ]);
   const scannerStocks = getUniqueScannerStocks(mergedScannerSnapshot);
+  const marketNarrative = await timedSnapshot(
+    "market_narrative",
+    buildMarketNarrative({
+      breadth: marketBreadth,
+      sectors: sectorHeatmap,
+      scannerGroups: mergedScannerSnapshot,
+      alerts: marketAlerts,
+    }),
+    null,
+  );
   const averageScore =
     scannerStocks.length > 0
       ? Math.round(scannerStocks.reduce((total, stock) => total + stock.score, 0) / scannerStocks.length)
@@ -82,6 +94,7 @@ export default async function Home({
         initialTab={initialTab}
         discover={
           <>
+            {marketNarrative ? <MarketNarrativeCard narrative={marketNarrative} /> : null}
             <MarketScanner stocks={[]} snapshotGroups={mergedScannerSnapshot} />
             <MarketAlerts alerts={marketAlerts} />
             {marketBreadth ? <MarketBreadth breadth={marketBreadth} /> : <SnapshotEmptyState title="Độ rộng thị trường" />}

@@ -18,7 +18,7 @@ export function buildTechnicalThesis(
   const keySupport = supportResistance.nearestSupport ?? supportResistance.low20 ?? null;
   const keyResistance = supportResistance.nearestResistance ?? supportResistance.high20 ?? null;
   const invalidationLevel = getInvalidationLevel(setupType, keySupport, supportResistance.low20);
-  const conditionsToImprove = getConditionsToImprove(setupType, analysis);
+  const conditionsToImprove = getConditionsToImprove(analysis);
   const keyRisks = getKeyRisks(analysis);
 
   return {

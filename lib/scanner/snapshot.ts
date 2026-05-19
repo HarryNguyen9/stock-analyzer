@@ -12,6 +12,7 @@ import type { StockSummary } from "@/types/stock";
 import { refreshSectorHeatmapSnapshot } from "@/lib/sector/heatmap";
 import { refreshMarketBreadthSnapshot } from "@/lib/market/breadth";
 import { refreshMarketAlertsSnapshot } from "@/lib/alerts/generate-alerts";
+import { recordSnapshotHistory } from "@/lib/market/snapshot-history";
 
 export const HOME_SCANNER_SNAPSHOT_TYPE = "home_scanner";
 
@@ -51,6 +52,8 @@ export async function refreshHomeScannerSnapshot(): Promise<boolean> {
     if (error) {
       throw error;
     }
+
+    await recordSnapshotHistory(HOME_SCANNER_SNAPSHOT_TYPE, groups as unknown as Json);
 
     return true;
   } catch (error) {

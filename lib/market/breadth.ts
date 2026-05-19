@@ -1,4 +1,5 @@
 import { getStockSummaries } from "@/lib/data-source/prices";
+import { recordSnapshotHistory } from "@/lib/market/snapshot-history";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { Json } from "@/lib/supabase/types";
 import type { StockSummary } from "@/types/stock";
@@ -52,6 +53,8 @@ export async function refreshMarketBreadthSnapshot(stocks?: StockSummary[]): Pro
     if (error) {
       throw error;
     }
+
+    await recordSnapshotHistory(MARKET_BREADTH_SNAPSHOT_TYPE, breadth as unknown as Json);
 
     console.info("market_breadth snapshot updated:", {
       totalSymbols: breadth.totalSymbols,
