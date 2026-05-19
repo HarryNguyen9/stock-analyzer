@@ -1,6 +1,6 @@
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { Database, Json } from "@/lib/supabase/types";
-import { syncSingleSymbolToSupabase } from "@/scripts/sync-prices-to-supabase";
+import { PRICE_SYNC_PIPELINE, syncSingleSymbolToSupabase } from "@/lib/pipeline/price-sync";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -16,6 +16,9 @@ type RetryResponse =
   | {
       ok: true;
       jobId: string | null;
+      pipeline: typeof PRICE_SYNC_PIPELINE.pipeline;
+      responsibility: typeof PRICE_SYNC_PIPELINE.responsibility;
+      source: typeof PRICE_SYNC_PIPELINE.source;
       selected: number;
       synced: number;
       failed: number;
@@ -24,6 +27,9 @@ type RetryResponse =
   | {
       ok: false;
       jobId?: string | null;
+      pipeline: typeof PRICE_SYNC_PIPELINE.pipeline;
+      responsibility: typeof PRICE_SYNC_PIPELINE.responsibility;
+      source: typeof PRICE_SYNC_PIPELINE.source;
       message: string;
       stack?: string;
     };
@@ -61,6 +67,7 @@ async function handleRetryFailedSymbols(request: Request): Promise<Response> {
     const processedSymbols: Array<{ symbol: string; status: "synced" | "failed"; message?: string }> = [];
 
     jobId = await createSyncJob({
+      ...PRICE_SYNC_PIPELINE,
       trigger: "retry-failed-symbols-route",
       method: request.method,
       limit,
@@ -94,6 +101,7 @@ async function handleRetryFailedSymbols(request: Request): Promise<Response> {
       failed_count: failed,
       error_message: failed > 0 && synced === 0 && targets.length > 0 ? "Retry failed for all selected symbols." : null,
       metadata: {
+        ...PRICE_SYNC_PIPELINE,
         failedSymbols,
         processedSymbols,
       },
@@ -102,6 +110,7 @@ async function handleRetryFailedSymbols(request: Request): Promise<Response> {
     return Response.json({
       ok: true,
       jobId,
+      ...PRICE_SYNC_PIPELINE,
       selected: targets.length,
       synced,
       failed,
@@ -204,6 +213,7 @@ function jsonError(error: unknown, status: number, jobId: string | null = null):
     {
       ok: false,
       jobId,
+      ...PRICE_SYNC_PIPELINE,
       message,
       ...(process.env.NODE_ENV !== "production" && stack ? { stack } : {}),
     } satisfies RetryResponse,

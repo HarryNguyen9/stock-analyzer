@@ -172,8 +172,8 @@ export function AiAnalysisModal({
               analysis?.sentiment,
             )}`}
           >
-            <div className="max-h-[78vh] overflow-y-auto p-5 sm:max-h-[82vh] sm:p-6">
-              <div className="sticky top-0 z-10 -mx-5 -mt-5 flex items-start justify-between gap-4 border-b border-slate-200 bg-white/95 px-5 pb-3 pt-5 backdrop-blur dark:border-slate-800 dark:bg-slate-950/95 sm:-mx-6 sm:-mt-6 sm:px-6 sm:pt-6">
+            <div className="max-h-[78vh] overflow-y-auto sm:max-h-[82vh]">
+              <div className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-slate-200 bg-white px-5 pb-3 pt-5 dark:border-slate-800 dark:bg-slate-950 sm:px-6 sm:pt-6">
                 <div>
                   <h2 className="text-xl font-semibold text-slate-950 dark:text-white">
                     {copy.title}
@@ -191,7 +191,7 @@ export function AiAnalysisModal({
                 </button>
               </div>
 
-              <div className="mt-5 rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900">
+              <div className="mx-5 mt-5 rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900 sm:mx-6">
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
@@ -217,18 +217,18 @@ export function AiAnalysisModal({
 
               {isLoading ? <LoadingState /> : null}
               {error ? (
-                <div className="mt-5 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">
+                <div className="mx-5 mt-5 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200 sm:mx-6">
                   {error}
                 </div>
               ) : null}
               {!isLoading && analysis ? <AnalysisResult analysis={analysis} /> : null}
 
-              <div className="mt-5 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-100">
+              <div className="mx-5 mt-5 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-100 sm:mx-6">
                 {analysis?.disclaimer ??
                   copy.disclaimer}
               </div>
 
-              <div className="mt-5 grid grid-cols-2 gap-3">
+              <div className="mx-5 mt-5 grid grid-cols-2 gap-3 pb-5 sm:mx-6 sm:pb-6">
                 <button
                   type="button"
                   onClick={() => loadAnalysis(true)}
@@ -257,7 +257,7 @@ function LoadingState() {
   const copy = vi.stock.ai;
 
   return (
-    <div className="mt-5 space-y-3">
+    <div className="mx-5 mt-5 space-y-3 sm:mx-6">
       <p className="animate-pulse text-sm font-medium text-slate-500 dark:text-slate-400">{copy.loading}</p>
       <div className="space-y-2">
         <div className="h-4 w-4/5 animate-pulse rounded bg-slate-200 dark:bg-slate-800" />
@@ -273,7 +273,7 @@ function AnalysisResult({ analysis }: { analysis: AiAnalysis }) {
   const summary = normalizeSummaryScoreText(analysis.summary, analysis.technicalScore);
 
   return (
-    <div className="mt-5 space-y-4">
+    <div className="mx-5 mt-5 space-y-4 sm:mx-6">
       <ResultBlock title={copy.sections.summary} items={[summary]} />
       <ResultBlock title={copy.sections.bullish} items={analysis.bullishPoints} />
       <ResultBlock title={copy.sections.risk} items={analysis.riskPoints} />

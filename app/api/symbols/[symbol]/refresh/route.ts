@@ -1,5 +1,5 @@
 import { getSymbolMetadata } from "@/lib/data-source/supabase-provider";
-import { syncSingleSymbolToSupabase } from "@/scripts/sync-prices-to-supabase";
+import { PRICE_SYNC_PIPELINE, syncSingleSymbolToSupabase } from "@/lib/pipeline/price-sync";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -7,12 +7,18 @@ export const runtime = "nodejs";
 type RefreshResponse =
   | {
       ok: true;
+      pipeline: typeof PRICE_SYNC_PIPELINE.pipeline;
+      responsibility: typeof PRICE_SYNC_PIPELINE.responsibility;
+      source: typeof PRICE_SYNC_PIPELINE.source;
       symbol: string;
       refreshed: boolean;
       durationMs: number;
     }
   | {
       ok: false;
+      pipeline: typeof PRICE_SYNC_PIPELINE.pipeline;
+      responsibility: typeof PRICE_SYNC_PIPELINE.responsibility;
+      source: typeof PRICE_SYNC_PIPELINE.source;
       symbol: string | null;
       message: string;
       durationMs: number;
@@ -47,6 +53,7 @@ export async function POST(
 
       return Response.json({
         ok: true,
+        ...PRICE_SYNC_PIPELINE,
         symbol,
         refreshed: result.refreshed,
         durationMs: Date.now() - startedAt,
@@ -58,6 +65,7 @@ export async function POST(
     if (lastRefreshAt && Date.now() - lastRefreshAt < COOLDOWN_MS) {
       return Response.json({
         ok: true,
+        ...PRICE_SYNC_PIPELINE,
         symbol,
         refreshed: false,
         durationMs: Date.now() - startedAt,
@@ -76,6 +84,7 @@ export async function POST(
 
       return Response.json({
         ok: true,
+        ...PRICE_SYNC_PIPELINE,
         symbol,
         refreshed: result.refreshed,
         durationMs: Date.now() - startedAt,
@@ -103,6 +112,7 @@ function jsonError(symbol: string | null, message: string, startedAt: number, st
   return Response.json(
     {
       ok: false,
+      ...PRICE_SYNC_PIPELINE,
       symbol,
       message,
       durationMs: Date.now() - startedAt,

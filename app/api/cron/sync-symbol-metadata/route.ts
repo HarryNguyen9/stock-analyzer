@@ -1,4 +1,4 @@
-import { syncSymbolMetadata } from "@/lib/symbols/metadata-sync";
+import { SYMBOL_METADATA_PIPELINE, syncSymbolMetadata } from "@/lib/pipeline/symbol-metadata";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { Database, Json } from "@/lib/supabase/types";
 
@@ -9,6 +9,8 @@ type MetadataSyncResponse =
   | {
       ok: true;
       jobId: string | null;
+      pipeline: typeof SYMBOL_METADATA_PIPELINE.pipeline;
+      responsibility: typeof SYMBOL_METADATA_PIPELINE.responsibility;
       selected: number;
       inserted: number;
       updated: number;
@@ -26,6 +28,9 @@ type MetadataSyncResponse =
   | {
       ok: false;
       jobId?: string | null;
+      pipeline: typeof SYMBOL_METADATA_PIPELINE.pipeline;
+      responsibility: typeof SYMBOL_METADATA_PIPELINE.responsibility;
+      source: typeof SYMBOL_METADATA_PIPELINE.source;
       message: string;
       stack?: string;
     };
@@ -57,6 +62,7 @@ async function handleSyncSymbolMetadata(request: Request): Promise<Response> {
     }
 
     jobId = await createSyncJob({
+      ...SYMBOL_METADATA_PIPELINE,
       trigger: "sync-symbol-metadata-route",
       method: request.method,
     });
@@ -71,6 +77,9 @@ async function handleSyncSymbolMetadata(request: Request): Promise<Response> {
       success_count: result.inserted + result.updated,
       failed_count: 0,
       metadata: {
+        pipeline: SYMBOL_METADATA_PIPELINE.pipeline,
+        responsibility: SYMBOL_METADATA_PIPELINE.responsibility,
+        pipelineSource: SYMBOL_METADATA_PIPELINE.source,
         inserted: result.inserted,
         updated: result.updated,
         unchanged: result.unchanged,
@@ -97,6 +106,8 @@ async function handleSyncSymbolMetadata(request: Request): Promise<Response> {
     return Response.json({
       ok: true,
       jobId,
+      pipeline: SYMBOL_METADATA_PIPELINE.pipeline,
+      responsibility: SYMBOL_METADATA_PIPELINE.responsibility,
       selected: result.selected,
       inserted: result.inserted,
       updated: result.updated,
@@ -173,6 +184,7 @@ function jsonError(error: unknown, status: number, jobId: string | null = null):
     {
       ok: false,
       jobId,
+      ...SYMBOL_METADATA_PIPELINE,
       message,
       ...(process.env.NODE_ENV !== "production" && stack ? { stack } : {}),
     } satisfies MetadataSyncResponse,

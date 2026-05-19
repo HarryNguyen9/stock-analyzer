@@ -235,6 +235,7 @@ async function getSyncTargets(options: { batch: number; limit: number }): Promis
       .select("symbol,tier,auto_sync,liquidity_rank")
       .eq("auto_sync", true)
       .eq("is_active", true)
+      .or("sync_status.is.null,sync_status.neq.unsupported")
       .order("liquidity_rank", { ascending: true, nullsFirst: false })
       .order("symbol", { ascending: true })
       .range(from, to);
@@ -275,10 +276,13 @@ async function getSyncTargets(options: { batch: number; limit: number }): Promis
 export async function markSymbolUnsupported(symbol: string, reason: string) {
   try {
     const supabase = createSupabaseAdminClient();
-    const update: Database["public"]["Tables"]["symbols"]["Update"] = {
+    // Price sync is not allowed to overwrite metadata or universe ownership fields.
+    // Keep auto_sync/is_active unchanged; selection excludes sync_status='unsupported'.
+    const update: Pick<
+      Database["public"]["Tables"]["symbols"]["Update"],
+      "sync_status" | "last_error" | "retry_count" | "next_retry_at" | "unsupported_at" | "unsupported_reason"
+    > = {
       sync_status: "unsupported",
-      is_active: false,
-      auto_sync: false,
       last_error: reason,
       retry_count: 0,
       next_retry_at: null,
@@ -304,6 +308,7 @@ async function hasAutoSyncSymbols(): Promise<boolean> {
       .select("symbol")
       .eq("auto_sync", true)
       .eq("is_active", true)
+      .or("sync_status.is.null,sync_status.neq.unsupported")
       .limit(1);
 
     if (error) {
@@ -317,6 +322,10 @@ async function hasAutoSyncSymbols(): Promise<boolean> {
 }
 
 function getFallbackTargets(options: { batch: number; limit: number }): SyncTarget[] {
+  if (isVercelProduction()) {
+    console.warn("Production fallback static symbols is being used because Supabase auto_sync symbols are unavailable.");
+  }
+
   const from = options.batch * options.limit;
   const to = from + options.limit;
 

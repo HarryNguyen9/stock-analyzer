@@ -1,6 +1,6 @@
-import { syncPricesToSupabase } from "@/scripts/sync-prices-to-supabase";
+import { PRICE_SYNC_PIPELINE, syncPricesToSupabase } from "@/lib/pipeline/price-sync";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { refreshHomeScannerSnapshot } from "@/lib/scanner/snapshot";
+import { SNAPSHOT_PIPELINE, refreshHomeScannerSnapshot } from "@/lib/pipeline/snapshot";
 import type { Database, Json } from "@/lib/supabase/types";
 
 export const dynamic = "force-dynamic";
@@ -9,6 +9,9 @@ export const runtime = "nodejs";
 type CronSuccessResponse = {
   ok: true;
   jobId: string | null;
+  pipeline: typeof PRICE_SYNC_PIPELINE.pipeline;
+  responsibility: typeof PRICE_SYNC_PIPELINE.responsibility;
+  source: typeof PRICE_SYNC_PIPELINE.source;
   batch: number;
   limit: number;
   maxLimit: number;
@@ -28,6 +31,9 @@ type CronErrorResponse = {
   ok: false;
   jobId?: string | null;
   message: string;
+  pipeline: typeof PRICE_SYNC_PIPELINE.pipeline;
+  responsibility: typeof PRICE_SYNC_PIPELINE.responsibility;
+  source: typeof PRICE_SYNC_PIPELINE.source;
   stack?: string;
 };
 
@@ -71,6 +77,7 @@ async function handleSyncPricesCron(
     const limit = limitParam.value;
     const shouldUpdateSnapshot = getUpdateSnapshotFlag(url, batch);
     jobId = await createSyncJob({
+      ...PRICE_SYNC_PIPELINE,
       batch,
       limit,
       maxLimit: MAX_LIMIT,
@@ -104,6 +111,7 @@ async function handleSyncPricesCron(
         failedTemporary: result.failedTemporary,
         failedUnsupported: result.failedUnsupported,
         snapshotUpdated,
+        snapshotPipeline: shouldUpdateSnapshot ? SNAPSHOT_PIPELINE : null,
         stoppedEarly: result.stoppedEarly,
         stopReason: result.stopReason,
       },
@@ -112,6 +120,7 @@ async function handleSyncPricesCron(
     return Response.json({
       ok: true,
       jobId,
+      ...PRICE_SYNC_PIPELINE,
       batch: result.batch,
       limit: result.limit,
       maxLimit: MAX_LIMIT,
@@ -237,6 +246,7 @@ function jsonError(error: unknown, status: number, jobId: string | null = null):
       ok: false,
       jobId,
       message,
+      ...PRICE_SYNC_PIPELINE,
       ...(process.env.NODE_ENV !== "production" && stack ? { stack } : {}),
     } satisfies CronErrorResponse,
     { status },

@@ -9,7 +9,10 @@ type SymbolRow = Pick<
   "symbol" | "name" | "exchange" | "sector" | "is_active" | "metadata_updated_at" | "sync_status"
 >;
 type SymbolInsert = Database["public"]["Tables"]["symbols"]["Insert"];
-type SymbolUpdate = Database["public"]["Tables"]["symbols"]["Update"];
+type SymbolMetadataUpdate = Pick<
+  Database["public"]["Tables"]["symbols"]["Update"],
+  "name" | "exchange" | "sector" | "is_active" | "metadata_updated_at"
+>;
 
 export type SymbolMetadataSyncResult = {
   selected: number;
@@ -135,13 +138,15 @@ function toMetadataUpdate(
   item: SymbolMetadataSourceItem,
   metadataUpdatedAt: string,
   staticFallbackUsed: boolean,
-): SymbolUpdate | null {
+): SymbolMetadataUpdate | null {
   if (staticFallbackUsed && existing.metadata_updated_at) {
     return null;
   }
 
   const isActive = existing.sync_status === "unsupported" ? false : item.isActive ?? true;
-  const update: SymbolUpdate = {};
+  // Metadata sync owns only identity fields. It intentionally does not touch
+  // tier/auto_sync/liquidity_rank or price-related status for existing symbols.
+  const update: SymbolMetadataUpdate = {};
 
   if (existing.name !== item.name) update.name = item.name;
   if (existing.exchange !== item.exchange) update.exchange = item.exchange;

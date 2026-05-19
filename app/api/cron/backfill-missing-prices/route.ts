@@ -1,8 +1,8 @@
 import { getSymbolsMissingPriceData } from "@/lib/data-source/missing-prices";
 import { classifyProviderFailure } from "@/lib/data-source/provider-errors";
+import { BACKFILL_PRICE_PIPELINE, markSymbolUnsupported, syncSingleSymbolToSupabase } from "@/lib/pipeline/price-sync";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { Database, Json } from "@/lib/supabase/types";
-import { markSymbolUnsupported, syncSingleSymbolToSupabase } from "@/scripts/sync-prices-to-supabase";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -11,6 +11,9 @@ type BackfillResponse =
   | {
       ok: true;
       jobId: string | null;
+      pipeline: typeof BACKFILL_PRICE_PIPELINE.pipeline;
+      responsibility: typeof BACKFILL_PRICE_PIPELINE.responsibility;
+      source: typeof BACKFILL_PRICE_PIPELINE.source;
       limit: number;
       maxLimit: number;
       limitClamped: boolean;
@@ -30,6 +33,9 @@ type BackfillResponse =
       ok: false;
       jobId?: string | null;
       message: string;
+      pipeline: typeof BACKFILL_PRICE_PIPELINE.pipeline;
+      responsibility: typeof BACKFILL_PRICE_PIPELINE.responsibility;
+      source: typeof BACKFILL_PRICE_PIPELINE.source;
       stack?: string;
     };
 
@@ -70,6 +76,7 @@ async function handleBackfillMissingPrices(request: Request): Promise<Response> 
     const missingSymbols = await getSymbolsMissingPriceData({ limit });
     const processedSymbols: Array<{ symbol: string; status: "synced" | "failed"; message?: string }> = [];
     jobId = await createSyncJob({
+      ...BACKFILL_PRICE_PIPELINE,
       trigger: "backfill-missing-prices-route",
       method: request.method,
       limit,
@@ -136,6 +143,7 @@ async function handleBackfillMissingPrices(request: Request): Promise<Response> 
       failed_count: failed,
       error_message: failed > 0 && synced === 0 ? "Backfill failed for all selected symbols." : null,
       metadata: {
+        ...BACKFILL_PRICE_PIPELINE,
         remainingMissing,
         processedSymbols,
         failedSymbols,
@@ -150,6 +158,7 @@ async function handleBackfillMissingPrices(request: Request): Promise<Response> 
     return Response.json({
       ok: true,
       jobId,
+      ...BACKFILL_PRICE_PIPELINE,
       limit,
       maxLimit: MAX_LIMIT,
       limitClamped: limitParam.clamped,
@@ -313,6 +322,7 @@ function jsonError(error: unknown, status: number, jobId: string | null = null):
       ok: false,
       jobId,
       message,
+      ...BACKFILL_PRICE_PIPELINE,
       ...(process.env.NODE_ENV !== "production" && stack ? { stack } : {}),
     } satisfies BackfillResponse,
     { status },
