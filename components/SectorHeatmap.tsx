@@ -9,7 +9,16 @@ export function SectorHeatmap({ sectors }: { sectors: SectorSummary[] }) {
   const [expandedSector, setExpandedSector] = useState<string | null>(sectors[0]?.sector ?? null);
 
   if (sectors.length === 0) {
-    return null;
+    return (
+      <section className="mx-auto w-full max-w-7xl px-4 pt-6 sm:px-6 lg:px-8">
+        <div className="rounded-lg border border-dashed border-slate-300 bg-white p-5 dark:border-slate-700 dark:bg-slate-900">
+          <h2 className="text-lg font-semibold text-slate-950 dark:text-white">Sức mạnh theo ngành</h2>
+          <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
+            Chưa có snapshot ngành. Dữ liệu sẽ xuất hiện sau lần đồng bộ snapshot tiếp theo.
+          </p>
+        </div>
+      </section>
+    );
   }
 
   return (

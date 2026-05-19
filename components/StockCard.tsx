@@ -5,6 +5,7 @@ import { vi } from "@/lib/i18n/vi";
 import { sortSignalsByPriority } from "@/lib/signals";
 
 export function StockCard({ stock }: { stock: StockSummary }) {
+  const hasPriceData = stock.dataStatus === "ready";
   const isUp = stock.dayChangePercent >= 0;
   const displaySignals = sortSignalsByPriority(stock.topSignals ?? []).slice(0, 2);
   const statusColor =
@@ -33,32 +34,41 @@ export function StockCard({ stock }: { stock: StockSummary }) {
           </p>
         </div>
         <div className="flex shrink-0 flex-col items-end gap-2">
-          <ScoreGauge score={stock.score} size="compact" />
-          <span className={`rounded border px-2 py-0.5 text-xs font-medium ${statusColor}`}>
-            {stock.status}
-          </span>
+          {hasPriceData ? (
+            <>
+              <ScoreGauge score={stock.score} size="compact" />
+              <span className={`rounded border px-2 py-0.5 text-xs font-medium ${statusColor}`}>
+                {stock.status}
+              </span>
+            </>
+          ) : (
+            <span className="rounded border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-medium text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
+              Chưa có dữ liệu giá
+            </span>
+          )}
         </div>
       </div>
 
       <div className="mt-5 grid grid-cols-2 gap-3 border-t border-slate-100 pt-4 text-sm dark:border-slate-800">
         <div>
           <p className="text-slate-500 dark:text-slate-400">{vi.stock.close}</p>
-          <p className="mt-1 font-semibold text-slate-950 dark:text-white">{stock.lastClose.toFixed(2)}</p>
+          <p className="mt-1 font-semibold text-slate-950 dark:text-white">
+            {hasPriceData ? stock.lastClose.toFixed(2) : "Chưa có"}
+          </p>
         </div>
         <div>
           <p className="text-slate-500 dark:text-slate-400">{vi.stock.change}</p>
-          <p className={`mt-1 font-semibold ${isUp ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
-            {isUp ? "+" : ""}
-            {stock.dayChangePercent.toFixed(2)}%
+          <p className={`mt-1 font-semibold ${hasPriceData ? (isUp ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400") : "text-slate-500 dark:text-slate-400"}`}>
+            {hasPriceData ? `${isUp ? "+" : ""}${stock.dayChangePercent.toFixed(2)}%` : "Chưa có"}
           </p>
         </div>
       </div>
 
       <p className="mt-4 line-clamp-2 break-words text-sm font-medium text-slate-700 group-hover:text-slate-950 dark:text-slate-300 dark:group-hover:text-white">
-        {stock.dataStatus === "ready" ? stock.signal : stock.dataError}
+        {hasPriceData ? stock.signal : stock.dataError ?? "Chưa có dữ liệu giá"}
       </p>
 
-      {stock.dataStatus === "ready" && displaySignals.length > 0 ? (
+      {hasPriceData && displaySignals.length > 0 ? (
         <div className="mt-3 flex flex-wrap gap-2">
           {displaySignals.map((signal) => (
             <span

@@ -10,7 +10,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { getSymbolFreshness } from "@/lib/data-source/symbol-freshness";
 import { createTechnicalSnapshot } from "@/lib/data-source/technical-snapshot";
 import { getHistoricalPricesResult } from "@/lib/data-source/prices";
-import { getSymbolMetadata, readLatestTechnicalScore } from "@/lib/data-source/supabase-provider";
+import { getSymbolDataState, getSymbolMetadata, readLatestTechnicalScore } from "@/lib/data-source/supabase-provider";
 import { isSupabaseClientConfigured } from "@/lib/supabase/client";
 import { STOCKS } from "@/data/symbols";
 import { round } from "@/lib/indicators";
@@ -47,16 +47,29 @@ export default async function StockDetailPage({ params }: StockPageProps) {
 
   // Supabase/API later: keep this call as the page data boundary. The app reads
   // local JSON only at request/build time and does not fetch market APIs in UI.
-  const [priceResult, freshness] = await Promise.all([
+  const [priceResult, freshness, symbolState] = await Promise.all([
     getHistoricalPricesResult(symbol),
     getSymbolFreshness(symbol),
+    getSymbolDataState(symbol),
   ]);
 
   if (priceResult.status === "error") {
-    return <InvalidDataState stock={stock} message={priceResult.error} />;
+    return <InvalidDataState stock={stock} message={priceResult.error} symbolState={symbolState} freshness={freshness} />;
   }
 
   const candles = priceResult.data;
+
+  if (candles.length < 20) {
+    return (
+      <InvalidDataState
+        stock={stock}
+        message="Chưa có đủ dữ liệu để phân tích."
+        symbolState={symbolState}
+        freshness={freshness}
+      />
+    );
+  }
+
   const supabaseScore = await readLatestTechnicalScore(symbol);
   const technicalSnapshot = createTechnicalSnapshot(candles, supabaseScore);
   const analysis = technicalSnapshot.analysis;
@@ -328,7 +341,19 @@ function TechnicalSignalBadge({ signal }: { signal: Signal }) {
   );
 }
 
-function InvalidDataState({ stock, message }: { stock: { symbol: string; name: string }; message: string }) {
+function InvalidDataState({
+  stock,
+  message,
+  symbolState,
+  freshness,
+}: {
+  stock: StockMetadata;
+  message: string;
+  symbolState: Awaited<ReturnType<typeof getSymbolDataState>>;
+  freshness: Awaited<ReturnType<typeof getSymbolFreshness>>;
+}) {
+  const copy = getInvalidDataCopy(symbolState, message);
+
   return (
     <main className="min-h-screen bg-slate-50 dark:bg-slate-950">
       <section className="border-b border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950">
@@ -342,16 +367,68 @@ function InvalidDataState({ stock, message }: { stock: { symbol: string; name: s
       </section>
 
       <section className="mx-auto w-full max-w-4xl px-4 py-6 sm:px-6">
-        <div className="rounded-lg border border-amber-200 bg-amber-50 p-5 text-amber-950 shadow-sm dark:border-amber-900 dark:bg-amber-950 dark:text-amber-100">
-          <h2 className="text-lg font-semibold">{vi.stock.invalidDataTitle}</h2>
-          <p className="mt-2 text-sm leading-6 text-amber-900 dark:text-amber-200">{vi.stock.invalidDataDescription}</p>
-          <p className="mt-4 rounded border border-amber-200 bg-white/70 p-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-slate-950/40 dark:text-amber-100">
+        <div className={`rounded-lg border p-5 shadow-sm ${copy.toneClass}`}>
+          <div className="flex items-start gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/70 text-xl dark:bg-slate-950/50" aria-hidden>
+              {copy.icon}
+            </span>
+            <div>
+              <h2 className="text-lg font-semibold">{copy.title}</h2>
+              <p className="mt-2 text-sm leading-6 opacity-85">{copy.description}</p>
+            </div>
+          </div>
+          <p className="mt-4 rounded border border-current/20 bg-white/70 p-3 text-sm dark:bg-slate-950/40">
             {message}
           </p>
         </div>
+        <SymbolRefreshPanel symbol={stock.symbol} freshness={freshness} />
       </section>
     </main>
   );
+}
+
+function getInvalidDataCopy(
+  symbolState: Awaited<ReturnType<typeof getSymbolDataState>>,
+  message: string,
+): {
+  title: string;
+  description: string;
+  icon: string;
+  toneClass: string;
+} {
+  if (symbolState?.syncStatus === "unsupported" || symbolState?.isActive === false) {
+    return {
+      title: "Mã này hiện chưa được nguồn dữ liệu hỗ trợ",
+      description: symbolState?.unsupportedReason ?? "Bạn vẫn có thể xem lại nếu sau này hệ thống có dữ liệu lịch sử phù hợp.",
+      icon: "!",
+      toneClass: "border-slate-200 bg-white text-slate-950 dark:border-slate-800 dark:bg-slate-900 dark:text-white",
+    };
+  }
+
+  if (symbolState?.syncStatus === "backfill_failed" || symbolState?.syncStatus === "failed") {
+    return {
+      title: "Không thể tải dữ liệu, vui lòng thử lại",
+      description: "Nguồn dữ liệu có thể đang lỗi tạm thời. Bạn có thể bấm làm mới dữ liệu để thử cập nhật lại riêng mã này.",
+      icon: "!",
+      toneClass: "border-rose-200 bg-rose-50 text-rose-950 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-100",
+    };
+  }
+
+  if (message.toLowerCase().includes("chưa") || message.toLowerCase().includes("du")) {
+    return {
+      title: "Chưa có đủ dữ liệu để phân tích",
+      description: "Hệ thống cần thêm dữ liệu giá lịch sử trước khi hiển thị chart, điểm kỹ thuật và AI phân tích.",
+      icon: "i",
+      toneClass: "border-amber-200 bg-amber-50 text-amber-950 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-100",
+    };
+  }
+
+  return {
+    title: "Dữ liệu đang được cập nhật",
+    description: "Bạn vẫn có thể thử làm mới dữ liệu riêng mã này. Trang sẽ không render chart khi dữ liệu chưa hợp lệ.",
+    icon: "i",
+    toneClass: "border-amber-200 bg-amber-50 text-amber-950 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-100",
+  };
 }
 
 async function getStockMetadataForPage(symbol: string): Promise<StockMetadata | null> {

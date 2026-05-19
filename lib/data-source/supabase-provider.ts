@@ -34,6 +34,12 @@ type UpdatedAtRow = {
   updated_at: string | null;
 };
 
+export type SymbolDataState = {
+  isActive: boolean;
+  syncStatus: string | null;
+  unsupportedReason: string | null;
+};
+
 export type SupabaseUpdatedAtResult =
   | {
       available: true;
@@ -292,6 +298,36 @@ export async function getSymbolMetadata(symbol: string): Promise<StockMetadata |
     sector: row.sector,
     tier: row.tier,
     liquidityRank: row.liquidity_rank,
+  };
+}
+
+export async function getSymbolDataState(symbol: string): Promise<SymbolDataState | null> {
+  const supabase = createSupabaseClient();
+
+  if (!supabase) {
+    return null;
+  }
+
+  const { data, error } = await supabase
+    .from("symbols")
+    .select("is_active,sync_status,unsupported_reason")
+    .eq("symbol", symbol.toUpperCase())
+    .maybeSingle();
+
+  if (error || !data) {
+    return null;
+  }
+
+  const row = data as unknown as {
+    is_active: boolean | null;
+    sync_status: string | null;
+    unsupported_reason: string | null;
+  };
+
+  return {
+    isActive: row.is_active !== false,
+    syncStatus: row.sync_status,
+    unsupportedReason: row.unsupported_reason,
   };
 }
 

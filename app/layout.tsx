@@ -1,12 +1,26 @@
 import type { Metadata } from "next";
-import { vi } from "@/lib/i18n/vi";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: vi.app.metadataTitle,
+  title: {
+    default: "StockVN",
+    template: "%s | StockVN",
+  },
   applicationName: "StockVN",
-  description: vi.app.metadataDescription,
+  description: "StockVN phân tích kỹ thuật cổ phiếu Việt Nam với dữ liệu thị trường, scanner, ngành và độ rộng thị trường.",
   manifest: "/manifest.webmanifest",
+  openGraph: {
+    title: "StockVN",
+    description: "Phân tích kỹ thuật cổ phiếu Việt Nam với dữ liệu thị trường, scanner và tín hiệu kỹ thuật.",
+    siteName: "StockVN",
+    locale: "vi_VN",
+    type: "website",
+  },
+  twitter: {
+    card: "summary",
+    title: "StockVN",
+    description: "Phân tích kỹ thuật cổ phiếu Việt Nam.",
+  },
   appleWebApp: {
     capable: true,
     title: "StockVN",
@@ -51,7 +65,12 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className="min-h-full overflow-x-hidden bg-background text-foreground transition-colors">{children}</body>
+      <body className="min-h-full overflow-x-hidden bg-background text-foreground transition-colors">
+        {children}
+        <footer className="border-t border-slate-200 bg-white px-4 py-5 text-center text-xs leading-5 text-slate-500 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-400">
+          Thông tin chỉ mang tính tham khảo, không phải khuyến nghị mua bán.
+        </footer>
+      </body>
     </html>
   );
 }
