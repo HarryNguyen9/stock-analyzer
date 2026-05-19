@@ -79,6 +79,10 @@ export async function readHomeScannerSnapshot(currentStocks: StockSummary[] = []
       return null;
     }
 
+    if (currentStocks.length === 0) {
+      return filterScannerGroupsByQuality(groups);
+    }
+
     const latestMetadata = await readLatestSymbolMetadata();
     return filterScannerGroupsByQuality(mergeLatestMetadata(groups, currentStocks, latestMetadata, row.updated_at));
   } catch (error) {

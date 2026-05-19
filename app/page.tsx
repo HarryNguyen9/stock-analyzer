@@ -3,15 +3,13 @@ import { MarketScanner } from "@/components/MarketScanner";
 import { MarketBreadth } from "@/components/MarketBreadth";
 import { MarketAlerts } from "@/components/MarketAlerts";
 import { HomeTabs } from "@/components/HomeTabs";
-import { NotificationCenter } from "@/components/NotificationCenter";
 import { SectorHeatmap } from "@/components/SectorHeatmap";
-import { StockSearchList } from "@/components/StockSearchList";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { vi } from "@/lib/i18n/vi";
-import { getDataFreshness, getStockSummaries } from "@/lib/data-source/prices";
+import { getDataFreshness } from "@/lib/data-source/prices";
+import type { DataFreshnessResult } from "@/lib/data-source/provider";
 import { readHomeScannerSnapshot } from "@/lib/scanner/snapshot";
 import {
-  generateMarketAlerts,
   readMarketAlertsSnapshot,
   readMarketBreadthSnapshot,
   readSectorHeatmapSnapshot,
@@ -24,23 +22,21 @@ export default async function Home({
 }) {
   const query = await searchParams;
   const initialTab = getInitialTab(query?.tab);
-  const [stocks, dataFreshness] = await Promise.all([
-    getStockSummaries(),
-    getDataFreshness(),
+  const emptyFreshness: DataFreshnessResult = { status: "empty", updatedAt: null };
+  const [dataFreshness, mergedScannerSnapshot, sectorHeatmap, marketBreadth, marketAlerts] = await Promise.all([
+    timedSnapshot("dataFreshness", getDataFreshness(), emptyFreshness),
+    timedSnapshot("home_scanner", readHomeScannerSnapshot(), null),
+    timedSnapshot("sector_heatmap", readSectorHeatmapSnapshot(), []),
+    timedSnapshot("market_breadth", readMarketBreadthSnapshot(), null),
+    timedSnapshot("market_alerts", readMarketAlertsSnapshot(), []),
   ]);
-  const mergedScannerSnapshot = await readHomeScannerSnapshot(stocks);
-  const sectorHeatmap = await readSectorHeatmapSnapshot(stocks);
-  const marketBreadth = await readMarketBreadthSnapshot(stocks);
-  const marketAlertsSnapshot = await readMarketAlertsSnapshot();
-  const marketAlerts = marketAlertsSnapshot.length > 0
-    ? marketAlertsSnapshot
-    : generateMarketAlerts(stocks, sectorHeatmap, marketBreadth);
+  const scannerStocks = getUniqueScannerStocks(mergedScannerSnapshot);
   const averageScore =
-    stocks.length > 0
-      ? Math.round(stocks.reduce((total, stock) => total + stock.score, 0) / stocks.length)
+    scannerStocks.length > 0
+      ? Math.round(scannerStocks.reduce((total, stock) => total + stock.score, 0) / scannerStocks.length)
       : 0;
-  const positiveCount = stocks.filter((stock) => stock.dayChangePercent >= 0).length;
-  const hasDataError = stocks.some((stock) => stock.dataStatus === "error");
+  const positiveCount = marketBreadth?.advancers ?? 0;
+  const totalBreadthSymbols = marketBreadth?.totalSymbols ?? 0;
 
   return (
     <main className="min-h-screen">
@@ -74,7 +70,7 @@ export default async function Home({
               <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900">
                 <p className="text-sm text-slate-500 dark:text-slate-400">{vi.home.greenToday}</p>
                 <p className="mt-2 text-3xl font-semibold text-emerald-700 dark:text-emerald-400">
-                  {positiveCount}/{stocks.length}
+                  {positiveCount}/{totalBreadthSymbols}
                 </p>
               </div>
             </div>
@@ -86,14 +82,12 @@ export default async function Home({
         initialTab={initialTab}
         discover={
           <>
-            <MarketScanner stocks={stocks} snapshotGroups={mergedScannerSnapshot} />
+            <MarketScanner stocks={[]} snapshotGroups={mergedScannerSnapshot} />
             <MarketAlerts alerts={marketAlerts} />
-            <MarketBreadth breadth={marketBreadth} />
+            {marketBreadth ? <MarketBreadth breadth={marketBreadth} /> : <SnapshotEmptyState title="Độ rộng thị trường" />}
             <SectorHeatmap sectors={sectorHeatmap} />
-            <NotificationCenter stocks={stocks} />
           </>
         }
-        search={<StockSearchList stocks={stocks} hasDataError={hasDataError} />}
       />
     </main>
   );
@@ -102,4 +96,57 @@ export default async function Home({
 function getInitialTab(tab: string | string[] | undefined): "discover" | "search" {
   const value = Array.isArray(tab) ? tab[0] : tab;
   return value === "search" ? "search" : "discover";
+}
+
+async function timedSnapshot<T, F>(name: string, task: Promise<T>, fallback: F, timeoutMs = 2_500): Promise<T | F> {
+  const startedAt = Date.now();
+
+  try {
+    const result = await Promise.race<T | F>([
+      task,
+      new Promise<F>((resolve) => {
+        setTimeout(() => resolve(fallback), timeoutMs);
+      }),
+    ]);
+
+    console.info("home snapshot fetch", {
+      name,
+      durationMs: Date.now() - startedAt,
+      loaded: result !== fallback,
+    });
+
+    return result;
+  } catch (error) {
+    console.warn("home snapshot fetch failed", {
+      name,
+      durationMs: Date.now() - startedAt,
+      error,
+    });
+    return fallback;
+  }
+}
+
+function getUniqueScannerStocks(groups: Awaited<ReturnType<typeof readHomeScannerSnapshot>>) {
+  const bySymbol = new Map<string, NonNullable<typeof groups>[number]["items"][number]["stock"]>();
+
+  for (const group of groups ?? []) {
+    for (const item of group.items) {
+      bySymbol.set(item.stock.symbol, item.stock);
+    }
+  }
+
+  return [...bySymbol.values()];
+}
+
+function SnapshotEmptyState({ title }: { title: string }) {
+  return (
+    <section className="mx-auto w-full max-w-7xl px-4 pt-6 sm:px-6 lg:px-8">
+      <div className="rounded-lg border border-dashed border-slate-300 bg-white p-5 dark:border-slate-700 dark:bg-slate-900">
+        <h2 className="text-lg font-semibold text-slate-950 dark:text-white">{title}</h2>
+        <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
+          Chưa có snapshot. Dữ liệu sẽ xuất hiện sau lần đồng bộ snapshot tiếp theo.
+        </p>
+      </div>
+    </section>
+  );
 }

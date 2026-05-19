@@ -2,17 +2,16 @@
 
 import type { ReactNode } from "react";
 import { useState } from "react";
+import { LazyStockSearchList } from "@/components/LazyStockSearchList";
 
 type HomeTab = "discover" | "search";
 
 export function HomeTabs({
   initialTab = "discover",
   discover,
-  search,
 }: {
   initialTab?: HomeTab;
   discover: ReactNode;
-  search: ReactNode;
 }) {
   const [activeTab, setActiveTab] = useState<HomeTab>(initialTab);
 
@@ -43,7 +42,7 @@ export function HomeTabs({
         {discover}
       </div>
       <div className="transition-opacity duration-200" hidden={activeTab !== "search"}>
-        {search}
+        <LazyStockSearchList active={activeTab === "search"} />
       </div>
     </>
   );
