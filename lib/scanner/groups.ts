@@ -1,4 +1,10 @@
 import { vi } from "@/lib/i18n/vi";
+import {
+  getLiquidityScore,
+  isLiquidEnough,
+  MIN_AVG_VOLUME20,
+  MIN_TRADED_VALUE20,
+} from "@/lib/market/liquidity";
 import { sortSignalsByPriority } from "@/lib/signals";
 import type { Signal, SignalSentiment } from "@/lib/technical-analysis/types";
 import type { StockSummary } from "@/types/stock";
@@ -26,8 +32,8 @@ export type ScannerGroup = {
 };
 
 export const SCANNER_MAX_ITEMS_PER_GROUP = 5;
-export const SCANNER_MIN_AVG_VOLUME20 = 500_000;
-export const SCANNER_MIN_TRADED_VALUE20 = 10_000_000_000;
+export const SCANNER_MIN_AVG_VOLUME20 = MIN_AVG_VOLUME20;
+export const SCANNER_MIN_TRADED_VALUE20 = MIN_TRADED_VALUE20;
 
 export type ScannerDiagnostics = {
   filteredLowLiquidityCount: number;
@@ -153,26 +159,14 @@ function getVolumeSortValue(stock: StockSummary): number {
 }
 
 function getLiquiditySortValue(stock: StockSummary): number {
-  const tradedValue = stock.avgTradedValue20 ?? 0;
-  const volume = stock.avgVolume20 ?? 0;
-  const exchangeBoost = stock.exchange === "HOSE" ? 15 : stock.exchange === "HNX" ? 8 : 0;
-  const rankBoost = typeof stock.liquidityRank === "number" ? Math.max(0, 80 - stock.liquidityRank / 4) : 0;
-
-  return Math.log10(Math.max(1, tradedValue)) * 12 + Math.log10(Math.max(1, volume)) * 4 + exchangeBoost + rankBoost;
+  return getLiquidityScore(stock);
 }
 
 export function passesScannerQuality(
   stock: StockSummary,
   quality: { minAvgVolume20: number; minTradedValue20: number } = getScannerQualityThresholds(),
 ): boolean {
-  const avgVolume20 = stock.avgVolume20 ?? 0;
-  const avgTradedValue20 = stock.avgTradedValue20 ?? 0;
-
-  if (avgVolume20 >= quality.minAvgVolume20 || avgTradedValue20 >= quality.minTradedValue20) {
-    return true;
-  }
-
-  return false;
+  return isLiquidEnough(stock, quality);
 }
 
 export function getScannerQualityThresholds(): { minAvgVolume20: number; minTradedValue20: number } {

@@ -1,7 +1,7 @@
 import { getStockSummaries } from "@/lib/data-source/prices";
+import { getLiquidityScore, isLiquidEnough, MAX_ALERTS } from "@/lib/market/liquidity";
 import { readMarketBreadthSnapshot, type MarketBreadthSnapshot } from "@/lib/market/breadth";
 import { readSectorHeatmapSnapshot, type SectorSummary } from "@/lib/sector/heatmap";
-import { passesScannerQuality } from "@/lib/scanner/groups";
 import { sortSignalsByPriority } from "@/lib/signals";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { Json } from "@/lib/supabase/types";
@@ -33,6 +33,8 @@ export type MarketAlert = {
   expires_at?: string;
   priority: number;
   dedupeKey: string;
+  liquidityScore?: number;
+  technicalScore?: number;
 };
 
 type SnapshotRow = {
@@ -42,7 +44,7 @@ type SnapshotRow = {
 const DEFAULT_SCORE_THRESHOLD = 80;
 const DEFAULT_UNUSUAL_MOVE_PERCENT = 5;
 const DEFAULT_ALERT_COOLDOWN_HOURS = 4;
-const DEFAULT_MAX_ALERTS = 12;
+const DEFAULT_MAX_ALERTS = MAX_ALERTS;
 
 export async function refreshMarketAlertsSnapshot(stocks?: StockSummary[]): Promise<boolean> {
   try {
@@ -125,7 +127,7 @@ function generateStockAlerts(stocks: StockSummary[], now: Date): MarketAlert[] {
   const unusualMovePercent = getEnvNumber("ALERT_UNUSUAL_MOVE_PERCENT", DEFAULT_UNUSUAL_MOVE_PERCENT);
 
   for (const stock of stocks) {
-    if (stock.dataStatus !== "ready" || !passesScannerQuality(stock)) {
+    if (stock.dataStatus !== "ready" || !isLiquidEnough(stock)) {
       continue;
     }
 
@@ -275,6 +277,8 @@ function createStockAlert(
     expires_at: addHours(now, DEFAULT_ALERT_COOLDOWN_HOURS).toISOString(),
     priority: input.priority,
     dedupeKey: `${stock.symbol}:${input.type}:${signal?.code ?? "score"}`,
+    liquidityScore: getLiquidityScore(stock),
+    technicalScore: stock.score,
   };
 }
 
@@ -342,12 +346,16 @@ function parseMarketAlert(value: unknown): MarketAlert | null {
     expires_at: typeof value.expires_at === "string" ? value.expires_at : undefined,
     priority: value.priority,
     dedupeKey: value.dedupeKey,
+    liquidityScore: typeof value.liquidityScore === "number" ? value.liquidityScore : undefined,
+    technicalScore: typeof value.technicalScore === "number" ? value.technicalScore : undefined,
   };
 }
 
 function sortAlerts(a: MarketAlert, b: MarketAlert): number {
   return (
     severityRank(b.severity) - severityRank(a.severity) ||
+    (b.liquidityScore ?? 0) - (a.liquidityScore ?? 0) ||
+    (b.technicalScore ?? 0) - (a.technicalScore ?? 0) ||
     b.priority - a.priority ||
     new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
   );

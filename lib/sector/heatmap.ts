@@ -1,4 +1,9 @@
 import { getStockSummaries } from "@/lib/data-source/prices";
+import {
+  getLiquidityScore,
+  isLiquidEnough,
+  MAX_TOP_SYMBOLS_PER_SECTOR,
+} from "@/lib/market/liquidity";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { Json } from "@/lib/supabase/types";
 import type { StockSummary } from "@/types/stock";
@@ -30,7 +35,7 @@ type SnapshotRow = {
   updated_at?: string | null;
 };
 
-const TOP_SYMBOLS_PER_SECTOR = 5;
+const TOP_SYMBOLS_PER_SECTOR = MAX_TOP_SYMBOLS_PER_SECTOR;
 
 export function buildSectorSummaries(stocks: StockSummary[]): SectorSummary[] {
   const grouped = new Map<string, StockSummary[]>();
@@ -53,9 +58,11 @@ export function buildSectorSummaries(stocks: StockSummary[]): SectorSummary[] {
     .map(([sector, items]) => {
       const averageChangePercent = average(items.map((stock) => stock.dayChangePercent));
       const averageTechnicalScore = average(items.map((stock) => stock.score));
-      const topSymbols = [...items]
+      const liquidItems = items.filter(isLiquidEnough);
+      const topSymbols = liquidItems
         .sort(
           (a, b) =>
+            getLiquidityScore(b) - getLiquidityScore(a) ||
             b.score - a.score ||
             b.dayChangePercent - a.dayChangePercent ||
             a.symbol.localeCompare(b.symbol),

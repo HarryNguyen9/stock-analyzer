@@ -27,7 +27,7 @@ export function MarketBreadth({ breadth }: { breadth: MarketBreadthSnapshot }) {
 
   return (
     <section className="mx-auto w-full max-w-7xl px-4 pt-6 sm:px-6 lg:px-8">
-      <div className={`rounded-lg border p-4 shadow-sm ${toneClass}`}>
+      <div className={`rounded-2xl border p-4 shadow-sm sm:p-5 ${toneClass}`}>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h2 className="text-lg font-semibold text-slate-950 dark:text-white">Độ rộng thị trường</h2>
