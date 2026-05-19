@@ -11,6 +11,7 @@ import type { Signal } from "@/lib/technical-analysis/types";
 import type { StockSummary } from "@/types/stock";
 import { refreshSectorHeatmapSnapshot } from "@/lib/sector/heatmap";
 import { refreshMarketBreadthSnapshot } from "@/lib/market/breadth";
+import { refreshMarketAlertsSnapshot } from "@/lib/alerts/generate-alerts";
 
 export const HOME_SCANNER_SNAPSHOT_TYPE = "home_scanner";
 
@@ -29,12 +30,14 @@ export async function refreshHomeScannerSnapshot(): Promise<boolean> {
       refreshSectorHeatmapSnapshot(stocks),
       refreshMarketBreadthSnapshot(stocks),
     ]);
+    const marketAlertsSnapshotUpdated = await refreshMarketAlertsSnapshot(stocks);
     console.info("home_scanner snapshot metadata source:", {
       metadataSource: "supabase-symbols-via-stock-summaries",
       symbolCount: stocks.length,
       scannerDiagnostics: diagnostics,
       sectorSnapshotUpdated,
       marketBreadthSnapshotUpdated,
+      marketAlertsSnapshotUpdated,
     });
     const { error } = await supabase.from("market_snapshots").upsert(
       {

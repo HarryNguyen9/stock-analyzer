@@ -18,6 +18,15 @@ export {
   refreshMarketBreadthSnapshot,
   type MarketBreadthSnapshot,
 } from "@/lib/market/breadth";
+export {
+  MARKET_ALERTS_SNAPSHOT_TYPE,
+  generateMarketAlerts,
+  readMarketAlertsSnapshot,
+  refreshMarketAlertsSnapshot,
+  type MarketAlert,
+  type MarketAlertSeverity,
+  type MarketAlertType,
+} from "@/lib/alerts/generate-alerts";
 
 export const SNAPSHOT_PIPELINE = {
   pipeline: "generate-snapshot",
