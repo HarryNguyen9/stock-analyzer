@@ -601,51 +601,99 @@ function formatPriceActionLevel(value: number | null): string {
 }
 
 function CandlestickPatternsSection({ analysis }: { analysis: PriceBehaviorAnalysis }) {
+  const highlightedPatterns = analysis.candlestickPatterns.filter((pattern) => pattern.confidence !== "low");
+  const watchPatterns = analysis.candlestickPatterns.filter((pattern) => pattern.confidence === "low");
+  const reversalPatterns = highlightedPatterns.filter((pattern) => pattern.type === "reversal");
+  const continuationPatterns = highlightedPatterns.filter((pattern) => pattern.type === "continuation");
+  const indecisionPatterns = highlightedPatterns.filter((pattern) => pattern.type === "indecision");
+
   return (
     <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
       <div>
         <h2 className="text-lg font-semibold text-slate-950 dark:text-white">Patterns</h2>
         <p className="mt-1 text-sm leading-6 text-slate-600 dark:text-slate-400">
-          Mẫu nến Nhật trong 3-5 nến gần nhất, có xét bối cảnh xu hướng, volume và vùng giá.
+          Mẫu nến Nhật trong 5-10 nến gần nhất, có xét bối cảnh xu hướng, volume và vùng giá.
         </p>
       </div>
 
-      <div className="mt-5 grid gap-4 md:grid-cols-2">
-        {analysis.candlestickPatterns.length > 0 ? (
-          analysis.candlestickPatterns.map((pattern) => (
-            <article key={`${pattern.pattern}-${pattern.dojiType ?? "base"}-${pattern.detectedAt}`} className="rounded-lg border border-slate-100 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <h3 className="text-sm font-semibold text-slate-950 dark:text-white">{pattern.labelVi}</h3>
-                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                    {formatDate(pattern.detectedAt)} · {getConfidenceLabel(pattern.confidence)}
-                  </p>
-                </div>
-                <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${getBehaviorSentimentClass(pattern.sentiment)}`}>
-                  {getBehaviorSentimentLabel(pattern.sentiment)}
-                </span>
-              </div>
-              <p className="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-300">
-                {pattern.summaryVi ?? pattern.descriptionVi}
-              </p>
-              {pattern.contextNotes && pattern.contextNotes.length > 0 ? (
-                <ul className="mt-3 space-y-1.5">
-                  {pattern.contextNotes.slice(0, 4).map((note) => (
-                    <li key={note} className="text-sm leading-5 text-slate-500 dark:text-slate-400">
-                      {note}
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
-            </article>
+      {highlightedPatterns.length > 0 ? (
+        <div className="mt-5 grid gap-4 lg:grid-cols-3">
+          <PatternGroup title="Đảo chiều" patterns={reversalPatterns} />
+          <PatternGroup title="Tiếp diễn" patterns={continuationPatterns} />
+          <PatternGroup title="Do dự" patterns={indecisionPatterns} />
+        </div>
+      ) : (
+        <div className="mt-5">
+          <p className="rounded-lg bg-slate-50 p-4 text-sm leading-6 text-slate-500 dark:bg-slate-950 dark:text-slate-400">
+            Chưa có mẫu đảo chiều/xác nhận mạnh trong các phiên gần đây.
+          </p>
+        </div>
+      )}
+
+      {watchPatterns.length > 0 ? (
+        <div className="mt-5 rounded-lg border border-slate-100 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950">
+          <h3 className="text-sm font-semibold text-slate-950 dark:text-white">Theo dõi thêm</h3>
+          <div className="mt-3 grid gap-3 md:grid-cols-2">
+            {watchPatterns.map((pattern) => (
+              <PatternCard key={`${pattern.pattern}-${pattern.dojiType ?? "base"}-${pattern.detectedAt}`} pattern={pattern} compact />
+            ))}
+          </div>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function PatternGroup({ title, patterns }: { title: string; patterns: PriceBehaviorAnalysis["candlestickPatterns"] }) {
+  return (
+    <div className="rounded-lg border border-slate-100 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950">
+      <h3 className="text-sm font-semibold text-slate-950 dark:text-white">{title}</h3>
+      <div className="mt-3 space-y-3">
+        {patterns.length > 0 ? (
+          patterns.map((pattern) => (
+            <PatternCard key={`${pattern.pattern}-${pattern.dojiType ?? "base"}-${pattern.detectedAt}`} pattern={pattern} />
           ))
         ) : (
-          <p className="rounded-lg bg-slate-50 p-4 text-sm leading-6 text-slate-500 dark:bg-slate-950 dark:text-slate-400">
-            Chưa có mẫu nến nổi bật trong 3-5 nến gần nhất.
-          </p>
+          <p className="text-sm leading-6 text-slate-500 dark:text-slate-400">Chưa có tín hiệu rõ.</p>
         )}
       </div>
-    </section>
+    </div>
+  );
+}
+
+function PatternCard({
+  pattern,
+  compact = false,
+}: {
+  pattern: PriceBehaviorAnalysis["candlestickPatterns"][number];
+  compact?: boolean;
+}) {
+  return (
+    <article className="rounded-lg bg-white p-3 dark:bg-slate-900">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h4 className="text-sm font-semibold text-slate-950 dark:text-white">{pattern.labelVi}</h4>
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+            {formatDate(pattern.detectedAt)} · {getConfidenceLabel(pattern.confidence)}
+          </p>
+        </div>
+        <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${getBehaviorSentimentClass(pattern.sentiment)}`}>
+          {getBehaviorSentimentLabel(pattern.sentiment)}
+        </span>
+      </div>
+      <p className="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-300">
+        {pattern.summaryVi ?? pattern.descriptionVi}
+      </p>
+      {!compact && pattern.contextNotes && pattern.contextNotes.length > 0 ? (
+        <ul className="mt-3 space-y-1.5">
+          {pattern.contextNotes.slice(0, 3).map((note) => (
+            <li key={note} className="text-sm leading-5 text-slate-500 dark:text-slate-400">
+              {note}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </article>
   );
 }
 

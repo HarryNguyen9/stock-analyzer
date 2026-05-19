@@ -87,17 +87,37 @@ export type PatternConfidence = "low" | "medium" | "high";
 export type CandlestickPatternName =
   | "doji"
   | "hammer"
+  | "inverted-hammer"
+  | "hanging-man"
   | "shooting-star"
   | "bullish-engulfing"
   | "bearish-engulfing"
   | "morning-star"
   | "evening-star"
-  | "marubozu";
+  | "marubozu"
+  | "piercing-line"
+  | "dark-cloud-cover"
+  | "inside-bar"
+  | "outside-bar"
+  | "three-white-soldiers"
+  | "three-black-crows"
+  | "spinning-top"
+  | "high-wave"
+  | "gap-up-volume"
+  | "gap-down-volume"
+  | "support-rejection"
+  | "resistance-rejection"
+  | "large-volume-candle"
+  | "rejection-candle";
+
+export type CandlestickPatternType = "reversal" | "continuation" | "indecision";
 
 export type DojiType = "standard" | "long-legged" | "dragonfly" | "gravestone";
 
 export type CandlestickPatternSignal = {
   pattern: CandlestickPatternName;
+  name: string;
+  type: CandlestickPatternType;
   labelVi: string;
   dojiType?: DojiType;
   sentiment: SignalSentiment;

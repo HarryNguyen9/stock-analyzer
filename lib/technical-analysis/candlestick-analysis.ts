@@ -1,5 +1,6 @@
 import type {
   CandlestickPatternSignal,
+  CandlestickPatternType,
   DojiType,
   PatternConfidence,
   SignalSentiment,
@@ -16,11 +17,25 @@ type CandleShape = {
   isRed: boolean;
 };
 
-export function analyzeCandlestickPatterns(candles: OHLCV[]): CandlestickPatternSignal[] {
-  const recent = candles.slice(-5);
-  const signals: CandlestickPatternSignal[] = [];
+type PatternDraft = CandlestickPatternSignal & {
+  rank: number;
+};
 
-  for (let index = Math.max(0, recent.length - 3); index < recent.length; index += 1) {
+type PatternContext = {
+  previousTrend: "up" | "down" | "flat";
+  zone: "support" | "resistance" | "middle";
+  volumeRatio: number | null;
+  isHighVolume: boolean;
+  isWideRange: boolean;
+  rangePosition: "near-low" | "near-high" | "middle";
+  notes: string[];
+};
+
+export function analyzeCandlestickPatterns(candles: OHLCV[]): CandlestickPatternSignal[] {
+  const recent = candles.slice(-10);
+  const drafts: PatternDraft[] = [];
+
+  for (let index = Math.max(0, recent.length - 5); index < recent.length; index += 1) {
     const current = recent[index];
     const previous = recent[index - 1];
     const beforePrevious = recent[index - 2];
@@ -28,41 +43,44 @@ export function analyzeCandlestickPatterns(candles: OHLCV[]): CandlestickPattern
     const previousShape = previous ? getShape(previous) : null;
     const beforePreviousShape = beforePrevious ? getShape(beforePrevious) : null;
     const sourceIndex = candles.length - recent.length + index;
+    const context = getPatternContext(candles, sourceIndex, shape);
 
-    if (isDoji(shape)) {
-      signals.push(createDojiPattern(shape, candles, sourceIndex));
-    }
+    if (isDoji(shape)) drafts.push(createDojiPattern(shape, context));
+    if (isSpinningTop(shape)) drafts.push(createPattern("spinning-top", "Spinning Top", "indecision", "neutral", "low", "Nến thân nhỏ cho thấy lực mua và bán còn giằng co.", current.date, context, 35));
+    if (isHighWave(shape)) drafts.push(createPattern("high-wave", "High Wave Candle", "indecision", "neutral", "medium", "Biên nến rộng với bóng hai đầu dài, cho thấy trạng thái do dự mạnh.", current.date, context, 52));
 
-    if (isHammer(shape)) {
-      signals.push(createPattern("hammer", "Hammer", "bullish", "medium", "Có dấu hiệu nến hammer: giá bị ép xuống nhưng hồi lại trong phiên, nghiêng về lực đỡ ngắn hạn.", current.date));
-    }
+    if (isHammer(shape) && context.previousTrend === "down") drafts.push(createPattern("hammer", "Hammer", "reversal", "bullish", context.zone === "support" ? "high" : "medium", "Hammer xuất hiện sau nhịp giảm, cho thấy lực đỡ bắt đầu phản ứng.", current.date, context, 72));
+    if (isInvertedHammer(shape) && context.previousTrend === "down") drafts.push(createPattern("inverted-hammer", "Inverted Hammer", "reversal", "bullish", context.isHighVolume ? "medium" : "low", "Inverted Hammer sau nhịp giảm cho thấy lực mua thử kéo giá lên nhưng cần xác nhận thêm.", current.date, context, 58));
+    if (isHangingMan(shape) && context.previousTrend === "up") drafts.push(createPattern("hanging-man", "Hanging Man", "reversal", "bearish", context.zone === "resistance" ? "high" : "medium", "Hanging Man sau nhịp tăng cho thấy áp lực bán bắt đầu xuất hiện.", current.date, context, 70));
+    if (isShootingStar(shape) && context.previousTrend === "up") drafts.push(createPattern("shooting-star", "Shooting Star", "reversal", "bearish", context.zone === "resistance" ? "high" : "medium", "Shooting Star gần vùng cao cho thấy lực bán phủ lên nhịp kéo giá.", current.date, context, 72));
 
-    if (isShootingStar(shape)) {
-      signals.push(createPattern("shooting-star", "Shooting Star", "bearish", "medium", "Có dấu hiệu shooting star: giá kéo lên nhưng bị bán xuống, cần thận trọng nếu xuất hiện gần kháng cự.", current.date));
-    }
+    if (previousShape && isBullishEngulfing(shape, previousShape)) drafts.push(createPattern("bullish-engulfing", "Bullish Engulfing", "reversal", "bullish", context.isHighVolume ? "high" : "medium", "Nến tăng bao phủ thân nến giảm trước đó, nghiêng về lực mua cải thiện.", current.date, context, 78));
+    if (previousShape && isBearishEngulfing(shape, previousShape)) drafts.push(createPattern("bearish-engulfing", "Bearish Engulfing", "reversal", "bearish", context.isHighVolume ? "high" : "medium", "Nến giảm bao phủ thân nến tăng trước đó, cho thấy áp lực bán rõ hơn.", current.date, context, 78));
+    if (previousShape && isPiercingLine(shape, previousShape)) drafts.push(createPattern("piercing-line", "Piercing Line", "reversal", "bullish", "medium", "Piercing Line cho thấy lực mua kéo giá hồi lại đáng kể sau nến giảm.", current.date, context, 64));
+    if (previousShape && isDarkCloudCover(shape, previousShape)) drafts.push(createPattern("dark-cloud-cover", "Dark Cloud Cover", "reversal", "bearish", "medium", "Dark Cloud Cover cho thấy áp lực bán chen vào sau nến tăng.", current.date, context, 64));
 
-    if (previousShape && isBullishEngulfing(shape, previousShape)) {
-      signals.push(createPattern("bullish-engulfing", "Bullish Engulfing", "bullish", "high", "Nến tăng bao phủ thân nến giảm trước đó, nghiêng về lực mua cải thiện nhưng vẫn cần xác nhận bằng volume.", current.date));
-    }
+    if (beforePreviousShape && previousShape && isMorningStar(shape, previousShape, beforePreviousShape)) drafts.push(createPattern("morning-star", "Morning Star", "reversal", "bullish", "medium", "Cụm Morning Star nghiêng về khả năng lực bán chậm lại.", current.date, context, 68));
+    if (beforePreviousShape && previousShape && isEveningStar(shape, previousShape, beforePreviousShape)) drafts.push(createPattern("evening-star", "Evening Star", "reversal", "bearish", "medium", "Cụm Evening Star hàm ý đà tăng có thể đang chững lại.", current.date, context, 68));
 
-    if (previousShape && isBearishEngulfing(shape, previousShape)) {
-      signals.push(createPattern("bearish-engulfing", "Bearish Engulfing", "bearish", "high", "Nến giảm bao phủ thân nến tăng trước đó, cho thấy áp lực bán ngắn hạn đang rõ hơn.", current.date));
-    }
+    if (previousShape && isInsideBar(shape, previousShape)) drafts.push(createPattern("inside-bar", "Inside Bar", "continuation", "neutral", "low", "Inside Bar cho thấy giá co hẹp, thường cần phá biên để xác nhận hướng tiếp theo.", current.date, context, 38));
+    if (previousShape && isOutsideBar(shape, previousShape)) drafts.push(createPattern("outside-bar", "Outside Bar", "continuation", shape.isGreen ? "bullish" : "bearish", context.isHighVolume ? "high" : "medium", "Outside Bar cho thấy phiên mở rộng biên, cần theo dõi hướng đóng cửa.", current.date, context, 62));
+    if (beforePreviousShape && previousShape && isThreeWhiteSoldiers(shape, previousShape, beforePreviousShape)) drafts.push(createPattern("three-white-soldiers", "Three White Soldiers", "continuation", "bullish", "high", "Ba nến tăng liên tiếp cho thấy động lượng mua đang cải thiện.", current.date, context, 80));
+    if (beforePreviousShape && previousShape && isThreeBlackCrows(shape, previousShape, beforePreviousShape)) drafts.push(createPattern("three-black-crows", "Three Black Crows", "continuation", "bearish", "high", "Ba nến giảm liên tiếp cho thấy áp lực bán đang chiếm ưu thế.", current.date, context, 80));
 
-    if (beforePreviousShape && previousShape && isMorningStar(shape, previousShape, beforePreviousShape)) {
-      signals.push(createPattern("morning-star", "Morning Star", "bullish", "medium", "Cụm nến có dấu hiệu morning star, nghiêng về khả năng lực bán chậm lại và lực mua bắt đầu phản ứng.", current.date));
-    }
+    if (isMarubozu(shape)) drafts.push(createPattern("marubozu", "Marubozu", "continuation", shape.isGreen ? "bullish" : "bearish", context.isHighVolume ? "high" : "medium", shape.isGreen ? "Marubozu tăng cho thấy lực mua chiếm ưu thế trong phiên." : "Marubozu giảm cho thấy áp lực bán chiếm ưu thế trong phiên.", current.date, context, 66));
+    if (previous && isGapUpWithVolume(current, previous, context)) drafts.push(createPattern("gap-up-volume", "Gap Up kèm volume", "continuation", "bullish", "high", "Gap Up đi kèm volume cao, có thể là tín hiệu breakaway cần theo dõi.", current.date, context, 76));
+    if (previous && isGapDownWithVolume(current, previous, context)) drafts.push(createPattern("gap-down-volume", "Gap Down kèm volume", "continuation", "bearish", "high", "Gap Down đi kèm volume cao, phản ánh áp lực bán mạnh hơn bình thường.", current.date, context, 76));
 
-    if (beforePreviousShape && previousShape && isEveningStar(shape, previousShape, beforePreviousShape)) {
-      signals.push(createPattern("evening-star", "Evening Star", "bearish", "medium", "Cụm nến có dấu hiệu evening star, hàm ý đà tăng có thể đang chững lại.", current.date));
-    }
-
-    if (isMarubozu(shape)) {
-      signals.push(createPattern("marubozu", "Marubozu", shape.isGreen ? "bullish" : "bearish", "medium", shape.isGreen ? "Nến thân dài ít bóng, nghiêng về lực mua chiếm ưu thế trong phiên." : "Nến thân dài ít bóng, nghiêng về áp lực bán chiếm ưu thế trong phiên.", current.date));
-    }
+    if (isSupportRejection(shape, context)) drafts.push(createPattern("support-rejection", "Nến phản ứng tại hỗ trợ", "reversal", "bullish", context.isHighVolume ? "high" : "medium", "Giá rút chân gần hỗ trợ, cho thấy lực đỡ ngắn hạn xuất hiện.", current.date, context, 70));
+    if (isResistanceRejection(shape, context)) drafts.push(createPattern("resistance-rejection", "Nến bị bán tại kháng cự", "reversal", "bearish", context.isHighVolume ? "high" : "medium", "Giá rút đầu gần kháng cự, cho thấy áp lực bán cần theo dõi.", current.date, context, 70));
+    if (isLargeVolumeCandle(context)) drafts.push(createPattern("large-volume-candle", "Nến volume lớn", "continuation", shape.isGreen ? "bullish" : "bearish", "medium", "Volume tăng mạnh so với trung bình, phản ánh dòng tiền tham gia rõ hơn.", current.date, context, 55));
+    if (isRejectionCandle(shape)) drafts.push(createPattern("rejection-candle", "Rejection Candle", "reversal", getRejectionSentiment(shape), "medium", "Nến có bóng dài cho thấy giá bị từ chối ở một phía của biên dao động.", current.date, context, 54));
   }
 
-  return dedupePatterns(signals).slice(0, 5);
+  return dedupePatterns(drafts)
+    .sort((a, b) => b.rank - a.rank)
+    .slice(0, 3)
+    .map(({ rank: _rank, ...pattern }) => pattern);
 }
 
 function getShape(candle: OHLCV): CandleShape {
@@ -80,31 +98,53 @@ function getShape(candle: OHLCV): CandleShape {
   };
 }
 
+function getPatternContext(candles: OHLCV[], sourceIndex: number, shape: CandleShape): PatternContext {
+  const previousTrend = getPreviousTrend(candles, sourceIndex).direction;
+  const volumeContext = getVolumeContext(candles, sourceIndex);
+  const supportContext = getSupportContext(candles, sourceIndex, shape);
+  const volatilityContext = getVolatilityContext(candles, sourceIndex, shape);
+  const rangePosition = getRangePosition(candles, sourceIndex, shape.candle.close);
+  const notes = [
+    getPreviousTrend(candles, sourceIndex).note,
+    supportContext.note,
+    volumeContext.note,
+    volatilityContext.note,
+    rangePosition === "near-low" ? "Giá đang ở nửa dưới biên dao động gần đây." : rangePosition === "near-high" ? "Giá đang ở nửa trên biên dao động gần đây." : "Giá nằm giữa biên dao động gần đây.",
+  ];
+
+  return {
+    previousTrend,
+    zone: supportContext.zone,
+    volumeRatio: volumeContext.ratio,
+    isHighVolume: volumeContext.isImproving,
+    isWideRange: volatilityContext.isWide,
+    rangePosition,
+    notes,
+  };
+}
+
 function isDoji(shape: CandleShape): boolean {
   return shape.body / shape.range <= 0.1;
 }
 
-function createDojiPattern(shape: CandleShape, candles: OHLCV[], sourceIndex: number): CandlestickPatternSignal {
+function isSpinningTop(shape: CandleShape): boolean {
+  return shape.body / shape.range > 0.1 && shape.body / shape.range <= 0.28 && shape.upperShadow > shape.body * 0.6 && shape.lowerShadow > shape.body * 0.6;
+}
+
+function isHighWave(shape: CandleShape): boolean {
+  return shape.body / shape.range <= 0.25 && shape.upperShadow / shape.range >= 0.3 && shape.lowerShadow / shape.range >= 0.3;
+}
+
+function createDojiPattern(shape: CandleShape, context: PatternContext): PatternDraft {
   const dojiType = getDojiType(shape);
-  const previousTrend = getPreviousTrend(candles, sourceIndex);
-  const volumeContext = getVolumeContext(candles, sourceIndex);
-  const supportContext = getSupportContext(candles, sourceIndex, shape);
-  const volatilityContext = getVolatilityContext(candles, sourceIndex, shape);
-  const contextNotes = [previousTrend.note, volumeContext.note, supportContext.note, volatilityContext.note];
-  const sentiment = getDojiSentiment(dojiType, previousTrend.direction, supportContext.zone);
-  const confidence = getDojiConfidence(volumeContext.isImproving, supportContext.zone !== "middle", volatilityContext.isWide);
-  const summaryVi = createDojiSummary(dojiType, supportContext.zone, volumeContext.isImproving, volatilityContext.isWide);
+  const sentiment = getDojiSentiment(dojiType, context.previousTrend, context.zone);
+  const confidence = getContextConfidence(context, sentiment === "neutral" ? 0 : 1);
+  const summaryVi = createDojiSummary(dojiType, context.zone, context.isHighVolume, context.isWideRange);
 
   return {
-    pattern: "doji",
-    labelVi: getDojiLabel(dojiType),
+    ...createPattern("doji", getDojiLabel(dojiType), "indecision", sentiment, confidence, summaryVi, shape.candle.date, context, 50),
     dojiType,
-    sentiment,
-    confidence,
-    descriptionVi: summaryVi,
-    contextNotes,
     summaryVi,
-    detectedAt: shape.candle.date,
   };
 }
 
@@ -118,11 +158,142 @@ function getDojiType(shape: CandleShape): DojiType {
   return "standard";
 }
 
+function isHammer(shape: CandleShape): boolean {
+  return shape.lowerShadow >= shape.body * 2 && shape.upperShadow <= shape.body * 0.7 && shape.body / shape.range <= 0.35;
+}
+
+function isInvertedHammer(shape: CandleShape): boolean {
+  return shape.upperShadow >= shape.body * 2 && shape.lowerShadow <= shape.body * 0.7 && shape.body / shape.range <= 0.35 && shape.isGreen;
+}
+
+function isHangingMan(shape: CandleShape): boolean {
+  return isHammer(shape);
+}
+
+function isShootingStar(shape: CandleShape): boolean {
+  return shape.upperShadow >= shape.body * 2 && shape.lowerShadow <= shape.body * 0.7 && shape.body / shape.range <= 0.35;
+}
+
+function isBullishEngulfing(current: CandleShape, previous: CandleShape): boolean {
+  return previous.isRed && current.isGreen && current.candle.open <= previous.candle.close && current.candle.close >= previous.candle.open;
+}
+
+function isBearishEngulfing(current: CandleShape, previous: CandleShape): boolean {
+  return previous.isGreen && current.isRed && current.candle.open >= previous.candle.close && current.candle.close <= previous.candle.open;
+}
+
+function isPiercingLine(current: CandleShape, previous: CandleShape): boolean {
+  return previous.isRed && current.isGreen && current.candle.open < previous.candle.close && current.candle.close > midpoint(previous) && current.candle.close < previous.candle.open;
+}
+
+function isDarkCloudCover(current: CandleShape, previous: CandleShape): boolean {
+  return previous.isGreen && current.isRed && current.candle.open > previous.candle.close && current.candle.close < midpoint(previous) && current.candle.close > previous.candle.open;
+}
+
+function isMorningStar(current: CandleShape, middle: CandleShape, first: CandleShape): boolean {
+  return first.isRed && middle.body / middle.range <= 0.35 && current.isGreen && current.candle.close > midpoint(first);
+}
+
+function isEveningStar(current: CandleShape, middle: CandleShape, first: CandleShape): boolean {
+  return first.isGreen && middle.body / middle.range <= 0.35 && current.isRed && current.candle.close < midpoint(first);
+}
+
+function isInsideBar(current: CandleShape, previous: CandleShape): boolean {
+  return current.candle.high <= previous.candle.high && current.candle.low >= previous.candle.low;
+}
+
+function isOutsideBar(current: CandleShape, previous: CandleShape): boolean {
+  return current.candle.high >= previous.candle.high && current.candle.low <= previous.candle.low;
+}
+
+function isThreeWhiteSoldiers(current: CandleShape, previous: CandleShape, first: CandleShape): boolean {
+  return first.isGreen && previous.isGreen && current.isGreen && previous.candle.close > first.candle.close && current.candle.close > previous.candle.close;
+}
+
+function isThreeBlackCrows(current: CandleShape, previous: CandleShape, first: CandleShape): boolean {
+  return first.isRed && previous.isRed && current.isRed && previous.candle.close < first.candle.close && current.candle.close < previous.candle.close;
+}
+
+function isMarubozu(shape: CandleShape): boolean {
+  return shape.body / shape.range >= 0.75 && shape.upperShadow / shape.range <= 0.12 && shape.lowerShadow / shape.range <= 0.12;
+}
+
+function isGapUpWithVolume(current: OHLCV, previous: OHLCV, context: PatternContext): boolean {
+  return current.low > previous.high && context.isHighVolume;
+}
+
+function isGapDownWithVolume(current: OHLCV, previous: OHLCV, context: PatternContext): boolean {
+  return current.high < previous.low && context.isHighVolume;
+}
+
+function isSupportRejection(shape: CandleShape, context: PatternContext): boolean {
+  return context.zone === "support" && shape.lowerShadow / shape.range >= 0.45;
+}
+
+function isResistanceRejection(shape: CandleShape, context: PatternContext): boolean {
+  return context.zone === "resistance" && shape.upperShadow / shape.range >= 0.45;
+}
+
+function isLargeVolumeCandle(context: PatternContext): boolean {
+  return context.volumeRatio !== null && context.volumeRatio >= 1.8;
+}
+
+function isRejectionCandle(shape: CandleShape): boolean {
+  return shape.upperShadow / shape.range >= 0.5 || shape.lowerShadow / shape.range >= 0.5;
+}
+
+function getRejectionSentiment(shape: CandleShape): SignalSentiment {
+  if (shape.lowerShadow > shape.upperShadow) return "bullish";
+  if (shape.upperShadow > shape.lowerShadow) return "bearish";
+  return "neutral";
+}
+
+function midpoint(shape: CandleShape): number {
+  return (shape.candle.open + shape.candle.close) / 2;
+}
+
+function createPattern(
+  pattern: CandlestickPatternSignal["pattern"],
+  labelVi: string,
+  type: CandlestickPatternType,
+  sentiment: SignalSentiment,
+  confidence: PatternConfidence,
+  descriptionVi: string,
+  detectedAt: string,
+  context: PatternContext,
+  baseRank: number,
+): PatternDraft {
+  return {
+    pattern,
+    name: labelVi,
+    type,
+    labelVi,
+    sentiment,
+    confidence,
+    descriptionVi,
+    contextNotes: context.notes,
+    summaryVi: descriptionVi,
+    detectedAt,
+    rank: baseRank + getContextRankBonus(context, confidence),
+  };
+}
+
+function getContextRankBonus(context: PatternContext, confidence: PatternConfidence): number {
+  return (confidence === "high" ? 14 : confidence === "medium" ? 7 : 0) + (context.isHighVolume ? 8 : 0) + (context.zone !== "middle" ? 6 : 0) + (context.isWideRange ? 4 : 0);
+}
+
+function getContextConfidence(context: PatternContext, baseScore: number): PatternConfidence {
+  const score = baseScore + Number(context.isHighVolume) + Number(context.zone !== "middle") + Number(context.isWideRange);
+  if (score >= 3) return "high";
+  if (score >= 1) return "medium";
+  return "low";
+}
+
 function getPreviousTrend(candles: OHLCV[], sourceIndex: number): { direction: "up" | "down" | "flat"; note: string } {
   const lookback = candles.slice(Math.max(0, sourceIndex - 8), sourceIndex);
 
   if (lookback.length < 4) {
-    return { direction: "flat", note: "Chưa đủ dữ liệu để đọc xu hướng trước nến doji." };
+    return { direction: "flat", note: "Chưa đủ dữ liệu để đọc xu hướng trước mẫu nến." };
   }
 
   const changePercent = ((lookback[lookback.length - 1].close - lookback[0].close) / lookback[0].close) * 100;
@@ -132,22 +303,22 @@ function getPreviousTrend(candles: OHLCV[], sourceIndex: number): { direction: "
   return { direction: "flat", note: "Xuất hiện trong vùng giá đi ngang." };
 }
 
-function getVolumeContext(candles: OHLCV[], sourceIndex: number): { isImproving: boolean; note: string } {
+function getVolumeContext(candles: OHLCV[], sourceIndex: number): { isImproving: boolean; ratio: number | null; note: string } {
   const current = candles[sourceIndex];
   const previous = candles.slice(Math.max(0, sourceIndex - 20), sourceIndex);
   const averageVolume = previous.length > 0 ? previous.reduce((total, candle) => total + candle.volume, 0) / previous.length : null;
 
   if (averageVolume === null || averageVolume <= 0) {
-    return { isImproving: false, note: "Chưa đủ dữ liệu volume để xác nhận." };
+    return { isImproving: false, ratio: null, note: "Chưa đủ dữ liệu volume để xác nhận." };
   }
 
   const ratio = current.volume / averageVolume;
 
   if (ratio >= 1.2) {
-    return { isImproving: true, note: `Volume cao hơn trung bình 20 phiên khoảng ${ratio.toFixed(1)}x.` };
+    return { isImproving: true, ratio, note: `Volume cao hơn trung bình 20 phiên khoảng ${ratio.toFixed(1)}x.` };
   }
 
-  return { isImproving: false, note: "Volume chưa vượt rõ trung bình 20 phiên." };
+  return { isImproving: false, ratio, note: "Volume chưa vượt rõ trung bình 20 phiên." };
 }
 
 function getSupportContext(
@@ -166,9 +337,9 @@ function getSupportContext(
   const close = shape.candle.close;
   const range = Math.max(high - low, 0.01);
 
-  if ((close - low) / range <= 0.25) return { zone: "support", note: "Doji xuất hiện gần vùng hỗ trợ ngắn hạn." };
-  if ((high - close) / range <= 0.25) return { zone: "resistance", note: "Doji xuất hiện gần vùng kháng cự ngắn hạn." };
-  return { zone: "middle", note: "Doji nằm giữa biên dao động gần đây." };
+  if ((close - low) / range <= 0.25) return { zone: "support", note: "Mẫu nến xuất hiện gần vùng hỗ trợ ngắn hạn." };
+  if ((high - close) / range <= 0.25) return { zone: "resistance", note: "Mẫu nến xuất hiện gần vùng kháng cự ngắn hạn." };
+  return { zone: "middle", note: "Mẫu nến nằm giữa biên dao động gần đây." };
 }
 
 function getVolatilityContext(
@@ -186,10 +357,22 @@ function getVolatilityContext(
   }
 
   if (shape.range >= averageRange * 1.25) {
-    return { isWide: true, note: "Biên nến rộng hơn bình thường, thể hiện trạng thái giằng co mạnh." };
+    return { isWide: true, note: "Biên nến rộng hơn bình thường, tín hiệu đáng chú ý hơn." };
   }
 
   return { isWide: false, note: "Biên nến chưa lớn hơn đáng kể so với gần đây." };
+}
+
+function getRangePosition(candles: OHLCV[], sourceIndex: number, close: number): PatternContext["rangePosition"] {
+  const previous = candles.slice(Math.max(0, sourceIndex - 20), sourceIndex + 1);
+  const low = Math.min(...previous.map((candle) => candle.low));
+  const high = Math.max(...previous.map((candle) => candle.high));
+  const range = Math.max(high - low, 0.01);
+  const position = (close - low) / range;
+
+  if (position <= 0.33) return "near-low";
+  if (position >= 0.67) return "near-high";
+  return "middle";
 }
 
 function getDojiSentiment(
@@ -200,13 +383,6 @@ function getDojiSentiment(
   if (dojiType === "dragonfly" && (zone === "support" || previousTrend === "down")) return "bullish";
   if (dojiType === "gravestone" && (zone === "resistance" || previousTrend === "up")) return "bearish";
   return "neutral";
-}
-
-function getDojiConfidence(hasVolume: boolean, hasZoneContext: boolean, hasWideRange: boolean): PatternConfidence {
-  const score = Number(hasVolume) + Number(hasZoneContext) + Number(hasWideRange);
-  if (score >= 2) return "high";
-  if (score === 1) return "medium";
-  return "low";
 }
 
 function getDojiLabel(dojiType: DojiType): string {
@@ -237,57 +413,7 @@ function createDojiSummary(
   return "Standard Doji cho thấy lực mua và bán đang khá cân bằng, tín hiệu cần thêm xác nhận.";
 }
 
-function isHammer(shape: CandleShape): boolean {
-  return shape.lowerShadow >= shape.body * 2 && shape.upperShadow <= shape.body * 0.7 && shape.body / shape.range <= 0.35;
-}
-
-function isShootingStar(shape: CandleShape): boolean {
-  return shape.upperShadow >= shape.body * 2 && shape.lowerShadow <= shape.body * 0.7 && shape.body / shape.range <= 0.35;
-}
-
-function isBullishEngulfing(current: CandleShape, previous: CandleShape): boolean {
-  return previous.isRed && current.isGreen && current.candle.open <= previous.candle.close && current.candle.close >= previous.candle.open;
-}
-
-function isBearishEngulfing(current: CandleShape, previous: CandleShape): boolean {
-  return previous.isGreen && current.isRed && current.candle.open >= previous.candle.close && current.candle.close <= previous.candle.open;
-}
-
-function isMorningStar(current: CandleShape, middle: CandleShape, first: CandleShape): boolean {
-  return first.isRed && middle.body / middle.range <= 0.35 && current.isGreen && current.candle.close > midpoint(first);
-}
-
-function isEveningStar(current: CandleShape, middle: CandleShape, first: CandleShape): boolean {
-  return first.isGreen && middle.body / middle.range <= 0.35 && current.isRed && current.candle.close < midpoint(first);
-}
-
-function isMarubozu(shape: CandleShape): boolean {
-  return shape.body / shape.range >= 0.75 && shape.upperShadow / shape.range <= 0.12 && shape.lowerShadow / shape.range <= 0.12;
-}
-
-function midpoint(shape: CandleShape): number {
-  return (shape.candle.open + shape.candle.close) / 2;
-}
-
-function createPattern(
-  pattern: CandlestickPatternSignal["pattern"],
-  labelVi: string,
-  sentiment: SignalSentiment,
-  confidence: PatternConfidence,
-  descriptionVi: string,
-  detectedAt: string,
-): CandlestickPatternSignal {
-  return {
-    pattern,
-    labelVi,
-    sentiment,
-    confidence,
-    descriptionVi,
-    detectedAt,
-  };
-}
-
-function dedupePatterns(patterns: CandlestickPatternSignal[]): CandlestickPatternSignal[] {
+function dedupePatterns(patterns: PatternDraft[]): PatternDraft[] {
   const seen = new Set<string>();
 
   return [...patterns].reverse().filter((pattern) => {
