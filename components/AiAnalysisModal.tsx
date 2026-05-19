@@ -168,12 +168,12 @@ export function AiAnalysisModal({
             onClick={() => setIsOpen(false)}
           />
           <section
-            className={`absolute inset-x-0 bottom-0 max-h-[88vh] overflow-hidden rounded-t-2xl border border-slate-200 bg-white shadow-2xl transition dark:border-slate-800 dark:bg-slate-950 sm:left-1/2 sm:top-1/2 sm:bottom-auto sm:max-h-[82vh] sm:w-full sm:max-w-2xl sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl ${getPanelAccent(
+            className={`absolute inset-x-0 bottom-0 max-h-[78vh] overflow-hidden rounded-t-2xl border border-slate-200 bg-white shadow-2xl transition dark:border-slate-800 dark:bg-slate-950 sm:left-1/2 sm:top-1/2 sm:bottom-auto sm:max-h-[82vh] sm:w-full sm:max-w-2xl sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl ${getPanelAccent(
               analysis?.sentiment,
             )}`}
           >
-            <div className="max-h-[88vh] overflow-y-auto p-5 sm:max-h-[82vh] sm:p-6">
-              <div className="flex items-start justify-between gap-4">
+            <div className="max-h-[78vh] overflow-y-auto p-5 sm:max-h-[82vh] sm:p-6">
+              <div className="sticky top-0 z-10 -mx-5 -mt-5 flex items-start justify-between gap-4 border-b border-slate-200 bg-white/95 px-5 pb-3 pt-5 backdrop-blur dark:border-slate-800 dark:bg-slate-950/95 sm:-mx-6 sm:-mt-6 sm:px-6 sm:pt-6">
                 <div>
                   <h2 className="text-xl font-semibold text-slate-950 dark:text-white">
                     {copy.title}
