@@ -10,10 +10,14 @@ export type CoveredWarrantRecord = {
   exerciseRatio: number | null;
   maturityDate: string | null;
   lastPrice: number | null;
+  changePercent: number | null;
   bid: number | null;
   ask: number | null;
   volume: number | null;
   openInterest: number | null;
+  sxValue: number | null;
+  breakEvenPrice: number | null;
+  daysToMaturity: number | null;
   isActive: boolean;
   updatedAt: string;
   underlyingPrice: number | null;
@@ -41,6 +45,11 @@ export type CoveredWarrantProviderDiagnostics = {
   fetchedCount: number;
   normalizedCount: number;
   skippedCount: number;
+  fetchedHtml?: boolean;
+  htmlLength?: number;
+  foundSymbolCount?: number;
+  sampleRows?: CoveredWarrantRaw[];
+  skippedReasons?: string[];
 };
 
 export type CoveredWarrantProviderResult = {

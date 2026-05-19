@@ -11,10 +11,15 @@ type CoveredWarrantRow = {
   exercise_ratio: number | null;
   maturity_date: string | null;
   last_price: number | null;
+  change_percent: number | null;
   bid: number | null;
   ask: number | null;
   volume: number | null;
   open_interest: number | null;
+  underlying_price: number | null;
+  sx_value: number | null;
+  break_even_price: number | null;
+  days_to_maturity: number | null;
   is_active: boolean;
   source: string | null;
   raw: Record<string, unknown> | null;
@@ -51,7 +56,7 @@ export async function getCoveredWarrantsByUnderlying(underlying: string): Promis
 
   const { data, error } = await supabase
     .from("covered_warrants")
-    .select("symbol, underlying_symbol, issuer, type, strike_price, exercise_ratio, maturity_date, last_price, bid, ask, volume, open_interest, is_active, source, raw, updated_at")
+    .select("symbol, underlying_symbol, issuer, type, strike_price, exercise_ratio, maturity_date, last_price, change_percent, bid, ask, volume, open_interest, underlying_price, sx_value, break_even_price, days_to_maturity, is_active, source, raw, updated_at")
     .ilike("underlying_symbol", normalizedUnderlying)
     .eq("is_active", true)
     .order("volume", { ascending: false, nullsFirst: false })
@@ -82,9 +87,9 @@ export async function getCoveredWarrantsByUnderlying(underlying: string): Promis
     };
   }
 
-  const underlyingPrice = await readLatestUnderlyingPrice(normalizedUnderlying);
+  const underlyingPrice = rows[0]?.underlying_price ?? await readLatestUnderlyingPrice(normalizedUnderlying);
   const warrants = sortCoveredWarrants(
-    attachCoveredWarrantMetrics(rows.map((row) => mapCoveredWarrantRow(row, underlyingPrice))),
+    attachCoveredWarrantMetrics(rows.map((row) => mapCoveredWarrantRow(row, row.underlying_price ?? underlyingPrice))),
   );
 
   return {
@@ -164,10 +169,14 @@ function mapCoveredWarrantRow(row: CoveredWarrantRow, underlyingPrice: number | 
     exerciseRatio: row.exercise_ratio,
     maturityDate: row.maturity_date,
     lastPrice: row.last_price,
+    changePercent: row.change_percent,
     bid: row.bid,
     ask: row.ask,
     volume: row.volume,
     openInterest: row.open_interest,
+    sxValue: row.sx_value,
+    breakEvenPrice: row.break_even_price,
+    daysToMaturity: row.days_to_maturity,
     isActive: row.is_active,
     updatedAt: row.updated_at,
     underlyingPrice,

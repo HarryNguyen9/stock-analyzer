@@ -9,7 +9,12 @@ alter table public.covered_warrants
 
 alter table public.covered_warrants
   add column if not exists source text,
-  add column if not exists raw jsonb;
+  add column if not exists raw jsonb,
+  add column if not exists change_percent numeric,
+  add column if not exists underlying_price numeric,
+  add column if not exists sx_value numeric,
+  add column if not exists break_even_price numeric,
+  add column if not exists days_to_maturity int;
 
 create index if not exists covered_warrants_underlying_only_idx
   on public.covered_warrants (underlying_symbol);
@@ -19,4 +24,3 @@ create index if not exists covered_warrants_active_only_idx
 
 create index if not exists covered_warrants_maturity_only_idx
   on public.covered_warrants (maturity_date);
-

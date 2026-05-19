@@ -4,9 +4,9 @@ const millisecondsPerDay = 24 * 60 * 60 * 1000;
 
 export function calculateCoveredWarrantMetrics(warrant: CoveredWarrantRecord, today = new Date()): CoveredWarrantMetrics {
   const maturityTime = warrant.maturityDate ? new Date(warrant.maturityDate).getTime() : Number.NaN;
-  const daysToMaturity = Number.isFinite(maturityTime)
+  const daysToMaturity = warrant.daysToMaturity ?? (Number.isFinite(maturityTime)
     ? Math.max(0, Math.ceil((maturityTime - today.getTime()) / millisecondsPerDay))
-    : 0;
+    : 0);
   const isCall = warrant.type?.toLowerCase() !== "put";
   const underlyingPrice = warrant.underlyingPrice;
   const ratio = warrant.exerciseRatio !== null && warrant.exerciseRatio > 0 ? warrant.exerciseRatio : null;
@@ -17,11 +17,13 @@ export function calculateCoveredWarrantMetrics(warrant: CoveredWarrantRecord, to
       ? Math.max(0, (isCall ? underlyingPrice - strikePrice : strikePrice - underlyingPrice) / ratio)
       : null;
   const timeValue = intrinsicValue === null || lastPrice === null ? null : Math.max(0, lastPrice - intrinsicValue);
-  const breakEvenPrice = ratio && strikePrice !== null && lastPrice !== null
-    ? isCall
-      ? strikePrice + lastPrice * ratio
-      : strikePrice - lastPrice * ratio
-    : null;
+  const breakEvenPrice =
+    warrant.breakEvenPrice ??
+    (ratio && strikePrice !== null && lastPrice !== null
+      ? isCall
+        ? strikePrice + lastPrice * ratio
+        : strikePrice - lastPrice * ratio
+      : null);
   const premiumPercent =
     underlyingPrice && breakEvenPrice !== null
       ? ((isCall ? breakEvenPrice - underlyingPrice : underlyingPrice - breakEvenPrice) / underlyingPrice) * 100

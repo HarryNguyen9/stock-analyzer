@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { getCoveredWarrantProvider } from "@/lib/cw/providers/dnse-cw-provider";
+import { getCoveredWarrantProvider } from "@/lib/cw/providers/provider";
 import type { Json } from "@/lib/supabase/types";
+import { TwentyFourHMoneyParseError } from "@/lib/cw/providers/twenty-four-h-money-provider";
 
 type CoveredWarrantUpsert = {
   symbol: string;
@@ -12,10 +13,15 @@ type CoveredWarrantUpsert = {
   exercise_ratio: number | null;
   maturity_date: string | null;
   last_price: number | null;
+  change_percent: number | null;
   bid: number | null;
   ask: number | null;
   volume: number | null;
   open_interest: number | null;
+  underlying_price: number | null;
+  sx_value: number | null;
+  break_even_price: number | null;
+  days_to_maturity: number | null;
   is_active: boolean;
   source: string | null;
   raw: Json | null;
@@ -52,10 +58,15 @@ async function syncCoveredWarrants(request: Request) {
       exercise_ratio: warrant.exerciseRatio,
       maturity_date: warrant.maturityDate,
       last_price: warrant.lastPrice,
+      change_percent: warrant.changePercent,
       bid: warrant.bid,
       ask: warrant.ask,
       volume: warrant.volume,
       open_interest: warrant.openInterest,
+      underlying_price: warrant.underlyingPrice,
+      sx_value: warrant.sxValue,
+      break_even_price: warrant.breakEvenPrice,
+      days_to_maturity: warrant.daysToMaturity,
       is_active: warrant.isActive,
       source: warrant.source,
       raw: warrant.raw as Json | null,
@@ -100,7 +111,7 @@ async function syncCoveredWarrants(request: Request) {
         console.warn("Không đọc được CW active để deactivate:", activeError.message);
       }
     } else {
-      console.warn("DNSE CW provider không trả được mã hợp lệ, bỏ qua deactivate để tránh tắt nhầm dữ liệu cũ.", {
+      console.warn("CW provider không trả được mã hợp lệ, bỏ qua deactivate để tránh tắt nhầm dữ liệu cũ.", {
         fetched: result.diagnostics.fetchedCount,
         skipped: result.diagnostics.skippedCount,
       });
@@ -109,27 +120,36 @@ async function syncCoveredWarrants(request: Request) {
     return NextResponse.json({
       ok: true,
       provider: result.diagnostics.providerName,
+      fetchedHtml: result.diagnostics.fetchedHtml ?? false,
+      htmlLength: result.diagnostics.htmlLength ?? null,
+      foundSymbolCount: result.diagnostics.foundSymbolCount ?? null,
       fetched: result.diagnostics.fetchedCount,
+      parsed: result.diagnostics.normalizedCount,
       upserted,
       skipped: result.diagnostics.skippedCount,
       deactivated,
+      sampleRows: result.diagnostics.sampleRows ?? [],
       durationMs: Date.now() - startedAt,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Không đồng bộ được chứng quyền.";
+    const isParserError = error instanceof TwentyFourHMoneyParseError;
 
     return NextResponse.json(
       {
         ok: false,
-        provider: "dnse",
-        message,
+        provider: process.env.CW_PROVIDER?.trim().toLowerCase() || "24hmoney",
+        message: isParserError ? "Unable to parse 24HMoney CW table" : message,
+        htmlLength: isParserError ? error.htmlLength : undefined,
+        foundSymbolCount: isParserError ? error.foundSymbolCount : undefined,
         fetched: 0,
+        parsed: 0,
         upserted: 0,
         skipped: 0,
         deactivated: 0,
         durationMs: Date.now() - startedAt,
       },
-      { status: message.includes("not configured") ? 400 : 500 },
+      { status: 200 },
     );
   }
 }
