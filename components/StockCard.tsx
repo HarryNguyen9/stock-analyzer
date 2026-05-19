@@ -17,10 +17,10 @@ export function StockCard({ stock }: { stock: StockSummary }) {
   return (
     <Link
       href={`/stock/${stock.symbol}`}
-      className="group rounded-lg border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700"
+      className="group block w-full min-w-0 overflow-hidden rounded-lg border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700"
     >
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <h2 className="text-xl font-semibold text-slate-950 dark:text-white">{stock.symbol}</h2>
             <span className="rounded border border-slate-200 px-2 py-0.5 text-xs font-medium text-slate-500 dark:border-slate-700 dark:text-slate-400">
@@ -54,7 +54,7 @@ export function StockCard({ stock }: { stock: StockSummary }) {
         </div>
       </div>
 
-      <p className="mt-4 text-sm font-medium text-slate-700 group-hover:text-slate-950 dark:text-slate-300 dark:group-hover:text-white">
+      <p className="mt-4 line-clamp-2 break-words text-sm font-medium text-slate-700 group-hover:text-slate-950 dark:text-slate-300 dark:group-hover:text-white">
         {stock.dataStatus === "ready" ? stock.signal : stock.dataError}
       </p>
 
@@ -63,7 +63,7 @@ export function StockCard({ stock }: { stock: StockSummary }) {
           {displaySignals.map((signal) => (
             <span
               key={signal.code}
-              className={`rounded-full px-2.5 py-1 text-xs font-medium ${getSignalClass(signal.sentiment)}`}
+              className={`max-w-full rounded-full px-2.5 py-1 text-xs font-medium ${getSignalClass(signal.sentiment)}`}
             >
               {signal.labelVi}
             </span>

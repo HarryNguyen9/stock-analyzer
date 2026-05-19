@@ -4,7 +4,23 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: vi.app.metadataTitle,
+  applicationName: "StockVN",
   description: vi.app.metadataDescription,
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    title: "StockVN",
+    statusBarStyle: "black-translucent",
+  },
+  icons: {
+    apple: [
+      {
+        url: "/icons/apple-touch-icon.png",
+        sizes: "180x180",
+        type: "image/png",
+      },
+    ],
+  },
 };
 
 export default function RootLayout({
@@ -35,7 +51,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className="min-h-full bg-background text-foreground transition-colors">{children}</body>
+      <body className="min-h-full overflow-x-hidden bg-background text-foreground transition-colors">{children}</body>
     </html>
   );
 }
