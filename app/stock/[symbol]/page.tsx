@@ -16,8 +16,9 @@ import { STOCKS } from "@/data/symbols";
 import { round } from "@/lib/indicators";
 import { vi } from "@/lib/i18n/vi";
 import { categoryLabelsVi } from "@/lib/signals";
-import type { MethodSummary, Signal, SignalCategory, TechnicalThesis } from "@/lib/technical-analysis";
+import type { MethodSummary, PriceBehaviorAnalysis, Signal, SignalCategory, TechnicalThesis } from "@/lib/technical-analysis";
 import { getSetupLabel, getTrendBiasLabel } from "@/lib/technical-analysis/thesis";
+import { getConfidenceLabel, getWyckoffPhaseLabel } from "@/lib/technical-analysis/wyckoff-lite";
 import type { ScoreBreakdown } from "@/lib/technical-analysis/types";
 import type { StockMetadata } from "@/types/stock";
 
@@ -165,6 +166,8 @@ export default async function StockDetailPage({ params }: StockPageProps) {
           <ScoreBreakdownSection breakdown={analysis.scoreBreakdown} />
 
           <TechnicalThesisSection thesis={analysis.thesis} />
+
+          <PriceBehaviorSection analysis={analysis.priceBehavior} />
 
           <AdvancedTechnicalSection summaries={analysis.methodSummaries} />
 
@@ -425,6 +428,105 @@ function getThesisBiasClass(trendBias: TechnicalThesis["trendBias"]): string {
 
 function formatThesisLevel(value: number | null): string {
   return value === null ? vi.stock.notAvailable : value.toFixed(2);
+}
+
+function PriceBehaviorSection({ analysis }: { analysis: PriceBehaviorAnalysis }) {
+  return (
+    <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <div>
+        <h2 className="text-lg font-semibold text-slate-950 dark:text-white">Hành vi giá</h2>
+        <p className="mt-1 text-sm leading-6 text-slate-600 dark:text-slate-400">
+          Góc nhìn thận trọng từ nến Nhật và Wyckoff-lite. Các tín hiệu này chỉ gợi ý bối cảnh, chưa đủ để kết luận chắc chắn.
+        </p>
+      </div>
+
+      <div className="mt-5 grid gap-4 md:grid-cols-2">
+        <article className="rounded-lg border border-slate-100 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950">
+          <div className="flex items-center justify-between gap-3">
+            <h3 className="text-sm font-semibold text-slate-950 dark:text-white">Mẫu nến Nhật</h3>
+            <span className="rounded-full bg-white px-2 py-0.5 text-xs font-medium text-slate-500 dark:bg-slate-900 dark:text-slate-400">
+              3-5 nến gần nhất
+            </span>
+          </div>
+
+          <div className="mt-3 space-y-3">
+            {analysis.candlestickPatterns.length > 0 ? (
+              analysis.candlestickPatterns.map((pattern) => (
+                <div key={`${pattern.pattern}-${pattern.detectedAt}`} className="rounded-lg bg-white p-3 dark:bg-slate-900">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-slate-950 dark:text-white">{pattern.labelVi}</p>
+                      <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                        {formatDate(pattern.detectedAt)} · {getConfidenceLabel(pattern.confidence)}
+                      </p>
+                    </div>
+                    <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${getBehaviorSentimentClass(pattern.sentiment)}`}>
+                      {getBehaviorSentimentLabel(pattern.sentiment)}
+                    </span>
+                  </div>
+                  <p className="mt-2 text-sm leading-5 text-slate-600 dark:text-slate-300">{pattern.descriptionVi}</p>
+                </div>
+              ))
+            ) : (
+              <p className="rounded-lg bg-white p-3 text-sm leading-6 text-slate-500 dark:bg-slate-900 dark:text-slate-400">
+                Chưa có mẫu nến nổi bật trong 3-5 nến gần nhất.
+              </p>
+            )}
+          </div>
+        </article>
+
+        <article className="rounded-lg border border-slate-100 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950">
+          <div className="flex items-center justify-between gap-3">
+            <h3 className="text-sm font-semibold text-slate-950 dark:text-white">Wyckoff-lite</h3>
+            <span className="rounded-full bg-white px-2 py-0.5 text-xs font-medium text-slate-500 dark:bg-slate-900 dark:text-slate-400">
+              {getConfidenceLabel(analysis.wyckoffLite.confidence)}
+            </span>
+          </div>
+
+          <div className="mt-3 rounded-lg bg-white p-3 dark:bg-slate-900">
+            <p className="text-sm font-semibold text-slate-950 dark:text-white">
+              Nghiêng về: {getWyckoffPhaseLabel(analysis.wyckoffLite.phaseGuess)}
+            </p>
+            <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
+              {analysis.wyckoffLite.summaryVi}
+            </p>
+          </div>
+
+          <div className="mt-3 grid gap-3">
+            <BehaviorList title="Bằng chứng" items={analysis.wyckoffLite.evidence} />
+            <BehaviorList title="Điểm vô hiệu / cần kiểm tra" items={analysis.wyckoffLite.invalidationNotes} />
+          </div>
+        </article>
+      </div>
+    </section>
+  );
+}
+
+function BehaviorList({ title, items }: { title: string; items: string[] }) {
+  return (
+    <div className="rounded-lg bg-white p-3 dark:bg-slate-900">
+      <h4 className="text-xs font-semibold uppercase tracking-normal text-slate-500 dark:text-slate-400">{title}</h4>
+      <ul className="mt-2 space-y-2">
+        {(items.length > 0 ? items : ["Chưa đủ dữ liệu xác nhận rõ."]).map((item) => (
+          <li key={item} className="text-sm leading-5 text-slate-600 dark:text-slate-300">
+            {item}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function getBehaviorSentimentClass(sentiment: Signal["sentiment"]): string {
+  if (sentiment === "bullish") return "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300";
+  if (sentiment === "bearish") return "bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300";
+  return "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300";
+}
+
+function getBehaviorSentimentLabel(sentiment: Signal["sentiment"]): string {
+  if (sentiment === "bullish") return "Tích cực";
+  if (sentiment === "bearish") return "Rủi ro";
+  return "Trung tính";
 }
 
 function AdvancedTechnicalSection({ summaries }: { summaries: MethodSummary[] }) {

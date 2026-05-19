@@ -13,6 +13,7 @@ export function createFallbackTechnicalAnalysis(input: AiTechnicalInput): AiTech
   const methodWatchPoints = input.methodSummaries
     .slice(0, 2)
     .map((summary) => `${summary.titleVi}: ${summary.conclusionVi}`);
+  const behaviorPoint = createBehaviorPoint(input);
 
   return {
     summary: `${input.symbol} đang ở trạng thái ${input.status.toLowerCase()} với điểm kỹ thuật ${technicalScoreText}. Biến động gần nhất là ${formatSigned(input.changePercent)}%.`,
@@ -30,6 +31,7 @@ export function createFallbackTechnicalAnalysis(input: AiTechnicalInput): AiTech
           ],
     watchPoints: [
       input.technicalThesis.shortSummaryVi,
+      behaviorPoint,
       `Theo dõi khả năng duy trì điểm kỹ thuật quanh vùng ${technicalScoreText}.`,
       supportText,
       ...methodWatchPoints,
@@ -44,6 +46,17 @@ export function createFallbackTechnicalAnalysis(input: AiTechnicalInput): AiTech
       aiSummaryScore: input.technicalScore,
     },
   };
+}
+
+function createBehaviorPoint(input: AiTechnicalInput): string {
+  const firstPattern = input.priceBehavior.candlestickPatterns[0];
+  const wyckoff = input.priceBehavior.wyckoffLite;
+
+  if (firstPattern) {
+    return `Hành vi giá: mẫu ${firstPattern.labelVi} xuất hiện gần đây; Wyckoff-lite nghiêng về ${wyckoff.phaseGuess}, độ tin cậy ${wyckoff.confidence}.`;
+  }
+
+  return `Hành vi giá: Wyckoff-lite ${wyckoff.summaryVi.toLowerCase()}`;
 }
 
 function getSentiment(input: AiTechnicalInput): AiTechnicalAnalysis["sentiment"] {

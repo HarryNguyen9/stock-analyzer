@@ -82,6 +82,48 @@ export type CandlestickPatterns = {
   shootingStar: boolean;
 };
 
+export type PatternConfidence = "low" | "medium" | "high";
+
+export type CandlestickPatternName =
+  | "doji"
+  | "hammer"
+  | "shooting-star"
+  | "bullish-engulfing"
+  | "bearish-engulfing"
+  | "morning-star"
+  | "evening-star"
+  | "marubozu";
+
+export type CandlestickPatternSignal = {
+  pattern: CandlestickPatternName;
+  labelVi: string;
+  sentiment: SignalSentiment;
+  confidence: PatternConfidence;
+  descriptionVi: string;
+  detectedAt: string;
+};
+
+export type WyckoffPhaseGuess =
+  | "accumulation"
+  | "markup"
+  | "distribution"
+  | "markdown"
+  | "range"
+  | "unclear";
+
+export type WyckoffLiteAnalysis = {
+  phaseGuess: WyckoffPhaseGuess;
+  confidence: PatternConfidence;
+  evidence: string[];
+  invalidationNotes: string[];
+  summaryVi: string;
+};
+
+export type PriceBehaviorAnalysis = {
+  candlestickPatterns: CandlestickPatternSignal[];
+  wyckoffLite: WyckoffLiteAnalysis;
+};
+
 export type SupportResistance = {
   nearestSupport: number | null;
   nearestResistance: number | null;
@@ -134,6 +176,7 @@ export type ScoreBreakdown = {
 export type TechnicalAnalysisResult = {
   indicators: TechnicalIndicators;
   patterns: CandlestickPatterns;
+  priceBehavior: PriceBehaviorAnalysis;
   supportResistance: SupportResistance;
   methodSummaries: MethodSummary[];
   thesis: TechnicalThesis;

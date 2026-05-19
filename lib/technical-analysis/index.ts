@@ -1,5 +1,6 @@
 import { topSignals } from "@/lib/signals";
 import { analyzeBreakout } from "@/lib/technical-analysis/breakout";
+import { analyzeCandlestickPatterns } from "@/lib/technical-analysis/candlestick-analysis";
 import { analyzeMomentum } from "@/lib/technical-analysis/momentum";
 import { analyzePatterns } from "@/lib/technical-analysis/patterns";
 import { analyzeRisk } from "@/lib/technical-analysis/risk";
@@ -11,6 +12,7 @@ import { analyzeTrend } from "@/lib/technical-analysis/trend";
 import type { AnalysisContext, TechnicalAnalysisResult, TechnicalIndicators } from "@/lib/technical-analysis/types";
 import { analyzeVolume } from "@/lib/technical-analysis/volume";
 import { analyzeVolatility } from "@/lib/technical-analysis/volatility";
+import { analyzeWyckoffPhase } from "@/lib/technical-analysis/wyckoff-lite";
 import type { OHLCV } from "@/types/stock";
 
 export function generateTechnicalAnalysis(candles: OHLCV[]): TechnicalAnalysisResult {
@@ -89,10 +91,15 @@ export function generateTechnicalAnalysis(candles: OHLCV[]): TechnicalAnalysisRe
     ],
     12,
   );
+  const priceBehavior = {
+    candlestickPatterns: analyzeCandlestickPatterns(candles),
+    wyckoffLite: analyzeWyckoffPhase(candles, context.volumes, indicators),
+  };
 
   const analysisWithoutThesis: Omit<TechnicalAnalysisResult, "thesis"> = {
     indicators,
     patterns: candlestickPatterns,
+    priceBehavior,
     supportResistance,
     methodSummaries,
     signals,
@@ -148,10 +155,15 @@ export type {
   SignalCategory,
   SignalSentiment,
   CandlestickPatterns,
+  CandlestickPatternSignal,
   MethodSummary,
+  PatternConfidence,
+  PriceBehaviorAnalysis,
   SupportResistance,
   TechnicalSetupType,
   TechnicalThesis,
+  WyckoffLiteAnalysis,
+  WyckoffPhaseGuess,
   TechnicalAnalysisResult,
   TechnicalIndicators,
 } from "@/lib/technical-analysis/types";

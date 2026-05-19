@@ -205,6 +205,7 @@ async function createAiInput(
       tone: summary.tone,
     })),
     technicalThesis: snapshot.analysis.thesis,
+    priceBehavior: snapshot.analysis.priceBehavior,
     status: getScoreStatus(canonicalScore),
     scoreSource: canonicalScoreSource,
     topSignals: snapshot.signals.slice(0, 6).map((signal) => ({
