@@ -11,6 +11,13 @@ export {
   type SectorSummary,
   type SectorTopSymbol,
 } from "@/lib/sector/heatmap";
+export {
+  MARKET_BREADTH_SNAPSHOT_TYPE,
+  buildMarketBreadth,
+  readMarketBreadthSnapshot,
+  refreshMarketBreadthSnapshot,
+  type MarketBreadthSnapshot,
+} from "@/lib/market/breadth";
 
 export const SNAPSHOT_PIPELINE = {
   pipeline: "generate-snapshot",

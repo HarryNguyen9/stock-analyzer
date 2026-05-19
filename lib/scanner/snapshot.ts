@@ -10,6 +10,7 @@ import type { Json } from "@/lib/supabase/types";
 import type { Signal } from "@/lib/technical-analysis/types";
 import type { StockSummary } from "@/types/stock";
 import { refreshSectorHeatmapSnapshot } from "@/lib/sector/heatmap";
+import { refreshMarketBreadthSnapshot } from "@/lib/market/breadth";
 
 export const HOME_SCANNER_SNAPSHOT_TYPE = "home_scanner";
 
@@ -24,12 +25,16 @@ export async function refreshHomeScannerSnapshot(): Promise<boolean> {
     const groups = getScannerGroups(stocks);
     const diagnostics = getScannerDiagnostics(groups);
     const supabase = createSupabaseAdminClient();
-    const sectorSnapshotUpdated = await refreshSectorHeatmapSnapshot(stocks);
+    const [sectorSnapshotUpdated, marketBreadthSnapshotUpdated] = await Promise.all([
+      refreshSectorHeatmapSnapshot(stocks),
+      refreshMarketBreadthSnapshot(stocks),
+    ]);
     console.info("home_scanner snapshot metadata source:", {
       metadataSource: "supabase-symbols-via-stock-summaries",
       symbolCount: stocks.length,
       scannerDiagnostics: diagnostics,
       sectorSnapshotUpdated,
+      marketBreadthSnapshotUpdated,
     });
     const { error } = await supabase.from("market_snapshots").upsert(
       {

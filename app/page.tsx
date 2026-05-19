@@ -1,5 +1,6 @@
 import { DataStatusPanel } from "@/components/DataStatusPanel";
 import { MarketScanner } from "@/components/MarketScanner";
+import { MarketBreadth } from "@/components/MarketBreadth";
 import { NotificationCenter } from "@/components/NotificationCenter";
 import { SectorHeatmap } from "@/components/SectorHeatmap";
 import { StockSearchList } from "@/components/StockSearchList";
@@ -7,7 +8,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { vi } from "@/lib/i18n/vi";
 import { getDataFreshness, getStockSummaries } from "@/lib/data-source/prices";
 import { readHomeScannerSnapshot } from "@/lib/scanner/snapshot";
-import { readSectorHeatmapSnapshot } from "@/lib/pipeline/snapshot";
+import { readMarketBreadthSnapshot, readSectorHeatmapSnapshot } from "@/lib/pipeline/snapshot";
 
 export default async function Home() {
   const [stocks, dataFreshness] = await Promise.all([
@@ -16,6 +17,7 @@ export default async function Home() {
   ]);
   const mergedScannerSnapshot = await readHomeScannerSnapshot(stocks);
   const sectorHeatmap = await readSectorHeatmapSnapshot(stocks);
+  const marketBreadth = await readMarketBreadthSnapshot(stocks);
   const averageScore =
     stocks.length > 0
       ? Math.round(stocks.reduce((total, stock) => total + stock.score, 0) / stocks.length)
@@ -64,6 +66,7 @@ export default async function Home() {
       </section>
 
       <MarketScanner stocks={stocks} snapshotGroups={mergedScannerSnapshot} />
+      <MarketBreadth breadth={marketBreadth} />
       <SectorHeatmap sectors={sectorHeatmap} />
       <StockSearchList stocks={stocks} hasDataError={hasDataError} />
       <NotificationCenter stocks={stocks} />
