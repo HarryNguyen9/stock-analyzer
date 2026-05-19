@@ -94,12 +94,17 @@ export type CandlestickPatternName =
   | "evening-star"
   | "marubozu";
 
+export type DojiType = "standard" | "long-legged" | "dragonfly" | "gravestone";
+
 export type CandlestickPatternSignal = {
   pattern: CandlestickPatternName;
   labelVi: string;
+  dojiType?: DojiType;
   sentiment: SignalSentiment;
   confidence: PatternConfidence;
   descriptionVi: string;
+  contextNotes?: string[];
+  summaryVi?: string;
   detectedAt: string;
 };
 

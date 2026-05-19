@@ -5,6 +5,7 @@ import { AiAnalysisModal } from "@/components/AiAnalysisModal";
 import { BackButton } from "@/components/BackButton";
 import { CandlestickChart } from "@/components/CandlestickChart";
 import { ScoreGauge } from "@/components/ScoreGauge";
+import { StockDetailTabs } from "@/components/StockDetailTabs";
 import { SymbolRefreshPanel } from "@/components/SymbolRefreshPanel";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { getSymbolFreshness } from "@/lib/data-source/symbol-freshness";
@@ -130,23 +131,12 @@ export default async function StockDetailPage({ params }: StockPageProps) {
             </div>
           </div>
 
-          <div className="mt-5 flex">
-            <AiAnalysisModal
-              symbol={stock.symbol}
-              companyName={stock.name}
-              latestPrice={latest.close.toFixed(2)}
-              changePercent={`${isUp ? "+" : ""}${changePercent.toFixed(2)}%`}
-              score={displayScore}
-              scoreSource={technicalSnapshot.scoreSource}
-              sentimentLabel={displayStatus}
-            />
-          </div>
-
           <SymbolRefreshPanel symbol={stock.symbol} freshness={freshness} />
         </div>
       </section>
 
-      <section className="mx-auto grid w-full max-w-7xl gap-5 px-4 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_340px] lg:px-8">
+      <StockDetailTabs
+        overview={
         <div className="min-w-0 space-y-5">
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
             <MetricCard label={vi.stock.lastClose} value={latest.close.toFixed(2)} />
@@ -166,11 +156,18 @@ export default async function StockDetailPage({ params }: StockPageProps) {
           <ScoreBreakdownSection breakdown={analysis.scoreBreakdown} />
 
           <TechnicalThesisSection thesis={analysis.thesis} />
-
+          <QuickSignalsSection signalGroups={signalGroups} summary={analysis.summaryVi ?? vi.stock.notAvailable} />
+        </div>
+        }
+        priceAction={
+        <div className="space-y-5">
           <PriceActionSection analysis={analysis.priceAction} />
 
-          <PriceBehaviorSection analysis={analysis.priceBehavior} />
-
+          <WyckoffLiteSection analysis={analysis.priceBehavior} />
+        </div>
+        }
+        indicators={
+        <div className="space-y-5 lg:grid lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start lg:gap-5 lg:space-y-0">
           <AdvancedTechnicalSection summaries={analysis.methodSummaries} />
 
           <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
@@ -202,9 +199,8 @@ export default async function StockDetailPage({ params }: StockPageProps) {
               ))}
             </div>
           </section>
-        </div>
 
-        <aside className="space-y-5">
+          <aside className="space-y-5">
           <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
             <h2 className="text-lg font-semibold text-slate-950 dark:text-white">{vi.stock.indicators}</h2>
             <dl className="mt-4 space-y-4">
@@ -271,7 +267,20 @@ export default async function StockDetailPage({ params }: StockPageProps) {
             ))}
           </div>
         </aside>
-      </section>
+        </div>
+        }
+        patterns={<CandlestickPatternsSection analysis={analysis.priceBehavior} />}
+        aiAnalysis={
+          <AiAnalysisSection
+            stock={stock}
+            latestPrice={latest.close.toFixed(2)}
+            changePercent={`${isUp ? "+" : ""}${changePercent.toFixed(2)}%`}
+            score={displayScore}
+            scoreSource={technicalSnapshot.scoreSource}
+            sentimentLabel={displayStatus}
+          />
+        }
+      />
     </main>
   );
 }
@@ -285,6 +294,44 @@ function groupTechnicalSignals(signals: Signal[]): Array<{ category: SignalCateg
       .filter((signal) => signal.category === category || (category === "volatility" && signal.category === "breakout"))
       .slice(0, 3),
   }));
+}
+
+function QuickSignalsSection({
+  signalGroups,
+  summary,
+}: {
+  signalGroups: Array<{ category: SignalCategory; signals: Signal[] }>;
+  summary: string;
+}) {
+  return (
+    <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h2 className="text-lg font-semibold text-slate-950 dark:text-white">{vi.stock.technicalSignals}</h2>
+          <p className="mt-1 text-sm leading-6 text-slate-600 dark:text-slate-400">{summary}</p>
+        </div>
+      </div>
+
+      <div className="mt-5 grid gap-4 md:grid-cols-2">
+        {signalGroups.map((group) => (
+          <div key={group.category} className="rounded-lg border border-slate-100 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950">
+            <h3 className="text-sm font-semibold text-slate-950 dark:text-white">
+              {categoryLabelsVi[group.category]}
+            </h3>
+            <div className="mt-3 space-y-2">
+              {group.signals.length > 0 ? (
+                group.signals.map((signal) => (
+                  <TechnicalSignalBadge key={signal.code} signal={signal} />
+                ))
+              ) : (
+                <p className="text-sm text-slate-500 dark:text-slate-400">Chưa có tín hiệu nổi bật.</p>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
 }
 
 function ScoreBreakdownSection({ breakdown }: { breakdown: ScoreBreakdown }) {
@@ -551,6 +598,128 @@ function getTrendQualityLabel(value: PriceActionCore["trendQuality"]["quality"])
 
 function formatPriceActionLevel(value: number | null): string {
   return value === null ? vi.stock.notAvailable : value.toFixed(2);
+}
+
+function CandlestickPatternsSection({ analysis }: { analysis: PriceBehaviorAnalysis }) {
+  return (
+    <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <div>
+        <h2 className="text-lg font-semibold text-slate-950 dark:text-white">Patterns</h2>
+        <p className="mt-1 text-sm leading-6 text-slate-600 dark:text-slate-400">
+          Mẫu nến Nhật trong 3-5 nến gần nhất, có xét bối cảnh xu hướng, volume và vùng giá.
+        </p>
+      </div>
+
+      <div className="mt-5 grid gap-4 md:grid-cols-2">
+        {analysis.candlestickPatterns.length > 0 ? (
+          analysis.candlestickPatterns.map((pattern) => (
+            <article key={`${pattern.pattern}-${pattern.dojiType ?? "base"}-${pattern.detectedAt}`} className="rounded-lg border border-slate-100 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-950 dark:text-white">{pattern.labelVi}</h3>
+                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                    {formatDate(pattern.detectedAt)} · {getConfidenceLabel(pattern.confidence)}
+                  </p>
+                </div>
+                <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${getBehaviorSentimentClass(pattern.sentiment)}`}>
+                  {getBehaviorSentimentLabel(pattern.sentiment)}
+                </span>
+              </div>
+              <p className="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-300">
+                {pattern.summaryVi ?? pattern.descriptionVi}
+              </p>
+              {pattern.contextNotes && pattern.contextNotes.length > 0 ? (
+                <ul className="mt-3 space-y-1.5">
+                  {pattern.contextNotes.slice(0, 4).map((note) => (
+                    <li key={note} className="text-sm leading-5 text-slate-500 dark:text-slate-400">
+                      {note}
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </article>
+          ))
+        ) : (
+          <p className="rounded-lg bg-slate-50 p-4 text-sm leading-6 text-slate-500 dark:bg-slate-950 dark:text-slate-400">
+            Chưa có mẫu nến nổi bật trong 3-5 nến gần nhất.
+          </p>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function WyckoffLiteSection({ analysis }: { analysis: PriceBehaviorAnalysis }) {
+  return (
+    <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h2 className="text-lg font-semibold text-slate-950 dark:text-white">Wyckoff-lite</h2>
+          <p className="mt-1 text-sm leading-6 text-slate-600 dark:text-slate-400">
+            Đọc hành vi giá theo pha thị trường, dùng wording thận trọng và không kết luận chắc chắn.
+          </p>
+        </div>
+        <span className="w-fit rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+          {getConfidenceLabel(analysis.wyckoffLite.confidence)}
+        </span>
+      </div>
+
+      <div className="mt-4 rounded-lg bg-slate-50 p-4 dark:bg-slate-950">
+        <p className="text-sm font-semibold text-slate-950 dark:text-white">
+          Nghiêng về: {getWyckoffPhaseLabel(analysis.wyckoffLite.phaseGuess)}
+        </p>
+        <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
+          {analysis.wyckoffLite.summaryVi}
+        </p>
+      </div>
+
+      <div className="mt-4 grid gap-4 md:grid-cols-2">
+        <BehaviorList title="Bằng chứng" items={analysis.wyckoffLite.evidence} />
+        <BehaviorList title="Điểm vô hiệu / cần kiểm tra" items={analysis.wyckoffLite.invalidationNotes} />
+      </div>
+    </section>
+  );
+}
+
+function AiAnalysisSection({
+  stock,
+  latestPrice,
+  changePercent,
+  score,
+  scoreSource,
+  sentimentLabel,
+}: {
+  stock: StockMetadata;
+  latestPrice: string;
+  changePercent: string;
+  score: number;
+  scoreSource: "supabase" | "runtime";
+  sentimentLabel: string;
+}) {
+  return (
+    <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="text-lg font-semibold text-slate-950 dark:text-white">AI Analysis</h2>
+          <p className="mt-1 text-sm leading-6 text-slate-600 dark:text-slate-400">
+            Mở bảng AI để diễn giải thesis, price action, indicators và rủi ro theo dữ liệu hiện tại.
+          </p>
+        </div>
+        <AiAnalysisModal
+          symbol={stock.symbol}
+          companyName={stock.name}
+          latestPrice={latestPrice}
+          changePercent={changePercent}
+          score={score}
+          scoreSource={scoreSource}
+          sentimentLabel={sentimentLabel}
+        />
+      </div>
+      <p className="mt-4 rounded-lg bg-amber-50 p-4 text-sm leading-6 text-amber-950 dark:bg-amber-950 dark:text-amber-100">
+        Phân tích AI chỉ mang tính tham khảo kỹ thuật, không phải khuyến nghị mua/bán.
+      </p>
+    </section>
+  );
 }
 
 function PriceBehaviorSection({ analysis }: { analysis: PriceBehaviorAnalysis }) {

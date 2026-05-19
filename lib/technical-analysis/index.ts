@@ -165,6 +165,7 @@ export type {
   SignalSentiment,
   CandlestickPatterns,
   CandlestickPatternSignal,
+  DojiType,
   MethodSummary,
   MarketStructure,
   MultiTimeframeAnalysis,
