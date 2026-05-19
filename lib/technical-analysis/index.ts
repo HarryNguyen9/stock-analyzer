@@ -6,6 +6,7 @@ import { analyzeRisk } from "@/lib/technical-analysis/risk";
 import { calculateTechnicalScore } from "@/lib/technical-analysis/score";
 import { createMethodSummaries } from "@/lib/technical-analysis/method-summaries";
 import { analyzeSupportResistance } from "@/lib/technical-analysis/support-resistance";
+import { buildTechnicalThesis } from "@/lib/technical-analysis/thesis";
 import { analyzeTrend } from "@/lib/technical-analysis/trend";
 import type { AnalysisContext, TechnicalAnalysisResult, TechnicalIndicators } from "@/lib/technical-analysis/types";
 import { analyzeVolume } from "@/lib/technical-analysis/volume";
@@ -89,7 +90,7 @@ export function generateTechnicalAnalysis(candles: OHLCV[]): TechnicalAnalysisRe
     12,
   );
 
-  return {
+  const analysisWithoutThesis: Omit<TechnicalAnalysisResult, "thesis"> = {
     indicators,
     patterns: candlestickPatterns,
     supportResistance,
@@ -98,6 +99,12 @@ export function generateTechnicalAnalysis(candles: OHLCV[]): TechnicalAnalysisRe
     score: score.score,
     scoreBreakdown: score.breakdown,
     summaryVi: createSummary(context, indicators),
+  };
+  const thesis = buildTechnicalThesis(analysisWithoutThesis, candles);
+
+  return {
+    ...analysisWithoutThesis,
+    thesis,
   };
 }
 
@@ -143,6 +150,8 @@ export type {
   CandlestickPatterns,
   MethodSummary,
   SupportResistance,
+  TechnicalSetupType,
+  TechnicalThesis,
   TechnicalAnalysisResult,
   TechnicalIndicators,
 } from "@/lib/technical-analysis/types";

@@ -29,6 +29,7 @@ export function createFallbackTechnicalAnalysis(input: AiTechnicalInput): AiTech
             "Rủi ro kỹ thuật chưa nổi bật, nhưng vẫn cần theo dõi phản ứng tại các vùng hỗ trợ/kháng cự gần nhất.",
           ],
     watchPoints: [
+      input.technicalThesis.shortSummaryVi,
       `Theo dõi khả năng duy trì điểm kỹ thuật quanh vùng ${technicalScoreText}.`,
       supportText,
       ...methodWatchPoints,

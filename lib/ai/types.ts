@@ -1,4 +1,10 @@
-import type { MethodSummary, Signal, SupportResistance, TechnicalIndicators } from "@/lib/technical-analysis/types";
+import type {
+  MethodSummary,
+  Signal,
+  SupportResistance,
+  TechnicalIndicators,
+  TechnicalThesis,
+} from "@/lib/technical-analysis/types";
 import type { StockMetadata } from "@/types/stock";
 
 export type AiAnalysisSentiment = "positive" | "neutral" | "risk";
@@ -25,6 +31,7 @@ export type AiTechnicalInput = {
   >;
   supportResistance: SupportResistance;
   methodSummaries: Pick<MethodSummary, "key" | "titleVi" | "conclusionVi" | "tone">[];
+  technicalThesis: TechnicalThesis;
   status: string;
   topSignals: Pick<Signal, "code" | "labelVi" | "descriptionVi" | "sentiment" | "strength" | "priority">[];
   dataUpdatedAt: string | null;

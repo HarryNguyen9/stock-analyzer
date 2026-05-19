@@ -104,6 +104,25 @@ export type MethodSummary = {
   }>;
 };
 
+export type TechnicalSetupType =
+  | "breakout"
+  | "pullback"
+  | "accumulation"
+  | "downtrend"
+  | "range-bound"
+  | "high-risk";
+
+export type TechnicalThesis = {
+  setupType: TechnicalSetupType;
+  trendBias: SignalSentiment;
+  keySupport: number | null;
+  keyResistance: number | null;
+  invalidationLevel: number | null;
+  conditionsToImprove: string[];
+  keyRisks: string[];
+  shortSummaryVi: string;
+};
+
 export type ScoreBreakdown = {
   trend: number;
   momentum: number;
@@ -117,6 +136,7 @@ export type TechnicalAnalysisResult = {
   patterns: CandlestickPatterns;
   supportResistance: SupportResistance;
   methodSummaries: MethodSummary[];
+  thesis: TechnicalThesis;
   signals: Signal[];
   score: number;
   scoreBreakdown: ScoreBreakdown;

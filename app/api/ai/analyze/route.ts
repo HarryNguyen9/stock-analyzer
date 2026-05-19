@@ -204,6 +204,7 @@ async function createAiInput(
       conclusionVi: summary.conclusionVi,
       tone: summary.tone,
     })),
+    technicalThesis: snapshot.analysis.thesis,
     status: getScoreStatus(canonicalScore),
     scoreSource: canonicalScoreSource,
     topSignals: snapshot.signals.slice(0, 6).map((signal) => ({

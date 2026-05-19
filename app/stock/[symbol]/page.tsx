@@ -16,7 +16,8 @@ import { STOCKS } from "@/data/symbols";
 import { round } from "@/lib/indicators";
 import { vi } from "@/lib/i18n/vi";
 import { categoryLabelsVi } from "@/lib/signals";
-import type { MethodSummary, Signal, SignalCategory } from "@/lib/technical-analysis";
+import type { MethodSummary, Signal, SignalCategory, TechnicalThesis } from "@/lib/technical-analysis";
+import { getSetupLabel, getTrendBiasLabel } from "@/lib/technical-analysis/thesis";
 import type { ScoreBreakdown } from "@/lib/technical-analysis/types";
 import type { StockMetadata } from "@/types/stock";
 
@@ -162,6 +163,8 @@ export default async function StockDetailPage({ params }: StockPageProps) {
           <CandlestickChart data={candles} />
 
           <ScoreBreakdownSection breakdown={analysis.scoreBreakdown} />
+
+          <TechnicalThesisSection thesis={analysis.thesis} />
 
           <AdvancedTechnicalSection summaries={analysis.methodSummaries} />
 
@@ -344,6 +347,84 @@ function ScoreBreakdownSection({ breakdown }: { breakdown: ScoreBreakdown }) {
       </div>
     </section>
   );
+}
+
+function TechnicalThesisSection({ thesis }: { thesis: TechnicalThesis }) {
+  return (
+    <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h2 className="text-lg font-semibold text-slate-950 dark:text-white">Luận điểm kỹ thuật</h2>
+          <p className="mt-1 text-sm leading-6 text-slate-600 dark:text-slate-400">
+            Tóm tắt setup hiện tại theo dữ liệu kỹ thuật, không phải khuyến nghị mua/bán.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+            {getSetupLabel(thesis.setupType)}
+          </span>
+          <span className={`rounded-full px-3 py-1 text-xs font-semibold ${getThesisBiasClass(thesis.trendBias)}`}>
+            {getTrendBiasLabel(thesis.trendBias)}
+          </span>
+        </div>
+      </div>
+
+      <p className="mt-4 rounded-lg bg-slate-50 p-4 text-sm leading-6 text-slate-700 dark:bg-slate-950 dark:text-slate-300">
+        {thesis.shortSummaryVi}
+      </p>
+
+      <div className="mt-4 grid gap-3 sm:grid-cols-3">
+        <ThesisMetric label="Hỗ trợ chính" value={formatThesisLevel(thesis.keySupport)} />
+        <ThesisMetric label="Kháng cự chính" value={formatThesisLevel(thesis.keyResistance)} />
+        <ThesisMetric label="Mốc vô hiệu" value={formatThesisLevel(thesis.invalidationLevel)} />
+      </div>
+
+      <div className="mt-4 grid gap-4 md:grid-cols-2">
+        <ThesisList title="Điều kiện cải thiện" items={thesis.conditionsToImprove} />
+        <ThesisList title="Rủi ro cần chú ý" items={thesis.keyRisks} />
+      </div>
+    </section>
+  );
+}
+
+function ThesisMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border border-slate-100 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-950">
+      <p className="text-xs text-slate-500 dark:text-slate-400">{label}</p>
+      <p className="mt-1 text-base font-semibold tabular-nums text-slate-950 dark:text-white">{value}</p>
+    </div>
+  );
+}
+
+function ThesisList({ title, items }: { title: string; items: string[] }) {
+  return (
+    <div className="rounded-lg border border-slate-100 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950">
+      <h3 className="text-sm font-semibold text-slate-950 dark:text-white">{title}</h3>
+      <ul className="mt-3 space-y-2">
+        {items.map((item) => (
+          <li key={item} className="text-sm leading-5 text-slate-600 dark:text-slate-400">
+            {item}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function getThesisBiasClass(trendBias: TechnicalThesis["trendBias"]): string {
+  if (trendBias === "bullish") {
+    return "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300";
+  }
+
+  if (trendBias === "bearish") {
+    return "bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300";
+  }
+
+  return "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200";
+}
+
+function formatThesisLevel(value: number | null): string {
+  return value === null ? vi.stock.notAvailable : value.toFixed(2);
 }
 
 function AdvancedTechnicalSection({ summaries }: { summaries: MethodSummary[] }) {

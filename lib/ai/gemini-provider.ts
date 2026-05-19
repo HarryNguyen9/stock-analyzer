@@ -221,6 +221,7 @@ function buildPromptContext(input: AiTechnicalInput) {
     advancedIndicators: input.advancedIndicators,
     supportResistance: input.supportResistance,
     methodSummaries: input.methodSummaries,
+    technicalThesis: input.technicalThesis,
     dataUpdatedAt: input.dataUpdatedAt,
   };
 }
