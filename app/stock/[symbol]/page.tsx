@@ -27,6 +27,8 @@ type StockPageProps = {
   params: Promise<{ symbol: string }>;
 };
 
+const DEFAULT_DETAIL_CANDLE_LIMIT = 600;
+
 export function generateStaticParams() {
   return [];
 }
@@ -51,7 +53,7 @@ export default async function StockDetailPage({ params }: StockPageProps) {
   // Supabase/API later: keep this call as the page data boundary. The app reads
   // local JSON only at request/build time and does not fetch market APIs in UI.
   const [priceResult, freshness, symbolState] = await Promise.all([
-    getHistoricalPricesResult(symbol),
+    getHistoricalPricesResult(symbol, { limit: DEFAULT_DETAIL_CANDLE_LIMIT }),
     getSymbolFreshness(symbol),
     getSymbolDataState(symbol),
   ]);

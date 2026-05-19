@@ -11,6 +11,11 @@ import {
   createSeriesMarkers,
   type CandlestickData,
   type HistogramData,
+  type IChartApi,
+  type IPriceLine,
+  type ISeriesApi,
+  type ISeriesMarkersPluginApi,
+  type LineSeriesPartialOptions,
   type LineData,
   type SeriesMarker,
   type Time,
@@ -39,7 +44,18 @@ type CandlestickChartProps = {
   breakLow20?: boolean;
 };
 
+type BollingerLine = { color: string; data: LineData<Time>[] };
+
 const rangeOptions: TimeRange[] = ["3M", "6M", "1Y", "All"];
+const chartSettingsKey = "stock-chart-settings";
+const defaultToggles: ChartToggles = {
+  sma20: true,
+  sma50: true,
+  volume: true,
+  bollinger: true,
+  supportResistance: false,
+  patterns: false,
+};
 
 export function CandlestickChart({
   data,
@@ -49,15 +65,34 @@ export function CandlestickChart({
   breakLow20 = false,
 }: CandlestickChartProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const [range, setRange] = useState<TimeRange>(data.length < 180 ? "All" : "1Y");
-  const [toggles, setToggles] = useState<ChartToggles>({
-    sma20: true,
-    sma50: true,
-    volume: true,
-    bollinger: false,
-    supportResistance: true,
-    patterns: true,
+  const chartRef = useRef<IChartApi | null>(null);
+  const candleSeriesRef = useRef<ISeriesApi<"Candlestick", Time> | null>(null);
+  const volumeSeriesRef = useRef<ISeriesApi<"Histogram", Time> | null>(null);
+  const sma20SeriesRef = useRef<ISeriesApi<"Line", Time> | null>(null);
+  const sma50SeriesRef = useRef<ISeriesApi<"Line", Time> | null>(null);
+  const bollingerSeriesRef = useRef<Array<ISeriesApi<"Line", Time>>>([]);
+  const markerPluginRef = useRef<ISeriesMarkersPluginApi<Time> | null>(null);
+  const priceLinesRef = useRef<IPriceLine[]>([]);
+  const candlesByDateRef = useRef<Map<string, OHLCV>>(new Map());
+  const latestDataRef = useRef<{
+    chartData: CandlestickData<Time>[];
+    volumeData: HistogramData<Time>[];
+    sma20: LineData<Time>[];
+    sma50: LineData<Time>[];
+    bollinger: BollingerLine[];
+    markers: SeriesMarker<Time>[];
+    supportResistance?: SupportResistance;
+  }>({
+    chartData: [],
+    volumeData: [],
+    sma20: [],
+    sma50: [],
+    bollinger: [],
+    markers: [],
   });
+  const [range, setRange] = useState<TimeRange>("1Y");
+  const [toggles, setToggles] = useState<ChartToggles>(() => readStoredToggles());
+  const [visibleRangePreserved, setVisibleRangePreserved] = useState(false);
   const filteredData = useMemo(() => filterByRange(data, range), [data, range]);
   const chartData = useMemo<CandlestickData<Time>[]>(
     () =>
@@ -91,25 +126,32 @@ export function CandlestickChart({
     [breakHigh20, breakLow20, filteredData, patterns],
   );
 
+  latestDataRef.current = {
+    chartData,
+    volumeData,
+    sma20,
+    sma50,
+    bollinger,
+    markers,
+    supportResistance,
+  };
+  candlesByDateRef.current = candlesByDate;
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(chartSettingsKey, JSON.stringify(toggles));
+    } catch {
+      // Local storage is optional; chart controls still work without it.
+    }
+  }, [toggles]);
+
   useEffect(() => {
     const container = containerRef.current;
 
-    if (!container) {
+    if (!container || chartRef.current) {
       return;
     }
 
-    container.innerHTML = "";
-
-    const getThemeOptions = () => {
-      const isDark = document.documentElement.classList.contains("dark");
-
-      return {
-        background: isDark ? "#0f172a" : "#ffffff",
-        text: isDark ? "#cbd5e1" : "#475569",
-        grid: isDark ? "#1e293b" : "#eef2f7",
-        border: isDark ? "#334155" : "#e2e8f0",
-      };
-    };
     const theme = getThemeOptions();
     const chart = createChart(container, {
       height: container.clientWidth < 640 ? 360 : 520,
@@ -139,91 +181,14 @@ export function CandlestickChart({
       },
     });
 
-    const candleSeries = chart.addSeries(CandlestickSeries, {
+    chartRef.current = chart;
+    candleSeriesRef.current = chart.addSeries(CandlestickSeries, {
       upColor: "#059669",
       downColor: "#dc2626",
       borderVisible: false,
       wickUpColor: "#059669",
       wickDownColor: "#dc2626",
     });
-    candleSeries.setData(chartData);
-
-    if (toggles.volume) {
-      const volumeSeries = chart.addSeries(HistogramSeries, {
-        priceFormat: { type: "volume" },
-        priceLineVisible: false,
-        lastValueVisible: false,
-        priceScaleId: "",
-      });
-      volumeSeries.priceScale().applyOptions({
-        scaleMargins: {
-          top: 0.78,
-          bottom: 0,
-        },
-      });
-      volumeSeries.setData(volumeData);
-    }
-
-    if (toggles.sma20) {
-      const sma20Series = chart.addSeries(LineSeries, {
-        color: "#2563eb",
-        lineWidth: 2,
-        priceLineVisible: false,
-        lastValueVisible: false,
-      });
-      sma20Series.setData(sma20);
-    }
-
-    if (toggles.sma50) {
-      const sma50Series = chart.addSeries(LineSeries, {
-        color: "#f59e0b",
-        lineWidth: 2,
-        priceLineVisible: false,
-        lastValueVisible: false,
-      });
-      sma50Series.setData(sma50);
-    }
-
-    if (toggles.bollinger) {
-      for (const line of bollinger) {
-        const series = chart.addSeries(LineSeries, {
-          color: line.color,
-          lineWidth: 1,
-          lineStyle: LineStyle.Dashed,
-          priceLineVisible: false,
-          lastValueVisible: false,
-        });
-        series.setData(line.data);
-      }
-    }
-
-    if (toggles.supportResistance && supportResistance) {
-      if (supportResistance.nearestSupport !== null) {
-        candleSeries.createPriceLine({
-          price: supportResistance.nearestSupport,
-          color: "#10b981",
-          lineWidth: 1,
-          lineStyle: LineStyle.Dashed,
-          axisLabelVisible: true,
-          title: "Support",
-        });
-      }
-
-      if (supportResistance.nearestResistance !== null) {
-        candleSeries.createPriceLine({
-          price: supportResistance.nearestResistance,
-          color: "#f97316",
-          lineWidth: 1,
-          lineStyle: LineStyle.Dashed,
-          axisLabelVisible: true,
-          title: "Resistance",
-        });
-      }
-    }
-
-    if (toggles.patterns && markers.length > 0) {
-      createSeriesMarkers(candleSeries, markers);
-    }
 
     const tooltip = document.createElement("div");
     tooltip.className =
@@ -236,7 +201,7 @@ export function CandlestickChart({
         return;
       }
 
-      const candle = candlesByDate.get(String(param.time));
+      const candle = candlesByDateRef.current.get(String(param.time));
 
       if (!candle) {
         tooltip.classList.add("hidden");
@@ -263,39 +228,16 @@ export function CandlestickChart({
       tooltip.style.transform = `translate(${Math.max(12, x)}px, ${Math.max(12, y)}px)`;
     });
 
-    chart.timeScale().fitContent();
-
     const resizeObserver = new ResizeObserver(([entry]) => {
       chart.applyOptions({
         width: Math.floor(entry.contentRect.width),
         height: entry.contentRect.width < 640 ? 360 : 520,
       });
-      chart.timeScale().fitContent();
     });
 
     resizeObserver.observe(container);
     const themeObserver = new MutationObserver(() => {
-      const nextTheme = getThemeOptions();
-      chart.applyOptions({
-        layout: {
-          background: { type: ColorType.Solid, color: nextTheme.background },
-          textColor: nextTheme.text,
-        },
-        grid: {
-          vertLines: { color: nextTheme.grid },
-          horzLines: { color: nextTheme.grid },
-        },
-        rightPriceScale: {
-          borderColor: nextTheme.border,
-          scaleMargins: {
-            top: 0.06,
-            bottom: toggles.volume ? 0.28 : 0.08,
-          },
-        },
-        timeScale: {
-          borderColor: nextTheme.border,
-        },
-      });
+      applyTheme(chart, toggles.volume);
     });
 
     themeObserver.observe(document.documentElement, {
@@ -303,22 +245,232 @@ export function CandlestickChart({
       attributeFilter: ["class"],
     });
 
+    syncChartSeries({ preserveRange: false, fitContent: true });
+
     return () => {
       resizeObserver.disconnect();
       themeObserver.disconnect();
       chart.remove();
+      chartRef.current = null;
+      candleSeriesRef.current = null;
+      volumeSeriesRef.current = null;
+      sma20SeriesRef.current = null;
+      sma50SeriesRef.current = null;
+      bollingerSeriesRef.current = [];
+      markerPluginRef.current = null;
+      priceLinesRef.current = [];
     };
-  }, [
-    bollinger,
-    candlesByDate,
-    chartData,
-    markers,
-    sma20,
-    sma50,
-    supportResistance,
-    toggles,
-    volumeData,
-  ]);
+    // Chart instance is intentionally created once; series updates happen in dedicated effects.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    syncChartSeries({ preserveRange: false, fitContent: true });
+    // Data/range changes should refit. Indicator toggles are handled separately.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chartData, volumeData, sma20, sma50, bollinger, markers, supportResistance, range]);
+
+  useEffect(() => {
+    const preserved = syncChartSeries({ preserveRange: true, fitContent: false });
+    setVisibleRangePreserved(preserved);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [toggles]);
+
+  function syncChartSeries({
+    preserveRange,
+    fitContent,
+  }: {
+    preserveRange: boolean;
+    fitContent: boolean;
+  }): boolean {
+    const chart = chartRef.current;
+    const candleSeries = candleSeriesRef.current;
+
+    if (!chart || !candleSeries) {
+      return false;
+    }
+
+    const savedRange = preserveRange ? chart.timeScale().getVisibleLogicalRange() : null;
+    const dataRef = latestDataRef.current;
+
+    applyTheme(chart, toggles.volume);
+    candleSeries.setData(dataRef.chartData);
+    syncLineSeries("sma20", dataRef.sma20, {
+      color: "#2563eb",
+      lineWidth: 2,
+      priceLineVisible: false,
+      lastValueVisible: false,
+    });
+    syncLineSeries("sma50", dataRef.sma50, {
+      color: "#f59e0b",
+      lineWidth: 2,
+      priceLineVisible: false,
+      lastValueVisible: false,
+    });
+    syncVolumeSeries(dataRef.volumeData);
+    syncBollingerSeries(dataRef.bollinger);
+    syncSupportResistance(candleSeries, dataRef.supportResistance);
+    syncMarkers(candleSeries, dataRef.markers);
+
+    if (fitContent) {
+      chart.timeScale().fitContent();
+      return false;
+    }
+
+    if (savedRange) {
+      chart.timeScale().setVisibleLogicalRange(savedRange);
+      return true;
+    }
+
+    return false;
+  }
+
+  function syncLineSeries(
+    key: "sma20" | "sma50",
+    data: LineData<Time>[],
+    options: LineSeriesPartialOptions,
+  ) {
+    const chart = chartRef.current;
+
+    if (!chart) return;
+
+    const enabled = toggles[key];
+    const ref = key === "sma20" ? sma20SeriesRef : sma50SeriesRef;
+
+    if (!enabled) {
+      removeSeries(ref);
+      return;
+    }
+
+    if (!ref.current) {
+      ref.current = chart.addSeries(LineSeries, options);
+    }
+
+    ref.current.setData(data);
+  }
+
+  function syncVolumeSeries(data: HistogramData<Time>[]) {
+    const chart = chartRef.current;
+
+    if (!chart) return;
+
+    if (!toggles.volume) {
+      removeSeries(volumeSeriesRef);
+      return;
+    }
+
+    if (!volumeSeriesRef.current) {
+      volumeSeriesRef.current = chart.addSeries(HistogramSeries, {
+        priceFormat: { type: "volume" },
+        priceLineVisible: false,
+        lastValueVisible: false,
+        priceScaleId: "",
+      });
+      volumeSeriesRef.current.priceScale().applyOptions({
+        scaleMargins: {
+          top: 0.78,
+          bottom: 0,
+        },
+      });
+    }
+
+    volumeSeriesRef.current.setData(data);
+  }
+
+  function syncBollingerSeries(lines: BollingerLine[]) {
+    const chart = chartRef.current;
+
+    if (!chart) return;
+
+    if (!toggles.bollinger) {
+      for (const series of bollingerSeriesRef.current) {
+        chart.removeSeries(series);
+      }
+      bollingerSeriesRef.current = [];
+      return;
+    }
+
+    while (bollingerSeriesRef.current.length < lines.length) {
+      bollingerSeriesRef.current.push(
+        chart.addSeries(LineSeries, {
+          color: "rgba(99, 102, 241, 0.8)",
+          lineWidth: 1,
+          lineStyle: LineStyle.Dashed,
+          priceLineVisible: false,
+          lastValueVisible: false,
+        }),
+      );
+    }
+
+    lines.forEach((line, index) => {
+      const series = bollingerSeriesRef.current[index];
+      series.applyOptions({ color: line.color });
+      series.setData(line.data);
+    });
+  }
+
+  function syncSupportResistance(
+    candleSeries: ISeriesApi<"Candlestick", Time>,
+    value?: SupportResistance,
+  ) {
+    for (const line of priceLinesRef.current) {
+      candleSeries.removePriceLine(line);
+    }
+    priceLinesRef.current = [];
+
+    if (!toggles.supportResistance || !value) return;
+
+    if (value.nearestSupport !== null) {
+      priceLinesRef.current.push(
+        candleSeries.createPriceLine({
+          price: value.nearestSupport,
+          color: "#10b981",
+          lineWidth: 1,
+          lineStyle: LineStyle.Dashed,
+          axisLabelVisible: true,
+          title: "Support",
+        }),
+      );
+    }
+
+    if (value.nearestResistance !== null) {
+      priceLinesRef.current.push(
+        candleSeries.createPriceLine({
+          price: value.nearestResistance,
+          color: "#f97316",
+          lineWidth: 1,
+          lineStyle: LineStyle.Dashed,
+          axisLabelVisible: true,
+          title: "Resistance",
+        }),
+      );
+    }
+  }
+
+  function syncMarkers(candleSeries: ISeriesApi<"Candlestick", Time>, value: SeriesMarker<Time>[]) {
+    if (!toggles.patterns) {
+      markerPluginRef.current?.setMarkers([]);
+      return;
+    }
+
+    if (!markerPluginRef.current) {
+      markerPluginRef.current = createSeriesMarkers(candleSeries, value);
+      return;
+    }
+
+    markerPluginRef.current.setMarkers(value);
+  }
+
+  function removeSeries<T extends "Line" | "Histogram">(ref: {
+    current: ISeriesApi<T, Time> | null;
+  }) {
+    const chart = chartRef.current;
+
+    if (chart && ref.current) {
+      chart.removeSeries(ref.current);
+      ref.current = null;
+    }
+  }
 
   return (
     <section className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-950 sm:p-4">
@@ -352,24 +504,12 @@ export function CandlestickChart({
         </div>
 
         <div className="flex flex-wrap items-center gap-4 px-1 text-xs font-medium text-slate-500 dark:text-slate-400">
-          {toggles.sma20 ? (
-            <span className="flex items-center gap-2">
-              <span className="h-2 w-4 rounded-sm bg-blue-600" aria-hidden />
-              {vi.chart.sma20}
-            </span>
-          ) : null}
-          {toggles.sma50 ? (
-            <span className="flex items-center gap-2">
-              <span className="h-2 w-4 rounded-sm bg-amber-500" aria-hidden />
-              {vi.chart.sma50}
-            </span>
-          ) : null}
-          {toggles.volume ? (
-            <span className="flex items-center gap-2">
-              <span className="h-2 w-4 rounded-sm bg-emerald-600/40" aria-hidden />
-              Volume
-            </span>
-          ) : null}
+          {toggles.sma20 ? <LegendSwatch color="bg-blue-600" label={vi.chart.sma20} /> : null}
+          {toggles.sma50 ? <LegendSwatch color="bg-amber-500" label={vi.chart.sma50} /> : null}
+          {toggles.volume ? <LegendSwatch color="bg-emerald-600/40" label="Volume" /> : null}
+          <span className="ml-auto hidden text-[11px] text-slate-400 dark:text-slate-500 sm:inline">
+            {data.length} nến · limit 600 · preserve {visibleRangePreserved ? "on" : "ready"}
+          </span>
         </div>
       </div>
       <div ref={containerRef} className="relative mt-3 h-[360px] w-full sm:h-[520px]" />
@@ -401,11 +541,74 @@ function ToggleButton({
   );
 }
 
+function LegendSwatch({ color, label }: { color: string; label: string }) {
+  return (
+    <span className="flex items-center gap-2">
+      <span className={`h-2 w-4 rounded-sm ${color}`} aria-hidden />
+      {label}
+    </span>
+  );
+}
+
 function toggle(key: keyof ChartToggles, setToggles: Dispatch<SetStateAction<ChartToggles>>) {
   setToggles((current) => ({
     ...current,
     [key]: !current[key],
   }));
+}
+
+function readStoredToggles(): ChartToggles {
+  if (typeof window === "undefined") {
+    return defaultToggles;
+  }
+
+  try {
+    const raw = window.localStorage.getItem(chartSettingsKey);
+    const parsed = raw ? (JSON.parse(raw) as Partial<ChartToggles>) : null;
+
+    return {
+      ...defaultToggles,
+      ...parsed,
+    };
+  } catch {
+    return defaultToggles;
+  }
+}
+
+function applyTheme(chart: IChartApi, volumeEnabled: boolean) {
+  const theme = getThemeOptions();
+  chart.applyOptions({
+    layout: {
+      background: { type: ColorType.Solid, color: theme.background },
+      textColor: theme.text,
+      attributionLogo: false,
+    },
+    grid: {
+      vertLines: { color: theme.grid },
+      horzLines: { color: theme.grid },
+    },
+    rightPriceScale: {
+      borderColor: theme.border,
+      scaleMargins: {
+        top: 0.06,
+        bottom: volumeEnabled ? 0.28 : 0.08,
+      },
+    },
+    timeScale: {
+      borderColor: theme.border,
+    },
+  });
+}
+
+function getThemeOptions() {
+  const isDark = document.documentElement.classList.contains("dark");
+
+  return {
+    background: isDark ? "#0f172a" : "#ffffff",
+    text: isDark ? "#cbd5e1" : "#475569",
+    grid: isDark ? "#1e293b" : "#eef2f7",
+    border: isDark ? "#334155" : "#e2e8f0",
+  };
 }
 
 function filterByRange(data: OHLCV[], range: TimeRange): OHLCV[] {
@@ -426,7 +629,7 @@ function toLineData(data: OHLCV[], period: number): LineData<Time>[] {
   });
 }
 
-function toBollingerData(data: OHLCV[]): Array<{ color: string; data: LineData<Time>[] }> {
+function toBollingerData(data: OHLCV[]): BollingerLine[] {
   const period = 20;
   const closes = data.map((candle) => candle.close);
   const upper: LineData<Time>[] = [];

@@ -9,7 +9,7 @@ import type { AppDataProvider, PriceDataResult } from "@/lib/data-source/provide
 import type { OHLCV, StockMetadata, StockSummary } from "@/types/stock";
 
 export const localDataProvider: AppDataProvider = {
-  async getPrices(symbol) {
+  async getPrices(symbol, options) {
     const localPrices = await readLocalPrices(symbol);
 
     if (localPrices.status === "ready") {
@@ -27,7 +27,7 @@ export const localDataProvider: AppDataProvider = {
     return {
       status: "ready",
       source: "generated-fallback",
-      data: await fallbackProvider.getDailyPrices(symbol, 200),
+      data: await fallbackProvider.getDailyPrices(symbol, options?.limit ?? 200),
     };
   },
   async getSummaries() {

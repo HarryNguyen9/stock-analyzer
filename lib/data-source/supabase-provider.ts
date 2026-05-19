@@ -51,8 +51,8 @@ export type SupabaseUpdatedAtResult =
     };
 
 export const supabaseDataProvider: AppDataProvider = {
-  async getPrices(symbol) {
-    const data = await readSupabasePrices(symbol);
+  async getPrices(symbol, options) {
+    const data = await readSupabasePrices(symbol, options?.limit);
 
     if (!data || data.length < 50) {
       return {
@@ -203,7 +203,7 @@ function toUpdatedAtResult(row: UpdatedAtRow | null, error: unknown): SupabaseUp
   };
 }
 
-async function readSupabasePrices(symbol: string): Promise<OHLCV[] | null> {
+async function readSupabasePrices(symbol: string, limit = PRICE_LIMIT): Promise<OHLCV[] | null> {
   const supabase = createSupabaseClient();
 
   if (!supabase) {
@@ -216,7 +216,7 @@ async function readSupabasePrices(symbol: string): Promise<OHLCV[] | null> {
       .select("date,open,high,low,close,volume")
       .eq("symbol", symbol)
       .order("date", { ascending: false })
-      .limit(PRICE_LIMIT);
+      .limit(limit);
 
     if (error) {
       return null;
@@ -234,8 +234,7 @@ async function readSupabasePrices(symbol: string): Promise<OHLCV[] | null> {
         volume: Number(row.volume),
       }))
       .filter(isOHLCV)
-      .sort((a, b) => a.date.localeCompare(b.date))
-      .slice(-200);
+      .sort((a, b) => a.date.localeCompare(b.date));
   } catch {
     return null;
   }

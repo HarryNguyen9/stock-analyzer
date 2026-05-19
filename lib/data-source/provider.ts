@@ -19,8 +19,12 @@ export type PriceDataResult =
     };
 
 export type AppDataProvider = {
-  getPrices(symbol: string): Promise<PriceDataResult>;
+  getPrices(symbol: string, options?: HistoricalPriceOptions): Promise<PriceDataResult>;
   getSummaries?(): Promise<StockSummary[] | null>;
+};
+
+export type HistoricalPriceOptions = {
+  limit?: number;
 };
 
 export type DataFreshnessStatus = "synced" | "stale" | "market-closed" | "local-fallback" | "empty";
@@ -30,14 +34,17 @@ export type DataFreshnessResult = {
   updatedAt: string | null;
 };
 
-export async function getHistoricalPricesResult(symbol: string): Promise<PriceDataResult> {
-  const supabaseResult = await supabaseDataProvider.getPrices(symbol);
+export async function getHistoricalPricesResult(
+  symbol: string,
+  options?: HistoricalPriceOptions,
+): Promise<PriceDataResult> {
+  const supabaseResult = await supabaseDataProvider.getPrices(symbol, options);
 
   if (supabaseResult.status === "ready") {
     return supabaseResult;
   }
 
-  return localDataProvider.getPrices(symbol);
+  return localDataProvider.getPrices(symbol, options);
 }
 
 export async function getStockSummariesFromProvider(): Promise<StockSummary[]> {
