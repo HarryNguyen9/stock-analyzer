@@ -1,96 +1,76 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
 import type { CoveredWarrantWithMetrics } from "@/lib/cw/types";
 
-const defaultUnderlying = "FPT";
-const quickUnderlyings = ["FPT", "HPG", "STB"];
-
 type LoadState = {
-  status: "idle" | "loading" | "ready" | "error";
+  status: "intro" | "loading" | "ready" | "error";
   message: string | null;
   warrants: CoveredWarrantWithMetrics[];
-  source: "supabase" | "sample" | null;
 };
 
 type SearchPayload = {
   ok: boolean;
-  message?: string;
+  message?: string | null;
   underlying?: string;
   warrants?: CoveredWarrantWithMetrics[];
-  source?: "supabase" | "sample";
   updatedAt?: string | null;
 };
 
 export function CoveredWarrantsPanel({ active }: { active: boolean }) {
-  const [query, setQuery] = useState(defaultUnderlying);
-  const [submittedUnderlying, setSubmittedUnderlying] = useState(defaultUnderlying);
+  const [query, setQuery] = useState("");
+  const [submittedUnderlying, setSubmittedUnderlying] = useState("");
   const [state, setState] = useState<LoadState>({
-    status: "idle",
-    message: null,
+    status: "intro",
+    message: "Nhập mã cơ sở để xem chứng quyền đang giao dịch.",
     warrants: [],
-    source: null,
   });
-
-  useEffect(() => {
-    if (!active) return;
-
-    const controller = new AbortController();
-    let cancelled = false;
-
-    async function loadCoveredWarrants() {
-      setState((current) => ({ ...current, status: "loading", message: null }));
-
-      try {
-        const response = await fetch(`/api/covered-warrants/search?underlying=${encodeURIComponent(submittedUnderlying)}`, {
-          cache: "no-store",
-          signal: controller.signal,
-        });
-        const payload = (await response.json()) as SearchPayload;
-
-        if (!response.ok || !payload.ok) {
-          throw new Error(payload.message ?? "Không tải được dữ liệu chứng quyền.");
-        }
-
-        if (!cancelled) {
-          setState({
-            status: "ready",
-            message: null,
-            warrants: payload.warrants ?? [],
-            source: payload.source ?? null,
-          });
-        }
-      } catch (error) {
-        if (!cancelled && !(error instanceof Error && error.name === "AbortError")) {
-          setState({
-            status: "error",
-            message: error instanceof Error ? error.message : "Không tải được dữ liệu chứng quyền.",
-            warrants: [],
-            source: null,
-          });
-        }
-      }
-    }
-
-    void loadCoveredWarrants();
-
-    return () => {
-      cancelled = true;
-      controller.abort();
-    };
-  }, [active, submittedUnderlying]);
-
   const summary = useMemo(() => buildCoveredWarrantSummary(state.warrants), [state.warrants]);
 
-  function submitSearch(event?: FormEvent<HTMLFormElement>) {
+  async function submitSearch(event?: FormEvent<HTMLFormElement>) {
     event?.preventDefault();
     const normalized = normalizeUnderlying(query);
-    if (normalized) {
-      setQuery(normalized);
-      setSubmittedUnderlying(normalized);
+
+    if (!normalized) {
+      setSubmittedUnderlying("");
+      setState({
+        status: "intro",
+        message: "Nhập mã cơ sở để xem chứng quyền đang giao dịch.",
+        warrants: [],
+      });
+      return;
+    }
+
+    setQuery(normalized);
+    setSubmittedUnderlying(normalized);
+    setState({ status: "loading", message: null, warrants: [] });
+
+    try {
+      const response = await fetch(`/api/cw/search?underlying=${encodeURIComponent(normalized)}`, {
+        cache: "no-store",
+      });
+      const payload = (await response.json()) as SearchPayload;
+
+      if (!response.ok || !payload.ok) {
+        throw new Error(payload.message ?? "Không tải được dữ liệu chứng quyền.");
+      }
+
+      setState({
+        status: "ready",
+        message: payload.message ?? null,
+        warrants: payload.warrants ?? [],
+      });
+    } catch (error) {
+      setState({
+        status: "error",
+        message: error instanceof Error ? error.message : "Không tải được dữ liệu chứng quyền.",
+        warrants: [],
+      });
     }
   }
+
+  if (!active) return null;
 
   return (
     <section className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
@@ -127,38 +107,23 @@ export function CoveredWarrantsPanel({ active }: { active: boolean }) {
             Tìm chứng quyền
           </button>
         </form>
-
-        <div className="mt-3 flex flex-wrap gap-2">
-          {quickUnderlyings.map((symbol) => (
-            <button
-              key={symbol}
-              type="button"
-              onClick={() => {
-                setQuery(symbol);
-                setSubmittedUnderlying(symbol);
-              }}
-              className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
-                submittedUnderlying === symbol
-                  ? "border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
-                  : "border-slate-200 text-slate-500 hover:border-slate-300 hover:text-slate-950 dark:border-slate-800 dark:text-slate-400 dark:hover:text-white"
-              }`}
-            >
-              {symbol}
-            </button>
-          ))}
-        </div>
       </div>
 
-      {state.status === "loading" || state.status === "idle" ? (
+      {state.status === "intro" ? (
+        <CoveredWarrantState title="Nhập mã cơ sở" description={state.message ?? "Nhập mã cơ sở để xem chứng quyền đang giao dịch."} />
+      ) : state.status === "loading" ? (
         <CoveredWarrantSkeleton />
       ) : state.status === "error" ? (
         <CoveredWarrantState title="Không tải được chứng quyền" description={state.message ?? "Vui lòng thử lại sau."} />
       ) : state.warrants.length === 0 ? (
-        <CoveredWarrantState title={`Không tìm thấy chứng quyền active cho ${submittedUnderlying}`} description="Bạn có thể thử mã cơ sở khác hoặc chờ khi dữ liệu CW được đồng bộ từ provider thật." />
+        <CoveredWarrantState
+          title={submittedUnderlying ? `Không tìm thấy chứng quyền active cho ${submittedUnderlying}` : "Chưa có dữ liệu chứng quyền"}
+          description={state.message ?? "Chưa có dữ liệu chứng quyền. Hãy chạy đồng bộ CW từ provider."}
+        />
       ) : (
         <>
           <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <SummaryCard label="CW active" value={state.warrants.length.toString()} helper={state.source === "sample" ? "Dữ liệu mẫu" : "Supabase"} />
+            <SummaryCard label="CW active" value={state.warrants.length.toString()} helper="Dữ liệu Supabase" />
             <SummaryCard label="Thanh khoản tốt nhất" value={summary.bestLiquidity?.symbol ?? "-"} helper={formatVolume(summary.bestLiquidity?.volume ?? null)} />
             <SummaryCard label="Premium thấp nhất" value={summary.lowestPremium?.symbol ?? "-"} helper={formatPercent(summary.lowestPremium?.metrics.premiumPercent)} />
             <SummaryCard label="Đáo hạn gần" value={summary.nearMaturityRisk?.symbol ?? "-"} helper={summary.nearMaturityRisk ? `${summary.nearMaturityRisk.metrics.daysToMaturity} ngày` : "-"} />
@@ -179,7 +144,7 @@ export function CoveredWarrantsPanel({ active }: { active: boolean }) {
                 <thead className="bg-slate-50 text-xs uppercase text-slate-500 dark:bg-slate-950 dark:text-slate-400">
                   <tr>
                     <TableHead>Mã CW</TableHead>
-                    <TableHead>Tổ chức phát hành</TableHead>
+                    <TableHead>TCPH</TableHead>
                     <TableHead>Giá thực hiện</TableHead>
                     <TableHead>Đáo hạn</TableHead>
                     <TableHead>Còn lại</TableHead>
@@ -196,14 +161,16 @@ export function CoveredWarrantsPanel({ active }: { active: boolean }) {
                     <tr key={warrant.symbol} className="hover:bg-slate-50 dark:hover:bg-slate-950/70">
                       <TableCell>
                         <span className="font-semibold text-slate-950 dark:text-white">{warrant.symbol}</span>
-                        <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold uppercase text-slate-500 dark:bg-slate-800 dark:text-slate-300">
-                          {warrant.type}
-                        </span>
+                        {warrant.type ? (
+                          <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold uppercase text-slate-500 dark:bg-slate-800 dark:text-slate-300">
+                            {warrant.type}
+                          </span>
+                        ) : null}
                       </TableCell>
-                      <TableCell>{warrant.issuer}</TableCell>
+                      <TableCell>{warrant.issuer ?? "-"}</TableCell>
                       <TableCell>{formatPrice(warrant.strikePrice)}</TableCell>
                       <TableCell>{formatDate(warrant.maturityDate)}</TableCell>
-                      <TableCell>{warrant.metrics.daysToMaturity} ngày</TableCell>
+                      <TableCell>{warrant.maturityDate ? `${warrant.metrics.daysToMaturity} ngày` : "-"}</TableCell>
                       <TableCell>{formatPrice(warrant.lastPrice)}</TableCell>
                       <TableCell>{formatPrice(warrant.metrics.breakEvenPrice)}</TableCell>
                       <TableCell>{formatPercent(warrant.metrics.premiumPercent)}</TableCell>
@@ -224,11 +191,13 @@ export function CoveredWarrantsPanel({ active }: { active: boolean }) {
 
 function buildCoveredWarrantSummary(warrants: CoveredWarrantWithMetrics[]) {
   return {
-    bestLiquidity: [...warrants].sort((a, b) => b.volume - a.volume)[0] ?? null,
+    bestLiquidity: [...warrants].sort((a, b) => (b.volume ?? 0) - (a.volume ?? 0))[0] ?? null,
     lowestPremium: [...warrants]
       .filter((warrant) => warrant.metrics.premiumPercent !== null)
       .sort((a, b) => (a.metrics.premiumPercent ?? 0) - (b.metrics.premiumPercent ?? 0))[0] ?? null,
-    nearMaturityRisk: [...warrants].sort((a, b) => a.metrics.daysToMaturity - b.metrics.daysToMaturity)[0] ?? null,
+    nearMaturityRisk: [...warrants]
+      .filter((warrant) => warrant.maturityDate)
+      .sort((a, b) => a.metrics.daysToMaturity - b.metrics.daysToMaturity)[0] ?? null,
   };
 }
 
@@ -274,26 +243,27 @@ function normalizeUnderlying(value: string): string {
 }
 
 function formatPrice(value: number | null): string {
-  return typeof value === "number" && Number.isFinite(value) ? value.toFixed(2) : "-";
+  return typeof value === "number" && Number.isFinite(value) ? value.toFixed(2) : "—";
 }
 
 function formatPercent(value: number | null): string {
-  return typeof value === "number" && Number.isFinite(value) ? `${value.toFixed(2)}%` : "-";
+  return typeof value === "number" && Number.isFinite(value) ? `${value.toFixed(2)}%` : "—";
 }
 
 function formatMultiplier(value: number | null): string {
-  return typeof value === "number" && Number.isFinite(value) ? `${value.toFixed(2)}x` : "-";
+  return typeof value === "number" && Number.isFinite(value) ? `${value.toFixed(2)}x` : "—";
 }
 
 function formatVolume(value: number | null): string {
-  if (value === null || !Number.isFinite(value)) return "-";
+  if (value === null || !Number.isFinite(value)) return "—";
   if (value >= 1_000_000_000) return `${(value / 1_000_000_000).toFixed(2)}B`;
   if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(2)}M`;
   if (value >= 1_000) return `${(value / 1_000).toFixed(1)}K`;
   return value.toString();
 }
 
-function formatDate(value: string): string {
+function formatDate(value: string | null): string {
+  if (!value) return "—";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
   return new Intl.DateTimeFormat("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" }).format(date);

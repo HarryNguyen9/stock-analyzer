@@ -1,20 +1,19 @@
 import { NextResponse } from "next/server";
-import { getCoveredWarrantsByUnderlying, getSupportedSampleUnderlyings } from "@/lib/cw/cw-provider";
+import { getCoveredWarrantsByUnderlying } from "@/lib/cw/cw-provider";
 
 export async function GET(request: Request) {
   const startedAt = Date.now();
   const { searchParams } = new URL(request.url);
-  const underlying = normalizeUnderlying(searchParams.get("underlying") ?? "FPT");
+  const underlying = normalizeUnderlying(searchParams.get("underlying") ?? "");
 
   if (!underlying) {
-    return NextResponse.json(
-      {
-        ok: false,
-        message: "Vui lòng nhập mã cơ sở.",
-        warrants: [],
-      },
-      { status: 400 },
-    );
+    return NextResponse.json({
+      ok: true,
+      underlying: "",
+      warrants: [],
+      message: "Nhập mã cơ sở để xem chứng quyền đang giao dịch.",
+      durationMs: Date.now() - startedAt,
+    });
   }
 
   const result = await getCoveredWarrantsByUnderlying(underlying);
@@ -25,7 +24,7 @@ export async function GET(request: Request) {
     warrants: result.warrants,
     source: result.source,
     updatedAt: result.updatedAt,
-    supportedSamples: getSupportedSampleUnderlyings(),
+    message: result.message,
     durationMs: Date.now() - startedAt,
   });
 }

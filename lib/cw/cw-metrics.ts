@@ -3,27 +3,32 @@ import type { CoveredWarrantMetrics, CoveredWarrantRecord, CoveredWarrantWithMet
 const millisecondsPerDay = 24 * 60 * 60 * 1000;
 
 export function calculateCoveredWarrantMetrics(warrant: CoveredWarrantRecord, today = new Date()): CoveredWarrantMetrics {
-  const daysToMaturity = Math.max(0, Math.ceil((new Date(warrant.maturityDate).getTime() - today.getTime()) / millisecondsPerDay));
-  const isCall = warrant.type.toLowerCase() !== "put";
+  const maturityTime = warrant.maturityDate ? new Date(warrant.maturityDate).getTime() : Number.NaN;
+  const daysToMaturity = Number.isFinite(maturityTime)
+    ? Math.max(0, Math.ceil((maturityTime - today.getTime()) / millisecondsPerDay))
+    : 0;
+  const isCall = warrant.type?.toLowerCase() !== "put";
   const underlyingPrice = warrant.underlyingPrice;
-  const ratio = warrant.exerciseRatio > 0 ? warrant.exerciseRatio : null;
+  const ratio = warrant.exerciseRatio !== null && warrant.exerciseRatio > 0 ? warrant.exerciseRatio : null;
+  const strikePrice = warrant.strikePrice;
+  const lastPrice = warrant.lastPrice;
   const intrinsicValue =
-    underlyingPrice !== null && ratio
-      ? Math.max(0, (isCall ? underlyingPrice - warrant.strikePrice : warrant.strikePrice - underlyingPrice) / ratio)
+    underlyingPrice !== null && ratio && strikePrice !== null
+      ? Math.max(0, (isCall ? underlyingPrice - strikePrice : strikePrice - underlyingPrice) / ratio)
       : null;
-  const timeValue = intrinsicValue === null ? null : Math.max(0, warrant.lastPrice - intrinsicValue);
-  const breakEvenPrice = ratio
+  const timeValue = intrinsicValue === null || lastPrice === null ? null : Math.max(0, lastPrice - intrinsicValue);
+  const breakEvenPrice = ratio && strikePrice !== null && lastPrice !== null
     ? isCall
-      ? warrant.strikePrice + warrant.lastPrice * ratio
-      : warrant.strikePrice - warrant.lastPrice * ratio
+      ? strikePrice + lastPrice * ratio
+      : strikePrice - lastPrice * ratio
     : null;
   const premiumPercent =
     underlyingPrice && breakEvenPrice !== null
       ? ((isCall ? breakEvenPrice - underlyingPrice : underlyingPrice - breakEvenPrice) / underlyingPrice) * 100
       : null;
   const gearing =
-    underlyingPrice && warrant.lastPrice > 0 && ratio
-      ? underlyingPrice / (warrant.lastPrice * ratio)
+    underlyingPrice && lastPrice !== null && lastPrice > 0 && ratio
+      ? underlyingPrice / (lastPrice * ratio)
       : null;
   const spreadPercent =
     warrant.bid !== null && warrant.ask !== null && warrant.bid > 0 && warrant.ask > 0
@@ -51,10 +56,10 @@ export function attachCoveredWarrantMetrics(warrants: CoveredWarrantRecord[]): C
 
 export function sortCoveredWarrants(warrants: CoveredWarrantWithMetrics[]): CoveredWarrantWithMetrics[] {
   return [...warrants].sort((a, b) => {
-    const liquidityDiff = b.volume - a.volume;
+    const liquidityDiff = (b.volume ?? 0) - (a.volume ?? 0);
     if (liquidityDiff !== 0) return liquidityDiff;
 
-    const maturityDiff = new Date(a.maturityDate).getTime() - new Date(b.maturityDate).getTime();
+    const maturityDiff = nullableTime(a.maturityDate) - nullableTime(b.maturityDate);
     if (maturityDiff !== 0) return maturityDiff;
 
     return nullableSortValue(a.metrics.premiumPercent) - nullableSortValue(b.metrics.premiumPercent);
@@ -65,3 +70,8 @@ function nullableSortValue(value: number | null): number {
   return value === null ? Number.POSITIVE_INFINITY : value;
 }
 
+function nullableTime(value: string | null): number {
+  if (!value) return Number.POSITIVE_INFINITY;
+  const time = new Date(value).getTime();
+  return Number.isFinite(time) ? time : Number.POSITIVE_INFINITY;
+}
