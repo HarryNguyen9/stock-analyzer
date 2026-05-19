@@ -151,7 +151,13 @@ export default async function StockDetailPage({ params }: StockPageProps) {
             <MetricCard label={vi.stock.candles} value={String(candles.length)} />
           </div>
 
-          <CandlestickChart data={candles} />
+          <CandlestickChart
+            data={candles}
+            supportResistance={analysis.supportResistance}
+            patterns={analysis.priceBehavior.candlestickPatterns}
+            breakHigh20={analysis.indicators.breakHigh20}
+            breakLow20={analysis.indicators.breakLow20}
+          />
 
           <ScoreBreakdownSection breakdown={analysis.scoreBreakdown} />
 

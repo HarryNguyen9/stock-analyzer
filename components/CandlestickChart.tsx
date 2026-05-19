@@ -1,49 +1,95 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import {
   CandlestickSeries,
   ColorType,
   HistogramSeries,
+  LineStyle,
   LineSeries,
   createChart,
+  createSeriesMarkers,
   type CandlestickData,
   type HistogramData,
   type LineData,
+  type SeriesMarker,
   type Time,
 } from "lightweight-charts";
 import { calculateSMA } from "@/lib/indicators";
 import { vi } from "@/lib/i18n/vi";
+import type { CandlestickPatternSignal, SupportResistance } from "@/lib/technical-analysis";
 import type { OHLCV } from "@/types/stock";
 
-export function CandlestickChart({ data }: { data: OHLCV[] }) {
+type TimeRange = "3M" | "6M" | "1Y" | "All";
+
+type ChartToggles = {
+  sma20: boolean;
+  sma50: boolean;
+  volume: boolean;
+  bollinger: boolean;
+  supportResistance: boolean;
+  patterns: boolean;
+};
+
+type CandlestickChartProps = {
+  data: OHLCV[];
+  supportResistance?: SupportResistance;
+  patterns?: CandlestickPatternSignal[];
+  breakHigh20?: boolean;
+  breakLow20?: boolean;
+};
+
+const rangeOptions: TimeRange[] = ["3M", "6M", "1Y", "All"];
+
+export function CandlestickChart({
+  data,
+  supportResistance,
+  patterns = [],
+  breakHigh20 = false,
+  breakLow20 = false,
+}: CandlestickChartProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const [range, setRange] = useState<TimeRange>(data.length < 180 ? "All" : "1Y");
+  const [toggles, setToggles] = useState<ChartToggles>({
+    sma20: true,
+    sma50: true,
+    volume: true,
+    bollinger: false,
+    supportResistance: true,
+    patterns: true,
+  });
+  const filteredData = useMemo(() => filterByRange(data, range), [data, range]);
   const chartData = useMemo<CandlestickData<Time>[]>(
     () =>
-      data.map((candle) => ({
+      filteredData.map((candle) => ({
         time: candle.date,
         open: candle.open,
         high: candle.high,
         low: candle.low,
         close: candle.close,
       })),
-    [data],
+    [filteredData],
   );
   const volumeData = useMemo<HistogramData<Time>[]>(
     () =>
-      data.map((candle) => ({
+      filteredData.map((candle) => ({
         time: candle.date,
         value: candle.volume,
-        color: candle.close >= candle.open ? "rgba(5, 150, 105, 0.35)" : "rgba(220, 38, 38, 0.35)",
+        color: candle.close >= candle.open ? "rgba(16, 185, 129, 0.34)" : "rgba(239, 68, 68, 0.34)",
       })),
-    [data],
+    [filteredData],
   );
   const candlesByDate = useMemo(
-    () => new Map(data.map((candle) => [candle.date, candle])),
-    [data],
+    () => new Map(filteredData.map((candle) => [candle.date, candle])),
+    [filteredData],
   );
-  const sma20 = useMemo(() => toLineData(data, 20), [data]);
-  const sma50 = useMemo(() => toLineData(data, 50), [data]);
+  const sma20 = useMemo(() => toLineData(filteredData, 20), [filteredData]);
+  const sma50 = useMemo(() => toLineData(filteredData, 50), [filteredData]);
+  const bollinger = useMemo(() => toBollingerData(filteredData), [filteredData]);
+  const markers = useMemo(
+    () => createChartMarkers(filteredData, patterns, breakHigh20, breakLow20),
+    [breakHigh20, breakLow20, filteredData, patterns],
+  );
 
   useEffect(() => {
     const container = containerRef.current;
@@ -66,7 +112,7 @@ export function CandlestickChart({ data }: { data: OHLCV[] }) {
     };
     const theme = getThemeOptions();
     const chart = createChart(container, {
-      height: 420,
+      height: container.clientWidth < 640 ? 360 : 520,
       width: container.clientWidth,
       layout: {
         background: { type: ColorType.Solid, color: theme.background },
@@ -81,7 +127,7 @@ export function CandlestickChart({ data }: { data: OHLCV[] }) {
         borderColor: theme.border,
         scaleMargins: {
           top: 0.06,
-          bottom: 0.28,
+          bottom: toggles.volume ? 0.28 : 0.08,
         },
       },
       timeScale: {
@@ -102,37 +148,82 @@ export function CandlestickChart({ data }: { data: OHLCV[] }) {
     });
     candleSeries.setData(chartData);
 
-    const volumeSeries = chart.addSeries(HistogramSeries, {
-      priceFormat: {
-        type: "volume",
-      },
-      priceLineVisible: false,
-      lastValueVisible: false,
-      priceScaleId: "",
-    });
-    volumeSeries.priceScale().applyOptions({
-      scaleMargins: {
-        top: 0.78,
-        bottom: 0,
-      },
-    });
-    volumeSeries.setData(volumeData);
+    if (toggles.volume) {
+      const volumeSeries = chart.addSeries(HistogramSeries, {
+        priceFormat: { type: "volume" },
+        priceLineVisible: false,
+        lastValueVisible: false,
+        priceScaleId: "",
+      });
+      volumeSeries.priceScale().applyOptions({
+        scaleMargins: {
+          top: 0.78,
+          bottom: 0,
+        },
+      });
+      volumeSeries.setData(volumeData);
+    }
 
-    const sma20Series = chart.addSeries(LineSeries, {
-      color: "#2563eb",
-      lineWidth: 2,
-      priceLineVisible: false,
-      lastValueVisible: false,
-    });
-    sma20Series.setData(sma20);
+    if (toggles.sma20) {
+      const sma20Series = chart.addSeries(LineSeries, {
+        color: "#2563eb",
+        lineWidth: 2,
+        priceLineVisible: false,
+        lastValueVisible: false,
+      });
+      sma20Series.setData(sma20);
+    }
 
-    const sma50Series = chart.addSeries(LineSeries, {
-      color: "#f59e0b",
-      lineWidth: 2,
-      priceLineVisible: false,
-      lastValueVisible: false,
-    });
-    sma50Series.setData(sma50);
+    if (toggles.sma50) {
+      const sma50Series = chart.addSeries(LineSeries, {
+        color: "#f59e0b",
+        lineWidth: 2,
+        priceLineVisible: false,
+        lastValueVisible: false,
+      });
+      sma50Series.setData(sma50);
+    }
+
+    if (toggles.bollinger) {
+      for (const line of bollinger) {
+        const series = chart.addSeries(LineSeries, {
+          color: line.color,
+          lineWidth: 1,
+          lineStyle: LineStyle.Dashed,
+          priceLineVisible: false,
+          lastValueVisible: false,
+        });
+        series.setData(line.data);
+      }
+    }
+
+    if (toggles.supportResistance && supportResistance) {
+      if (supportResistance.nearestSupport !== null) {
+        candleSeries.createPriceLine({
+          price: supportResistance.nearestSupport,
+          color: "#10b981",
+          lineWidth: 1,
+          lineStyle: LineStyle.Dashed,
+          axisLabelVisible: true,
+          title: "Support",
+        });
+      }
+
+      if (supportResistance.nearestResistance !== null) {
+        candleSeries.createPriceLine({
+          price: supportResistance.nearestResistance,
+          color: "#f97316",
+          lineWidth: 1,
+          lineStyle: LineStyle.Dashed,
+          axisLabelVisible: true,
+          title: "Resistance",
+        });
+      }
+    }
+
+    if (toggles.patterns && markers.length > 0) {
+      createSeriesMarkers(candleSeries, markers);
+    }
 
     const tooltip = document.createElement("div");
     tooltip.className =
@@ -177,7 +268,7 @@ export function CandlestickChart({ data }: { data: OHLCV[] }) {
     const resizeObserver = new ResizeObserver(([entry]) => {
       chart.applyOptions({
         width: Math.floor(entry.contentRect.width),
-        height: entry.contentRect.width < 640 ? 320 : 420,
+        height: entry.contentRect.width < 640 ? 360 : 520,
       });
       chart.timeScale().fitContent();
     });
@@ -198,7 +289,7 @@ export function CandlestickChart({ data }: { data: OHLCV[] }) {
           borderColor: nextTheme.border,
           scaleMargins: {
             top: 0.06,
-            bottom: 0.28,
+            bottom: toggles.volume ? 0.28 : 0.08,
           },
         },
         timeScale: {
@@ -217,27 +308,110 @@ export function CandlestickChart({ data }: { data: OHLCV[] }) {
       themeObserver.disconnect();
       chart.remove();
     };
-  }, [candlesByDate, chartData, sma20, sma50, volumeData]);
+  }, [
+    bollinger,
+    candlesByDate,
+    chartData,
+    markers,
+    sma20,
+    sma50,
+    supportResistance,
+    toggles,
+    volumeData,
+  ]);
 
   return (
     <section className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-950 sm:p-4">
-      <div className="mb-3 flex flex-wrap items-center gap-4 px-1 text-xs font-medium text-slate-500 dark:text-slate-400">
-        <span className="flex items-center gap-2">
-          <span className="h-2 w-4 rounded-sm bg-blue-600" aria-hidden />
-          {vi.chart.sma20}
-        </span>
-        <span className="flex items-center gap-2">
-          <span className="h-2 w-4 rounded-sm bg-amber-500" aria-hidden />
-          {vi.chart.sma50}
-        </span>
-        <span className="flex items-center gap-2">
-          <span className="h-2 w-4 rounded-sm bg-emerald-600/40" aria-hidden />
-          Volume
-        </span>
+      <div className="space-y-3">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {rangeOptions.map((option) => (
+              <button
+                key={option}
+                type="button"
+                onClick={() => setRange(option)}
+                className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                  range === option
+                    ? "bg-slate-950 text-white dark:bg-white dark:text-slate-950"
+                    : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+                }`}
+              >
+                {option}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <ToggleButton active={toggles.sma20} label="SMA20" onClick={() => toggle("sma20", setToggles)} />
+            <ToggleButton active={toggles.sma50} label="SMA50" onClick={() => toggle("sma50", setToggles)} />
+            <ToggleButton active={toggles.volume} label="Volume" onClick={() => toggle("volume", setToggles)} />
+            <ToggleButton active={toggles.bollinger} label="Bollinger" onClick={() => toggle("bollinger", setToggles)} />
+            <ToggleButton active={toggles.supportResistance} label="S/R" onClick={() => toggle("supportResistance", setToggles)} />
+            <ToggleButton active={toggles.patterns} label="Patterns" onClick={() => toggle("patterns", setToggles)} />
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-4 px-1 text-xs font-medium text-slate-500 dark:text-slate-400">
+          {toggles.sma20 ? (
+            <span className="flex items-center gap-2">
+              <span className="h-2 w-4 rounded-sm bg-blue-600" aria-hidden />
+              {vi.chart.sma20}
+            </span>
+          ) : null}
+          {toggles.sma50 ? (
+            <span className="flex items-center gap-2">
+              <span className="h-2 w-4 rounded-sm bg-amber-500" aria-hidden />
+              {vi.chart.sma50}
+            </span>
+          ) : null}
+          {toggles.volume ? (
+            <span className="flex items-center gap-2">
+              <span className="h-2 w-4 rounded-sm bg-emerald-600/40" aria-hidden />
+              Volume
+            </span>
+          ) : null}
+        </div>
       </div>
-      <div ref={containerRef} className="relative h-80 w-full sm:h-[420px]" />
+      <div ref={containerRef} className="relative mt-3 h-[360px] w-full sm:h-[520px]" />
     </section>
   );
+}
+
+function ToggleButton({
+  active,
+  label,
+  onClick,
+}: {
+  active: boolean;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+        active
+          ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
+          : "bg-slate-100 text-slate-500 hover:bg-slate-200 dark:bg-slate-900 dark:text-slate-400 dark:hover:bg-slate-800"
+      }`}
+    >
+      {label}
+    </button>
+  );
+}
+
+function toggle(key: keyof ChartToggles, setToggles: Dispatch<SetStateAction<ChartToggles>>) {
+  setToggles((current) => ({
+    ...current,
+    [key]: !current[key],
+  }));
+}
+
+function filterByRange(data: OHLCV[], range: TimeRange): OHLCV[] {
+  if (range === "All") return data;
+  const days = range === "3M" ? 66 : range === "6M" ? 132 : 252;
+  return data.slice(-days);
 }
 
 function toLineData(data: OHLCV[], period: number): LineData<Time>[] {
@@ -250,6 +424,76 @@ function toLineData(data: OHLCV[], period: number): LineData<Time>[] {
     const value = sma[index];
     return value === null ? [] : [{ time: candle.date, value }];
   });
+}
+
+function toBollingerData(data: OHLCV[]): Array<{ color: string; data: LineData<Time>[] }> {
+  const period = 20;
+  const closes = data.map((candle) => candle.close);
+  const upper: LineData<Time>[] = [];
+  const middle: LineData<Time>[] = [];
+  const lower: LineData<Time>[] = [];
+
+  for (let index = 0; index < data.length; index += 1) {
+    if (index < period - 1) continue;
+    const window = closes.slice(index - period + 1, index + 1);
+    const average = window.reduce((total, value) => total + value, 0) / period;
+    const variance = window.reduce((total, value) => total + (value - average) ** 2, 0) / period;
+    const deviation = Math.sqrt(variance);
+    const time = data[index].date;
+
+    upper.push({ time, value: average + deviation * 2 });
+    middle.push({ time, value: average });
+    lower.push({ time, value: average - deviation * 2 });
+  }
+
+  return [
+    { color: "rgba(99, 102, 241, 0.8)", data: upper },
+    { color: "rgba(148, 163, 184, 0.7)", data: middle },
+    { color: "rgba(99, 102, 241, 0.8)", data: lower },
+  ];
+}
+
+function createChartMarkers(
+  data: OHLCV[],
+  patterns: CandlestickPatternSignal[],
+  breakHigh20: boolean,
+  breakLow20: boolean,
+): SeriesMarker<Time>[] {
+  const dates = new Set(data.map((candle) => candle.date));
+  const patternMarkers = patterns
+    .filter((pattern) => dates.has(pattern.detectedAt))
+    .slice(0, 8)
+    .map<SeriesMarker<Time>>((pattern) => ({
+      time: pattern.detectedAt,
+      position: pattern.sentiment === "bearish" ? "aboveBar" : "belowBar",
+      color: pattern.sentiment === "bearish" ? "#ef4444" : pattern.sentiment === "bullish" ? "#10b981" : "#94a3b8",
+      shape: pattern.sentiment === "bearish" ? "arrowDown" : pattern.sentiment === "bullish" ? "arrowUp" : "circle",
+      text: pattern.labelVi,
+    }));
+  const latest = data[data.length - 1];
+  const signalMarkers: SeriesMarker<Time>[] = [];
+
+  if (latest && breakHigh20) {
+    signalMarkers.push({
+      time: latest.date,
+      position: "aboveBar",
+      color: "#10b981",
+      shape: "arrowUp",
+      text: "Breakout",
+    });
+  }
+
+  if (latest && breakLow20) {
+    signalMarkers.push({
+      time: latest.date,
+      position: "belowBar",
+      color: "#ef4444",
+      shape: "arrowDown",
+      text: "Breakdown",
+    });
+  }
+
+  return [...patternMarkers, ...signalMarkers].slice(-10);
 }
 
 function formatPrice(value: number): string {
