@@ -6,9 +6,12 @@ import { analyzePatterns } from "@/lib/technical-analysis/patterns";
 import { analyzeRisk } from "@/lib/technical-analysis/risk";
 import { calculateTechnicalScore } from "@/lib/technical-analysis/score";
 import { createMethodSummaries } from "@/lib/technical-analysis/method-summaries";
+import { analyzeMarketStructure } from "@/lib/technical-analysis/market-structure";
+import { analyzeMultiTimeframe } from "@/lib/technical-analysis/multi-timeframe";
 import { analyzeSupportResistance } from "@/lib/technical-analysis/support-resistance";
 import { buildTechnicalThesis } from "@/lib/technical-analysis/thesis";
 import { analyzeTrend } from "@/lib/technical-analysis/trend";
+import { analyzeTrendQuality } from "@/lib/technical-analysis/trend-quality";
 import type { AnalysisContext, TechnicalAnalysisResult, TechnicalIndicators } from "@/lib/technical-analysis/types";
 import { analyzeVolume } from "@/lib/technical-analysis/volume";
 import { analyzeVolatility } from "@/lib/technical-analysis/volatility";
@@ -95,11 +98,17 @@ export function generateTechnicalAnalysis(candles: OHLCV[]): TechnicalAnalysisRe
     candlestickPatterns: analyzeCandlestickPatterns(candles),
     wyckoffLite: analyzeWyckoffPhase(candles, context.volumes, indicators),
   };
+  const priceAction = {
+    marketStructure: analyzeMarketStructure(candles),
+    multiTimeframe: analyzeMultiTimeframe(candles, indicators),
+    trendQuality: analyzeTrendQuality(candles, indicators),
+  };
 
   const analysisWithoutThesis: Omit<TechnicalAnalysisResult, "thesis"> = {
     indicators,
     patterns: candlestickPatterns,
     priceBehavior,
+    priceAction,
     supportResistance,
     methodSummaries,
     signals,
@@ -157,11 +166,16 @@ export type {
   CandlestickPatterns,
   CandlestickPatternSignal,
   MethodSummary,
+  MarketStructure,
+  MultiTimeframeAnalysis,
   PatternConfidence,
   PriceBehaviorAnalysis,
+  PriceActionCore,
   SupportResistance,
   TechnicalSetupType,
   TechnicalThesis,
+  TimeframeTrend,
+  TrendQualityAnalysis,
   WyckoffLiteAnalysis,
   WyckoffPhaseGuess,
   TechnicalAnalysisResult,

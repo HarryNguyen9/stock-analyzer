@@ -124,6 +124,38 @@ export type PriceBehaviorAnalysis = {
   wyckoffLite: WyckoffLiteAnalysis;
 };
 
+export type MarketStructure = {
+  structureType: "uptrend" | "downtrend" | "range" | "transition" | "unclear";
+  shortTermBias: SignalSentiment;
+  keySwingHigh: number | null;
+  keySwingLow: number | null;
+  lastBreakType: "breakout" | "breakdown" | "none";
+  summaryVi: string;
+};
+
+export type TimeframeTrend = "bullish" | "neutral" | "bearish" | "insufficient";
+
+export type MultiTimeframeAnalysis = {
+  shortTermTrend: TimeframeTrend;
+  midTermTrend: TimeframeTrend;
+  longTermTrend: TimeframeTrend;
+  alignment: "aligned_bullish" | "aligned_bearish" | "mixed";
+  summaryVi: string;
+};
+
+export type TrendQualityAnalysis = {
+  quality: "clean" | "choppy" | "weak" | "volatile";
+  score: number;
+  reasons: string[];
+  summaryVi: string;
+};
+
+export type PriceActionCore = {
+  marketStructure: MarketStructure;
+  multiTimeframe: MultiTimeframeAnalysis;
+  trendQuality: TrendQualityAnalysis;
+};
+
 export type SupportResistance = {
   nearestSupport: number | null;
   nearestResistance: number | null;
@@ -177,6 +209,7 @@ export type TechnicalAnalysisResult = {
   indicators: TechnicalIndicators;
   patterns: CandlestickPatterns;
   priceBehavior: PriceBehaviorAnalysis;
+  priceAction: PriceActionCore;
   supportResistance: SupportResistance;
   methodSummaries: MethodSummary[];
   thesis: TechnicalThesis;

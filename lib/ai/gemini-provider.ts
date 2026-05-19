@@ -223,6 +223,7 @@ function buildPromptContext(input: AiTechnicalInput) {
     methodSummaries: input.methodSummaries,
     technicalThesis: input.technicalThesis,
     priceBehavior: input.priceBehavior,
+    priceAction: input.priceAction,
     interpretationGuardVi:
       "Khi diễn giải mẫu nến và Wyckoff-lite, dùng wording thận trọng như nghiêng về, có dấu hiệu, chưa đủ xác nhận; không kết luận chắc chắn.",
     dataUpdatedAt: input.dataUpdatedAt,

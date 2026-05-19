@@ -16,7 +16,7 @@ import { STOCKS } from "@/data/symbols";
 import { round } from "@/lib/indicators";
 import { vi } from "@/lib/i18n/vi";
 import { categoryLabelsVi } from "@/lib/signals";
-import type { MethodSummary, PriceBehaviorAnalysis, Signal, SignalCategory, TechnicalThesis } from "@/lib/technical-analysis";
+import type { MethodSummary, PriceActionCore, PriceBehaviorAnalysis, Signal, SignalCategory, TechnicalThesis } from "@/lib/technical-analysis";
 import { getSetupLabel, getTrendBiasLabel } from "@/lib/technical-analysis/thesis";
 import { getConfidenceLabel, getWyckoffPhaseLabel } from "@/lib/technical-analysis/wyckoff-lite";
 import type { ScoreBreakdown } from "@/lib/technical-analysis/types";
@@ -166,6 +166,8 @@ export default async function StockDetailPage({ params }: StockPageProps) {
           <ScoreBreakdownSection breakdown={analysis.scoreBreakdown} />
 
           <TechnicalThesisSection thesis={analysis.thesis} />
+
+          <PriceActionSection analysis={analysis.priceAction} />
 
           <PriceBehaviorSection analysis={analysis.priceBehavior} />
 
@@ -427,6 +429,127 @@ function getThesisBiasClass(trendBias: TechnicalThesis["trendBias"]): string {
 }
 
 function formatThesisLevel(value: number | null): string {
+  return value === null ? vi.stock.notAvailable : value.toFixed(2);
+}
+
+function PriceActionSection({ analysis }: { analysis: PriceActionCore }) {
+  return (
+    <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <div>
+        <h2 className="text-lg font-semibold text-slate-950 dark:text-white">Price Action</h2>
+        <p className="mt-1 text-sm leading-6 text-slate-600 dark:text-slate-400">
+          Đọc cấu trúc giá, đa khung thời gian và chất lượng xu hướng từ dữ liệu nến hiện có.
+        </p>
+      </div>
+
+      <div className="mt-5 grid gap-4 md:grid-cols-3">
+        <article className="rounded-lg border border-slate-100 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950">
+          <div className="flex items-start justify-between gap-3">
+            <h3 className="text-sm font-semibold text-slate-950 dark:text-white">Cấu trúc giá</h3>
+            <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${getBehaviorSentimentClass(analysis.marketStructure.shortTermBias)}`}>
+              {getBehaviorSentimentLabel(analysis.marketStructure.shortTermBias)}
+            </span>
+          </div>
+          <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
+            {analysis.marketStructure.summaryVi}
+          </p>
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <MiniData label="Dạng" value={getStructureTypeLabel(analysis.marketStructure.structureType)} />
+            <MiniData label="Phá vỡ" value={getBreakTypeLabel(analysis.marketStructure.lastBreakType)} />
+            <MiniData label="Swing high" value={formatPriceActionLevel(analysis.marketStructure.keySwingHigh)} />
+            <MiniData label="Swing low" value={formatPriceActionLevel(analysis.marketStructure.keySwingLow)} />
+          </div>
+        </article>
+
+        <article className="rounded-lg border border-slate-100 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950">
+          <div className="flex items-start justify-between gap-3">
+            <h3 className="text-sm font-semibold text-slate-950 dark:text-white">Đa khung thời gian</h3>
+            <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold text-slate-600 dark:bg-slate-900 dark:text-slate-300">
+              {getAlignmentLabel(analysis.multiTimeframe.alignment)}
+            </span>
+          </div>
+          <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
+            {analysis.multiTimeframe.summaryVi}
+          </p>
+          <div className="mt-3 grid gap-2">
+            <MiniData label="20 phiên" value={getTimeframeTrendLabel(analysis.multiTimeframe.shortTermTrend)} />
+            <MiniData label="50 phiên" value={getTimeframeTrendLabel(analysis.multiTimeframe.midTermTrend)} />
+            <MiniData label="200 phiên" value={getTimeframeTrendLabel(analysis.multiTimeframe.longTermTrend)} />
+          </div>
+        </article>
+
+        <article className="rounded-lg border border-slate-100 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950">
+          <div className="flex items-start justify-between gap-3">
+            <h3 className="text-sm font-semibold text-slate-950 dark:text-white">Chất lượng xu hướng</h3>
+            <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold text-slate-600 dark:bg-slate-900 dark:text-slate-300">
+              {analysis.trendQuality.score}/100
+            </span>
+          </div>
+          <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
+            {analysis.trendQuality.summaryVi}
+          </p>
+          <div className="mt-3 rounded-lg bg-white p-3 dark:bg-slate-900">
+            <p className="text-sm font-semibold text-slate-950 dark:text-white">
+              {getTrendQualityLabel(analysis.trendQuality.quality)}
+            </p>
+            <ul className="mt-2 space-y-1.5">
+              {analysis.trendQuality.reasons.slice(0, 3).map((reason) => (
+                <li key={reason} className="text-sm leading-5 text-slate-600 dark:text-slate-300">
+                  {reason}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </article>
+      </div>
+    </section>
+  );
+}
+
+function MiniData({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg bg-white p-2 dark:bg-slate-900">
+      <p className="text-[11px] text-slate-500 dark:text-slate-400">{label}</p>
+      <p className="mt-0.5 text-sm font-semibold text-slate-950 dark:text-white">{value}</p>
+    </div>
+  );
+}
+
+function getStructureTypeLabel(value: PriceActionCore["marketStructure"]["structureType"]): string {
+  if (value === "uptrend") return "Tăng";
+  if (value === "downtrend") return "Giảm";
+  if (value === "range") return "Đi ngang";
+  if (value === "transition") return "Chuyển pha";
+  return "Chưa rõ";
+}
+
+function getBreakTypeLabel(value: PriceActionCore["marketStructure"]["lastBreakType"]): string {
+  if (value === "breakout") return "Breakout";
+  if (value === "breakdown") return "Breakdown";
+  return "Chưa có";
+}
+
+function getTimeframeTrendLabel(value: PriceActionCore["multiTimeframe"]["shortTermTrend"]): string {
+  if (value === "bullish") return "Tích cực";
+  if (value === "bearish") return "Yếu";
+  if (value === "neutral") return "Trung lập";
+  return "Thiếu dữ liệu";
+}
+
+function getAlignmentLabel(value: PriceActionCore["multiTimeframe"]["alignment"]): string {
+  if (value === "aligned_bullish") return "Đồng thuận tăng";
+  if (value === "aligned_bearish") return "Đồng thuận yếu";
+  return "Pha trộn";
+}
+
+function getTrendQualityLabel(value: PriceActionCore["trendQuality"]["quality"]): string {
+  if (value === "clean") return "Xu hướng sạch";
+  if (value === "volatile") return "Biến động cao";
+  if (value === "choppy") return "Còn nhiễu";
+  return "Yếu";
+}
+
+function formatPriceActionLevel(value: number | null): string {
   return value === null ? vi.stock.notAvailable : value.toFixed(2);
 }
 

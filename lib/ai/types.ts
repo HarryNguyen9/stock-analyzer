@@ -1,6 +1,7 @@
 import type {
   MethodSummary,
   PriceBehaviorAnalysis,
+  PriceActionCore,
   Signal,
   SupportResistance,
   TechnicalIndicators,
@@ -34,6 +35,7 @@ export type AiTechnicalInput = {
   methodSummaries: Pick<MethodSummary, "key" | "titleVi" | "conclusionVi" | "tone">[];
   technicalThesis: TechnicalThesis;
   priceBehavior: PriceBehaviorAnalysis;
+  priceAction: PriceActionCore;
   status: string;
   topSignals: Pick<Signal, "code" | "labelVi" | "descriptionVi" | "sentiment" | "strength" | "priority">[];
   dataUpdatedAt: string | null;

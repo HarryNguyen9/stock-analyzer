@@ -14,6 +14,7 @@ export function createFallbackTechnicalAnalysis(input: AiTechnicalInput): AiTech
     .slice(0, 2)
     .map((summary) => `${summary.titleVi}: ${summary.conclusionVi}`);
   const behaviorPoint = createBehaviorPoint(input);
+  const priceActionPoint = createPriceActionPoint(input);
 
   return {
     summary: `${input.symbol} đang ở trạng thái ${input.status.toLowerCase()} với điểm kỹ thuật ${technicalScoreText}. Biến động gần nhất là ${formatSigned(input.changePercent)}%.`,
@@ -32,6 +33,7 @@ export function createFallbackTechnicalAnalysis(input: AiTechnicalInput): AiTech
     watchPoints: [
       input.technicalThesis.shortSummaryVi,
       behaviorPoint,
+      priceActionPoint,
       `Theo dõi khả năng duy trì điểm kỹ thuật quanh vùng ${technicalScoreText}.`,
       supportText,
       ...methodWatchPoints,
@@ -46,6 +48,10 @@ export function createFallbackTechnicalAnalysis(input: AiTechnicalInput): AiTech
       aiSummaryScore: input.technicalScore,
     },
   };
+}
+
+function createPriceActionPoint(input: AiTechnicalInput): string {
+  return `Price Action: ${input.priceAction.marketStructure.summaryVi} ${input.priceAction.trendQuality.summaryVi}`;
 }
 
 function createBehaviorPoint(input: AiTechnicalInput): string {
