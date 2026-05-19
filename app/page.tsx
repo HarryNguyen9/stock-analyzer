@@ -2,6 +2,7 @@ import { DataStatusPanel } from "@/components/DataStatusPanel";
 import { MarketScanner } from "@/components/MarketScanner";
 import { MarketBreadth } from "@/components/MarketBreadth";
 import { MarketAlerts } from "@/components/MarketAlerts";
+import { HomeTabs } from "@/components/HomeTabs";
 import { NotificationCenter } from "@/components/NotificationCenter";
 import { SectorHeatmap } from "@/components/SectorHeatmap";
 import { StockSearchList } from "@/components/StockSearchList";
@@ -16,7 +17,13 @@ import {
   readSectorHeatmapSnapshot,
 } from "@/lib/pipeline/snapshot";
 
-export default async function Home() {
+export default async function Home({
+  searchParams,
+}: {
+  searchParams?: Promise<{ tab?: string | string[] }>;
+}) {
+  const query = await searchParams;
+  const initialTab = getInitialTab(query?.tab);
   const [stocks, dataFreshness] = await Promise.all([
     getStockSummaries(),
     getDataFreshness(),
@@ -75,12 +82,24 @@ export default async function Home() {
         </div>
       </section>
 
-      <MarketScanner stocks={stocks} snapshotGroups={mergedScannerSnapshot} />
-      <MarketAlerts alerts={marketAlerts} />
-      <MarketBreadth breadth={marketBreadth} />
-      <SectorHeatmap sectors={sectorHeatmap} />
-      <StockSearchList stocks={stocks} hasDataError={hasDataError} />
-      <NotificationCenter stocks={stocks} />
+      <HomeTabs
+        initialTab={initialTab}
+        discover={
+          <>
+            <MarketScanner stocks={stocks} snapshotGroups={mergedScannerSnapshot} />
+            <MarketAlerts alerts={marketAlerts} />
+            <MarketBreadth breadth={marketBreadth} />
+            <SectorHeatmap sectors={sectorHeatmap} />
+            <NotificationCenter stocks={stocks} />
+          </>
+        }
+        search={<StockSearchList stocks={stocks} hasDataError={hasDataError} />}
+      />
     </main>
   );
+}
+
+function getInitialTab(tab: string | string[] | undefined): "discover" | "search" {
+  const value = Array.isArray(tab) ? tab[0] : tab;
+  return value === "search" ? "search" : "discover";
 }

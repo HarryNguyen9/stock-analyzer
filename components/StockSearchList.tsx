@@ -33,7 +33,7 @@ export function StockSearchList({
 
   return (
     <section className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-      <div className="sticky top-0 z-30 -mx-4 border-b border-slate-200 bg-slate-50/95 px-4 pb-4 pt-2 backdrop-blur dark:border-slate-800 dark:bg-slate-950/90 sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:px-0 sm:pb-0 sm:pt-0 sm:dark:bg-transparent">
+      <div className="sticky top-[57px] z-30 -mx-4 border-b border-slate-200 bg-slate-50/95 px-4 pb-4 pt-2 backdrop-blur dark:border-slate-800 dark:bg-slate-950/90 sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:px-0 sm:pb-0 sm:pt-0 sm:dark:bg-transparent">
         <label htmlFor="stock-search" className="text-sm font-semibold text-slate-950 dark:text-white">
           {vi.home.searchLabel}
         </label>
