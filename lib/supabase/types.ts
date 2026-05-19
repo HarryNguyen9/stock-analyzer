@@ -234,6 +234,57 @@ export type Database = {
         };
         Relationships: [];
       };
+      covered_warrants: {
+        Row: {
+          symbol: string;
+          underlying_symbol: string;
+          issuer: string;
+          type: string;
+          strike_price: number;
+          exercise_ratio: number;
+          maturity_date: string;
+          last_price: number;
+          bid: number | null;
+          ask: number | null;
+          volume: number;
+          open_interest: number | null;
+          is_active: boolean;
+          updated_at: string;
+        };
+        Insert: {
+          symbol: string;
+          underlying_symbol: string;
+          issuer: string;
+          type?: string;
+          strike_price: number;
+          exercise_ratio: number;
+          maturity_date: string;
+          last_price: number;
+          bid?: number | null;
+          ask?: number | null;
+          volume?: number;
+          open_interest?: number | null;
+          is_active?: boolean;
+          updated_at?: string;
+        };
+        Update: {
+          symbol?: string;
+          underlying_symbol?: string;
+          issuer?: string;
+          type?: string;
+          strike_price?: number;
+          exercise_ratio?: number;
+          maturity_date?: string;
+          last_price?: number;
+          bid?: number | null;
+          ask?: number | null;
+          volume?: number;
+          open_interest?: number | null;
+          is_active?: boolean;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: {};
     Functions: {};

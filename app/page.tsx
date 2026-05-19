@@ -1,29 +1,32 @@
+import { CoveredWarrantsPanel } from "@/components/CoveredWarrantsPanel";
 import { DataStatusPanel } from "@/components/DataStatusPanel";
-import { MarketScanner } from "@/components/MarketScanner";
-import { MarketBreadth } from "@/components/MarketBreadth";
-import { MarketAlerts } from "@/components/MarketAlerts";
-import { MarketNarrativeCard } from "@/components/MarketNarrativeCard";
 import { HomeTabs } from "@/components/HomeTabs";
+import { MarketAlerts } from "@/components/MarketAlerts";
+import { MarketBreadth } from "@/components/MarketBreadth";
+import { MarketNarrativeCard } from "@/components/MarketNarrativeCard";
+import { MarketProductTabs } from "@/components/MarketProductTabs";
+import { MarketScanner } from "@/components/MarketScanner";
 import { SectorHeatmap } from "@/components/SectorHeatmap";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { vi } from "@/lib/i18n/vi";
 import { getDataFreshness } from "@/lib/data-source/prices";
 import type { DataFreshnessResult } from "@/lib/data-source/provider";
-import { readHomeScannerSnapshot } from "@/lib/scanner/snapshot";
+import { vi } from "@/lib/i18n/vi";
+import { buildMarketNarrative } from "@/lib/market/narrative";
 import {
   readMarketAlertsSnapshot,
   readMarketBreadthSnapshot,
   readSectorHeatmapSnapshot,
 } from "@/lib/pipeline/snapshot";
-import { buildMarketNarrative } from "@/lib/market/narrative";
+import { readHomeScannerSnapshot } from "@/lib/scanner/snapshot";
 
 export default async function Home({
   searchParams,
 }: {
-  searchParams?: Promise<{ tab?: string | string[] }>;
+  searchParams?: Promise<{ tab?: string | string[]; product?: string | string[] }>;
 }) {
   const query = await searchParams;
   const initialTab = getInitialTab(query?.tab);
+  const initialProduct = getInitialProduct(query?.product);
   const emptyFreshness: DataFreshnessResult = { status: "empty", updatedAt: null };
   const [dataFreshness, mergedScannerSnapshot, sectorHeatmap, marketBreadth, marketAlerts] = await Promise.all([
     timedSnapshot("dataFreshness", getDataFreshness(), emptyFreshness),
@@ -90,17 +93,23 @@ export default async function Home({
         </div>
       </section>
 
-      <HomeTabs
-        initialTab={initialTab}
-        discover={
-          <>
-            {marketNarrative ? <MarketNarrativeCard narrative={marketNarrative} /> : null}
-            <MarketScanner stocks={[]} snapshotGroups={mergedScannerSnapshot} />
-            <MarketAlerts alerts={marketAlerts} />
-            {marketBreadth ? <MarketBreadth breadth={marketBreadth} /> : <SnapshotEmptyState title="Độ rộng thị trường" />}
-            <SectorHeatmap sectors={sectorHeatmap} />
-          </>
+      <MarketProductTabs
+        initialProduct={initialProduct}
+        stocks={
+          <HomeTabs
+            initialTab={initialTab}
+            discover={
+              <>
+                {marketNarrative ? <MarketNarrativeCard narrative={marketNarrative} /> : null}
+                <MarketScanner stocks={[]} snapshotGroups={mergedScannerSnapshot} />
+                <MarketAlerts alerts={marketAlerts} />
+                {marketBreadth ? <MarketBreadth breadth={marketBreadth} /> : <SnapshotEmptyState title="Độ rộng thị trường" />}
+                <SectorHeatmap sectors={sectorHeatmap} />
+              </>
+            }
+          />
         }
+        coveredWarrants={<CoveredWarrantsPanel active />}
       />
     </main>
   );
@@ -109,6 +118,11 @@ export default async function Home({
 function getInitialTab(tab: string | string[] | undefined): "discover" | "search" {
   const value = Array.isArray(tab) ? tab[0] : tab;
   return value === "search" ? "search" : "discover";
+}
+
+function getInitialProduct(product: string | string[] | undefined): "stocks" | "covered-warrants" {
+  const value = Array.isArray(product) ? product[0] : product;
+  return value === "covered-warrants" ? "covered-warrants" : "stocks";
 }
 
 async function timedSnapshot<T, F>(name: string, task: Promise<T>, fallback: F, timeoutMs = 2_500): Promise<T | F> {
