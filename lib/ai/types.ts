@@ -1,4 +1,4 @@
-import type { Signal } from "@/lib/technical-analysis/types";
+import type { MethodSummary, Signal, SupportResistance, TechnicalIndicators } from "@/lib/technical-analysis/types";
 import type { StockMetadata } from "@/types/stock";
 
 export type AiAnalysisSentiment = "positive" | "neutral" | "risk";
@@ -19,6 +19,12 @@ export type AiTechnicalInput = {
   technicalScore: number;
   scoreSource: "supabase" | "runtime";
   scoreBreakdown: AiScoreBreakdownInput;
+  advancedIndicators: Pick<
+    TechnicalIndicators,
+    "ema20" | "ema50" | "ema200" | "macd" | "adx14" | "obv" | "stochasticRsi" | "bollingerBands20" | "atr14"
+  >;
+  supportResistance: SupportResistance;
+  methodSummaries: Pick<MethodSummary, "key" | "titleVi" | "conclusionVi" | "tone">[];
   status: string;
   topSignals: Pick<Signal, "code" | "labelVi" | "descriptionVi" | "sentiment" | "strength" | "priority">[];
   dataUpdatedAt: string | null;

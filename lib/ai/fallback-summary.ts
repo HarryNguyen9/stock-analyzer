@@ -9,22 +9,31 @@ export function createFallbackTechnicalAnalysis(input: AiTechnicalInput): AiTech
   const riskSignals = input.topSignals.filter((signal) => signal.sentiment === "bearish");
   const sentiment = getSentiment(input);
   const technicalScoreText = formatTechnicalScore(input.technicalScore);
+  const supportText = formatSupportResistance(input);
+  const methodWatchPoints = input.methodSummaries
+    .slice(0, 2)
+    .map((summary) => `${summary.titleVi}: ${summary.conclusionVi}`);
 
   return {
     summary: `${input.symbol} đang ở trạng thái ${input.status.toLowerCase()} với điểm kỹ thuật ${technicalScoreText}. Biến động gần nhất là ${formatSigned(input.changePercent)}%.`,
     bullishPoints:
       bullishSignals.length > 0
         ? bullishSignals.slice(0, 3).map((signal) => `${signal.labelVi}: ${signal.descriptionVi}`)
-        : ["Chưa có tín hiệu tích cực đủ mạnh, nên ưu tiên quan sát thêm xác nhận từ giá và khối lượng."],
+        : [
+            "Chưa có tín hiệu tích cực đủ mạnh, nên ưu tiên quan sát thêm xác nhận từ giá và khối lượng.",
+          ],
     riskPoints:
       riskSignals.length > 0
         ? riskSignals.slice(0, 3).map((signal) => `${signal.labelVi}: ${signal.descriptionVi}`)
-        : ["Rủi ro kỹ thuật chưa nổi bật, nhưng vẫn cần theo dõi phản ứng tại các vùng hỗ trợ/kháng cự gần nhất."],
+        : [
+            "Rủi ro kỹ thuật chưa nổi bật, nhưng vẫn cần theo dõi phản ứng tại các vùng hỗ trợ/kháng cự gần nhất.",
+          ],
     watchPoints: [
       `Theo dõi khả năng duy trì điểm kỹ thuật quanh vùng ${technicalScoreText}.`,
+      supportText,
+      ...methodWatchPoints,
       "Quan sát khối lượng trong các phiên tới để xác nhận sức mạnh của tín hiệu hiện tại.",
-      "Ưu tiên kiểm tra lại nếu xuất hiện tín hiệu breakout hoặc cảnh báo rủi ro mới.",
-    ],
+    ].slice(0, 4),
     disclaimer: DISCLAIMER,
     sentiment,
     source: "fallback",
@@ -50,6 +59,25 @@ function getSentiment(input: AiTechnicalInput): AiTechnicalAnalysis["sentiment"]
   }
 
   return "neutral";
+}
+
+function formatSupportResistance(input: AiTechnicalInput): string {
+  const support = input.supportResistance.nearestSupport;
+  const resistance = input.supportResistance.nearestResistance;
+
+  if (support !== null && resistance !== null) {
+    return `Vùng hỗ trợ gần quanh ${support.toFixed(2)}, kháng cự gần quanh ${resistance.toFixed(2)}.`;
+  }
+
+  if (support !== null) {
+    return `Vùng hỗ trợ gần quanh ${support.toFixed(2)}; chưa có kháng cự gần đủ rõ.`;
+  }
+
+  if (resistance !== null) {
+    return `Vùng kháng cự gần quanh ${resistance.toFixed(2)}; chưa có hỗ trợ gần đủ rõ.`;
+  }
+
+  return "Chưa xác định được vùng hỗ trợ/kháng cự gần đủ rõ từ dữ liệu hiện tại.";
 }
 
 function formatSigned(value: number): string {

@@ -8,11 +8,13 @@ export function analyzeTrend(context: AnalysisContext) {
   const sma200Series = sma(context.closes, 200);
   const ema20Series = ema(context.closes, 20);
   const ema50Series = ema(context.closes, 50);
+  const ema200Series = ema(context.closes, 200);
   const sma20 = latest(sma20Series);
   const sma50 = latest(sma50Series);
   const sma200 = latest(sma200Series);
   const ema20 = latest(ema20Series);
   const ema50 = latest(ema50Series);
+  const ema200 = latest(ema200Series);
   const goldenCross = crossedUp(sma20Series, sma50Series);
   const deathCross = crossedDown(sma20Series, sma50Series);
   const signals: Signal[] = [];
@@ -65,7 +67,7 @@ export function analyzeTrend(context: AnalysisContext) {
     );
   }
 
-  return { sma20, sma50, sma200, ema20, ema50, goldenCross, deathCross, signals };
+  return { sma20, sma50, sma200, ema20, ema50, ema200, goldenCross, deathCross, signals };
 }
 
 function crossedUp(fast: Array<number | null>, slow: Array<number | null>): boolean {

@@ -16,7 +16,7 @@ import { STOCKS } from "@/data/symbols";
 import { round } from "@/lib/indicators";
 import { vi } from "@/lib/i18n/vi";
 import { categoryLabelsVi } from "@/lib/signals";
-import type { Signal, SignalCategory } from "@/lib/technical-analysis";
+import type { MethodSummary, Signal, SignalCategory } from "@/lib/technical-analysis";
 import type { ScoreBreakdown } from "@/lib/technical-analysis/types";
 import type { StockMetadata } from "@/types/stock";
 
@@ -163,6 +163,8 @@ export default async function StockDetailPage({ params }: StockPageProps) {
 
           <ScoreBreakdownSection breakdown={analysis.scoreBreakdown} />
 
+          <AdvancedTechnicalSection summaries={analysis.methodSummaries} />
+
           <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
               <div>
@@ -207,8 +209,32 @@ export default async function StockDetailPage({ params }: StockPageProps) {
                 value={formatIndicator(analysis.indicators.sma50)}
               />
               <IndicatorRow
+                label="EMA20"
+                value={formatIndicator(analysis.indicators.ema20)}
+              />
+              <IndicatorRow
+                label="EMA50"
+                value={formatIndicator(analysis.indicators.ema50)}
+              />
+              <IndicatorRow
+                label="EMA200"
+                value={formatIndicator(analysis.indicators.ema200)}
+              />
+              <IndicatorRow
                 label={vi.stock.indicatorLabels.rsi14}
                 value={formatIndicator(analysis.indicators.rsi14)}
+              />
+              <IndicatorRow
+                label="MACD hist"
+                value={formatIndicator(analysis.indicators.macd.histogram)}
+              />
+              <IndicatorRow
+                label="ATR14"
+                value={formatIndicator(analysis.indicators.atr14)}
+              />
+              <IndicatorRow
+                label="ADX14"
+                value={formatIndicator(analysis.indicators.adx14)}
               />
               <IndicatorRow
                 label={vi.stock.indicatorLabels.volumeAverage20}
@@ -318,6 +344,62 @@ function ScoreBreakdownSection({ breakdown }: { breakdown: ScoreBreakdown }) {
       </div>
     </section>
   );
+}
+
+function AdvancedTechnicalSection({ summaries }: { summaries: MethodSummary[] }) {
+  return (
+    <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <div>
+        <h2 className="text-lg font-semibold text-slate-950 dark:text-white">Phân tích kỹ thuật nâng cao</h2>
+        <p className="mt-1 text-sm leading-6 text-slate-600 dark:text-slate-400">
+          Tổng hợp nhiều phương pháp phổ biến: EMA, MACD, Bollinger Bands, ATR, ADX, OBV, hỗ trợ/kháng cự và mẫu nến.
+        </p>
+      </div>
+
+      <div className="mt-5 grid gap-4 md:grid-cols-2">
+        {summaries.map((summary) => (
+          <article
+            key={summary.key}
+            className={`rounded-lg border p-4 ${getAdvancedToneClass(summary.tone)}`}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <h3 className="text-sm font-semibold">{summary.titleVi}</h3>
+              <span className="rounded-full bg-white/70 px-2 py-0.5 text-[11px] font-medium dark:bg-slate-950/50">
+                {getToneLabel(summary.tone)}
+              </span>
+            </div>
+            <p className="mt-2 text-sm leading-6 opacity-85">{summary.conclusionVi}</p>
+            <dl className="mt-3 grid grid-cols-2 gap-2">
+              {summary.items.slice(0, 4).map((item) => (
+                <div key={`${summary.key}-${item.label}`} className="rounded-lg bg-white/65 p-2 dark:bg-slate-950/40">
+                  <dt className="text-[11px] text-slate-500 dark:text-slate-400">{item.label}</dt>
+                  <dd className="mt-0.5 text-sm font-semibold tabular-nums">{item.value}</dd>
+                </div>
+              ))}
+            </dl>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function getAdvancedToneClass(tone: MethodSummary["tone"]): string {
+  if (tone === "bullish") {
+    return "border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-100";
+  }
+
+  if (tone === "bearish") {
+    return "border-rose-200 bg-rose-50 text-rose-900 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-100";
+  }
+
+  return "border-slate-200 bg-slate-50 text-slate-800 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200";
+}
+
+function getToneLabel(tone: MethodSummary["tone"]): string {
+  if (tone === "bullish") return "Tích cực";
+  if (tone === "bearish") return "Rủi ro";
+  return "Trung tính";
 }
 
 function TechnicalSignalBadge({ signal }: { signal: Signal }) {

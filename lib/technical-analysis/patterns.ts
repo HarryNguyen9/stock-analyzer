@@ -1,5 +1,5 @@
 import { createSignal } from "@/lib/signals";
-import type { AnalysisContext, Signal } from "@/lib/technical-analysis/types";
+import type { AnalysisContext, CandlestickPatterns, Signal } from "@/lib/technical-analysis/types";
 import { highest, lowest, round } from "@/lib/technical-analysis/utils";
 
 export function analyzePatterns(context: AnalysisContext) {
@@ -21,6 +21,7 @@ export function analyzePatterns(context: AnalysisContext) {
   );
   const gapUp = context.latest.low > context.previous.high;
   const gapDown = context.latest.high < context.previous.low;
+  const candlestickPatterns = detectCandlestickPatterns(context);
   const signals: Signal[] = [];
 
   if (higherHighHigherLow) {
@@ -91,5 +92,46 @@ export function analyzePatterns(context: AnalysisContext) {
     );
   }
 
-  return { higherHighHigherLow, lowerHighLowerLow, consolidationRange, gapUp, gapDown, signals };
+  return {
+    higherHighHigherLow,
+    lowerHighLowerLow,
+    consolidationRange,
+    gapUp,
+    gapDown,
+    candlestickPatterns,
+    signals,
+  };
+}
+
+function detectCandlestickPatterns(context: AnalysisContext): CandlestickPatterns {
+  const latest = context.latest;
+  const previous = context.previous;
+  const range = Math.max(latest.high - latest.low, 0.01);
+  const body = Math.abs(latest.close - latest.open);
+  const upperShadow = latest.high - Math.max(latest.open, latest.close);
+  const lowerShadow = Math.min(latest.open, latest.close) - latest.low;
+  const isGreen = latest.close >= latest.open;
+  const previousIsRed = previous.close < previous.open;
+  const previousIsGreen = previous.close >= previous.open;
+  const doji = body / range <= 0.1;
+  const hammer = lowerShadow >= body * 2 && upperShadow <= body * 0.7 && body / range <= 0.35;
+  const shootingStar = upperShadow >= body * 2 && lowerShadow <= body * 0.7 && body / range <= 0.35;
+  const bullishEngulfing =
+    previousIsRed &&
+    isGreen &&
+    latest.open <= previous.close &&
+    latest.close >= previous.open;
+  const bearishEngulfing =
+    previousIsGreen &&
+    !isGreen &&
+    latest.open >= previous.close &&
+    latest.close <= previous.open;
+
+  return {
+    doji,
+    hammer,
+    bullishEngulfing,
+    bearishEngulfing,
+    shootingStar,
+  };
 }

@@ -1,11 +1,13 @@
 import { createSignal } from "@/lib/signals";
 import type { AnalysisContext, MacdSnapshot, Signal } from "@/lib/technical-analysis/types";
-import { ema, latest, round, rsi } from "@/lib/technical-analysis/utils";
+import { average, ema, latest, round, rsi } from "@/lib/technical-analysis/utils";
 
 export function analyzeMomentum(context: AnalysisContext) {
   const rsi14 = latest(rsi(context.closes, 14));
   const macd = calculateMacd(context.closes);
   const roc10 = calculateRateOfChange(context.closes, 10);
+  const adx14 = calculateAdx(context, 14);
+  const stochasticRsi = calculateStochasticRsi(context.closes, 14);
   const signals: Signal[] = [];
 
   if (rsi14 !== null && rsi14 >= 45 && rsi14 <= 65) {
@@ -72,7 +74,7 @@ export function analyzeMomentum(context: AnalysisContext) {
     );
   }
 
-  return { rsi14, macd, roc10, signals };
+  return { rsi14, macd, roc10, adx14, stochasticRsi, signals };
 }
 
 function calculateMacd(values: number[]): MacdSnapshot {
@@ -99,4 +101,53 @@ function calculateRateOfChange(values: number[], period: number): number | null 
   const current = values[values.length - 1];
   const previous = values[values.length - 1 - period];
   return previous === 0 ? null : round(((current - previous) / previous) * 100);
+}
+
+function calculateAdx(context: AnalysisContext, period: number): number | null {
+  if (context.candles.length < period + 1) return null;
+
+  const dxValues: number[] = [];
+
+  for (let index = 1; index < context.candles.length; index += 1) {
+    const current = context.candles[index];
+    const previous = context.candles[index - 1];
+    const upMove = current.high - previous.high;
+    const downMove = previous.low - current.low;
+    const plusDm = upMove > downMove && upMove > 0 ? upMove : 0;
+    const minusDm = downMove > upMove && downMove > 0 ? downMove : 0;
+    const trueRange = Math.max(
+      current.high - current.low,
+      Math.abs(current.high - previous.close),
+      Math.abs(current.low - previous.close),
+    );
+
+    if (trueRange === 0) {
+      continue;
+    }
+
+    const plusDi = (plusDm / trueRange) * 100;
+    const minusDi = (minusDm / trueRange) * 100;
+    const diTotal = plusDi + minusDi;
+
+    if (diTotal > 0) {
+      dxValues.push((Math.abs(plusDi - minusDi) / diTotal) * 100);
+    }
+  }
+
+  return average(dxValues.slice(-period));
+}
+
+function calculateStochasticRsi(values: number[], period: number): number | null {
+  const rsiValues = rsi(values, period).filter((value): value is number => value !== null);
+
+  if (rsiValues.length < period) return null;
+
+  const slice = rsiValues.slice(-period);
+  const current = slice[slice.length - 1];
+  const min = Math.min(...slice);
+  const max = Math.max(...slice);
+
+  if (max === min) return null;
+
+  return round(((current - min) / (max - min)) * 100);
 }

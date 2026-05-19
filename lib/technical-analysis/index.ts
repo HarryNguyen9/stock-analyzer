@@ -4,6 +4,8 @@ import { analyzeMomentum } from "@/lib/technical-analysis/momentum";
 import { analyzePatterns } from "@/lib/technical-analysis/patterns";
 import { analyzeRisk } from "@/lib/technical-analysis/risk";
 import { calculateTechnicalScore } from "@/lib/technical-analysis/score";
+import { createMethodSummaries } from "@/lib/technical-analysis/method-summaries";
+import { analyzeSupportResistance } from "@/lib/technical-analysis/support-resistance";
 import { analyzeTrend } from "@/lib/technical-analysis/trend";
 import type { AnalysisContext, TechnicalAnalysisResult, TechnicalIndicators } from "@/lib/technical-analysis/types";
 import { analyzeVolume } from "@/lib/technical-analysis/volume";
@@ -29,19 +31,24 @@ export function generateTechnicalAnalysis(candles: OHLCV[]): TechnicalAnalysisRe
     volumeSpikeRatio: volume.volumeSpikeRatio,
   });
   const patterns = analyzePatterns(context);
+  const supportResistance = analyzeSupportResistance(context);
   const indicators: TechnicalIndicators = {
     sma20: trend.sma20,
     sma50: trend.sma50,
     sma200: trend.sma200,
     ema20: trend.ema20,
     ema50: trend.ema50,
+    ema200: trend.ema200,
     goldenCross: trend.goldenCross,
     deathCross: trend.deathCross,
     rsi14: momentum.rsi14,
     macd: momentum.macd,
     roc10: momentum.roc10,
+    adx14: momentum.adx14,
+    stochasticRsi: momentum.stochasticRsi,
     volumeAverage20: volume.volumeAverage20,
     volumeSpikeRatio: volume.volumeSpikeRatio,
+    obv: volume.obv,
     priceUpWithVolumeUp: volume.priceUpWithVolumeUp,
     breakoutVolumeConfirmation: volume.breakoutVolumeConfirmation,
     bollingerBands20: volatility.bollingerBands20,
@@ -61,6 +68,13 @@ export function generateTechnicalAnalysis(candles: OHLCV[]): TechnicalAnalysisRe
     gapUp: patterns.gapUp,
     gapDown: patterns.gapDown,
   };
+  const candlestickPatterns = patterns.candlestickPatterns;
+  const methodSummaries = createMethodSummaries({
+    latest: context.latest,
+    indicators,
+    patterns: candlestickPatterns,
+    supportResistance,
+  });
   const score = calculateTechnicalScore(indicators);
   const signals = topSignals(
     [
@@ -77,6 +91,9 @@ export function generateTechnicalAnalysis(candles: OHLCV[]): TechnicalAnalysisRe
 
   return {
     indicators,
+    patterns: candlestickPatterns,
+    supportResistance,
+    methodSummaries,
     signals,
     score: score.score,
     scoreBreakdown: score.breakdown,
@@ -123,6 +140,9 @@ export type {
   Signal,
   SignalCategory,
   SignalSentiment,
+  CandlestickPatterns,
+  MethodSummary,
+  SupportResistance,
   TechnicalAnalysisResult,
   TechnicalIndicators,
 } from "@/lib/technical-analysis/types";

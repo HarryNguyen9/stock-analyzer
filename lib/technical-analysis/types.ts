@@ -43,11 +43,15 @@ export type TechnicalIndicators = {
   sma200: number | null;
   ema20: number | null;
   ema50: number | null;
+  ema200: number | null;
   goldenCross: boolean;
   deathCross: boolean;
   rsi14: number | null;
   macd: MacdSnapshot;
   roc10: number | null;
+  adx14: number | null;
+  obv: number | null;
+  stochasticRsi: number | null;
   volumeAverage20: number | null;
   volumeSpikeRatio: number | null;
   priceUpWithVolumeUp: boolean;
@@ -70,6 +74,36 @@ export type TechnicalIndicators = {
   gapDown: boolean;
 };
 
+export type CandlestickPatterns = {
+  doji: boolean;
+  hammer: boolean;
+  bullishEngulfing: boolean;
+  bearishEngulfing: boolean;
+  shootingStar: boolean;
+};
+
+export type SupportResistance = {
+  nearestSupport: number | null;
+  nearestResistance: number | null;
+  high20: number | null;
+  low20: number | null;
+  high50: number | null;
+  low50: number | null;
+  distanceToSupportPercent: number | null;
+  distanceToResistancePercent: number | null;
+};
+
+export type MethodSummary = {
+  key: "trend" | "momentum" | "volume" | "volatility" | "supportResistance" | "patterns";
+  titleVi: string;
+  conclusionVi: string;
+  tone: SignalSentiment;
+  items: Array<{
+    label: string;
+    value: string;
+  }>;
+};
+
 export type ScoreBreakdown = {
   trend: number;
   momentum: number;
@@ -80,6 +114,9 @@ export type ScoreBreakdown = {
 
 export type TechnicalAnalysisResult = {
   indicators: TechnicalIndicators;
+  patterns: CandlestickPatterns;
+  supportResistance: SupportResistance;
+  methodSummaries: MethodSummary[];
   signals: Signal[];
   score: number;
   scoreBreakdown: ScoreBreakdown;

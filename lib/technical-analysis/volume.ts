@@ -5,6 +5,7 @@ import { average, round } from "@/lib/technical-analysis/utils";
 export function analyzeVolume(context: AnalysisContext, breakHigh20: boolean) {
   const volumeAverage20 = average(context.volumes.slice(-20));
   const volumeSpikeRatio = volumeAverage20 ? round(context.latest.volume / volumeAverage20, 2) : null;
+  const obv = calculateObv(context);
   const priceUpWithVolumeUp =
     context.latest.close > context.previous.close && context.latest.volume > context.previous.volume;
   const breakoutVolumeConfirmation = Boolean(breakHigh20 && volumeSpikeRatio !== null && volumeSpikeRatio >= 1.3);
@@ -42,5 +43,17 @@ export function analyzeVolume(context: AnalysisContext, breakHigh20: boolean) {
     );
   }
 
-  return { volumeAverage20, volumeSpikeRatio, priceUpWithVolumeUp, breakoutVolumeConfirmation, signals };
+  return { volumeAverage20, volumeSpikeRatio, priceUpWithVolumeUp, breakoutVolumeConfirmation, obv, signals };
+}
+
+function calculateObv(context: AnalysisContext): number | null {
+  if (context.candles.length < 2) return null;
+
+  return context.candles.slice(1).reduce((total, candle, index) => {
+    const previous = context.candles[index];
+
+    if (candle.close > previous.close) return total + candle.volume;
+    if (candle.close < previous.close) return total - candle.volume;
+    return total;
+  }, 0);
 }
