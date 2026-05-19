@@ -36,12 +36,18 @@ export function LazyStockSearchList({ active }: { active: boolean }) {
     stocks: [],
     message: null,
   });
+  const [featuredRetryKey, setFeaturedRetryKey] = useState(0);
   const [retryKey, setRetryKey] = useState(0);
   const normalizedQuery = useMemo(() => query.trim(), [query]);
-  const isSearching = normalizedQuery.length >= SEARCH_MIN_LENGTH;
-  const displayStocks = isSearching ? results.stocks : featured.stocks;
-  const displayStatus = isSearching ? results.status : featured.status;
-  const displayMessage = isSearching ? results.message : featured.message;
+  const hasQuery = normalizedQuery.length > 0;
+  const canSearch = normalizedQuery.length >= SEARCH_MIN_LENGTH;
+  const displayStocks = hasQuery ? results.stocks : featured.stocks;
+  const displayStatus = hasQuery && !canSearch ? "ready" : hasQuery ? results.status : featured.status;
+  const displayMessage = hasQuery && !canSearch
+    ? `Nhập ít nhất ${SEARCH_MIN_LENGTH} ký tự để tìm nhanh hơn.`
+    : hasQuery
+      ? results.message
+      : featured.message;
 
   useEffect(() => {
     if (!active || featured.status !== "idle") {
@@ -51,7 +57,7 @@ export function LazyStockSearchList({ active }: { active: boolean }) {
     const controller = new AbortController();
     let cancelled = false;
     void loadStocks({
-      url: `/api/symbols/search?limit=${FEATURED_LIMIT}`,
+      url: `/api/symbols/search?limit=${FEATURED_LIMIT}&featured=true`,
       controller,
       onStart: () => setFeatured({ status: "loading", stocks: [], message: null }),
       onSuccess: (stocks, payload) => {
@@ -72,7 +78,7 @@ export function LazyStockSearchList({ active }: { active: boolean }) {
       cancelled = true;
       controller.abort();
     };
-  }, [active, featured.status]);
+  }, [active, featuredRetryKey]);
 
   useEffect(() => {
     if (!active) {
@@ -84,7 +90,7 @@ export function LazyStockSearchList({ active }: { active: boolean }) {
       return;
     }
 
-    if (normalizedQuery.length < SEARCH_MIN_LENGTH) {
+    if (!canSearch) {
       setResults({
         status: "ready",
         stocks: [],
@@ -120,7 +126,7 @@ export function LazyStockSearchList({ active }: { active: boolean }) {
       window.clearTimeout(debounceId);
       controller.abort();
     };
-  }, [active, normalizedQuery, retryKey]);
+  }, [active, canSearch, normalizedQuery, retryKey]);
 
   if (!active && featured.status === "idle") {
     return null;
@@ -155,7 +161,7 @@ export function LazyStockSearchList({ active }: { active: boolean }) {
 
       <div className="mb-4 mt-5 flex items-center justify-between gap-4">
         <h2 className="text-lg font-semibold text-slate-950 dark:text-white">
-          {isSearching ? vi.home.searchResultTitle : vi.home.featuredSymbols}
+          {hasQuery ? vi.home.searchResultTitle : vi.home.featuredSymbols}
         </h2>
         <div className="text-right">
           <p className="text-sm font-medium text-slate-600 dark:text-slate-300">
@@ -168,7 +174,7 @@ export function LazyStockSearchList({ active }: { active: boolean }) {
       {displayStatus === "loading" || displayStatus === "idle" ? (
         <SearchSkeleton />
       ) : displayStatus === "error" ? (
-        <SearchError message={displayMessage ?? "Không tải được danh sách, vui lòng thử lại"} onRetry={() => retryCurrentLoad(isSearching)} />
+        <SearchError message={displayMessage ?? "Không tải được danh sách, vui lòng thử lại"} onRetry={() => retryCurrentLoad(hasQuery)} />
       ) : displayStocks.length > 0 ? (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {displayStocks.map((stock) => (
@@ -176,7 +182,7 @@ export function LazyStockSearchList({ active }: { active: boolean }) {
           ))}
         </div>
       ) : (
-        <SearchEmpty message={displayMessage} isSearching={isSearching} />
+        <SearchEmpty message={displayMessage} isSearching={hasQuery} />
       )}
     </section>
   );
@@ -189,6 +195,7 @@ export function LazyStockSearchList({ active }: { active: boolean }) {
     }
 
     setFeatured({ status: "idle", stocks: [], message: null });
+    setFeaturedRetryKey((current) => current + 1);
   }
 }
 
