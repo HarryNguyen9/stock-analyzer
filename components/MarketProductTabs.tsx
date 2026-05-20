@@ -26,10 +26,10 @@ export function MarketProductTabs({
 
   return (
     <>
-      <div className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur dark:border-slate-800 dark:bg-slate-950/95">
+      <div className="sticky top-0 z-50 border-b border-cyan-400/10 bg-[#07111f]/95 backdrop-blur-xl">
         <div className="mx-auto w-full max-w-7xl px-4 py-3 sm:px-6 lg:px-8">
-          <div className="rounded-2xl border border-slate-200/80 bg-slate-100/80 p-1.5 shadow-sm shadow-slate-200/60 backdrop-blur dark:border-cyan-400/10 dark:bg-[#07111f]/90 dark:shadow-black/20">
-            <div className="grid grid-cols-2 gap-1.5">
+          <div className="rounded-2xl border border-cyan-400/15 bg-[#0b1b31]/80 p-1.5 shadow-[0_18px_60px_rgba(2,8,23,0.28)] ring-1 ring-white/5">
+            <div className="grid grid-cols-2 gap-2">
               <ProductButton
                 active={activeProduct === "stocks"}
                 onClick={() => selectProduct("stocks")}
@@ -49,7 +49,7 @@ export function MarketProductTabs({
         </div>
       </div>
 
-      <div hidden={activeProduct !== "stocks"}>{stocks}</div>
+      <div className="bg-slate-50 dark:bg-[#07111f]" hidden={activeProduct !== "stocks"}>{stocks}</div>
       <div hidden={activeProduct !== "covered-warrants"}>
         <CoveredWarrantSubNav />
         {coveredWarrants}
@@ -73,20 +73,20 @@ function ProductButton({
     <button
       type="button"
       onClick={onClick}
-      className={`group relative min-h-12 overflow-hidden rounded-xl px-3 text-sm font-semibold transition sm:min-h-[52px] ${
+      className={`group relative min-h-14 overflow-hidden rounded-xl border px-3 text-base font-semibold transition sm:min-h-[58px] ${
         active
-          ? "bg-gradient-to-r from-emerald-500 to-cyan-500 text-white shadow-lg shadow-cyan-500/20 dark:from-emerald-400 dark:to-cyan-400 dark:text-slate-950"
-          : "text-slate-500 hover:bg-white/70 hover:text-slate-950 dark:text-slate-400 dark:hover:bg-white/5 dark:hover:text-white"
+          ? "border-cyan-300/50 bg-gradient-to-r from-cyan-500/35 to-emerald-400/25 text-white shadow-[0_0_34px_rgba(34,211,238,0.20)]"
+          : "border-transparent text-slate-400 hover:bg-white/5 hover:text-white"
       }`}
       aria-pressed={active}
     >
       {active ? <span className="absolute inset-0 bg-white/10 opacity-70" /> : null}
       <span className="relative flex items-center justify-center gap-2">
         <span
-          className={`flex h-7 w-7 items-center justify-center rounded-lg transition ${
+          className={`flex h-8 w-8 items-center justify-center rounded-lg transition ${
             active
-              ? "bg-white/20 text-white dark:bg-slate-950/10 dark:text-slate-950"
-              : "bg-slate-200/70 text-slate-500 group-hover:text-slate-800 dark:bg-slate-800 dark:text-slate-400 dark:group-hover:text-white"
+              ? "bg-cyan-300/15 text-cyan-100"
+              : "bg-white/5 text-slate-400 group-hover:text-white"
           }`}
         >
           {icon}
@@ -99,12 +99,12 @@ function ProductButton({
 
 function CoveredWarrantSubNav() {
   return (
-    <div className="sticky top-[78px] z-40 border-b border-slate-200 bg-white/90 backdrop-blur dark:border-slate-800 dark:bg-slate-950/90">
-      <div className="mx-auto flex w-full max-w-7xl gap-2 overflow-x-auto px-4 py-2 sm:px-6 lg:px-8">
-        <span className="inline-flex min-h-9 items-center rounded-full bg-cyan-50 px-4 text-sm font-semibold text-cyan-700 ring-1 ring-cyan-200 dark:bg-cyan-950/40 dark:text-cyan-300 dark:ring-cyan-900">
+    <div className="sticky top-[85px] z-40 border-b border-cyan-400/10 bg-[#07111f]/90 backdrop-blur-xl">
+      <div className="mx-auto flex w-full max-w-7xl gap-3 overflow-x-auto px-4 py-2 sm:px-6 lg:px-8 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <span className="inline-flex min-h-9 items-center rounded-full border border-cyan-300/35 bg-cyan-400/10 px-4 text-sm font-semibold text-cyan-200">
           So sánh
         </span>
-        <span className="inline-flex min-h-9 items-center rounded-full px-4 text-sm font-semibold text-slate-500 dark:text-slate-400">
+        <span className="inline-flex min-h-9 items-center rounded-full px-4 text-sm font-semibold text-slate-400">
           Tìm mã cơ sở
         </span>
       </div>

@@ -35,7 +35,7 @@ export function ThemeToggle() {
 
   return (
     <div
-      className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white p-1 shadow-sm dark:border-slate-800 dark:bg-slate-900"
+      className="inline-flex items-center gap-2 rounded-2xl border border-cyan-400/15 bg-[#0b1b31] p-1.5 shadow-[0_14px_40px_rgba(2,8,23,0.16)]"
       aria-label={vi.theme.select}
     >
       {MODES.map((item) => (
@@ -45,10 +45,10 @@ export function ThemeToggle() {
           onClick={() => selectTheme(item)}
           aria-label={vi.theme[item]}
           title={vi.theme[item]}
-          className={`grid h-9 w-9 place-items-center rounded-md transition ${
+          className={`grid h-11 w-11 place-items-center rounded-xl transition ${
             mode === item
-              ? "bg-slate-950 text-white shadow-sm dark:bg-white dark:text-slate-950"
-              : "text-slate-500 hover:bg-slate-100 hover:text-slate-950 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white"
+              ? "border border-cyan-300/70 bg-cyan-400/10 text-cyan-200 shadow-[0_0_24px_rgba(34,211,238,0.18)]"
+              : "border border-transparent text-slate-400 hover:bg-white/5 hover:text-white"
           }`}
         >
           <ThemeIcon mode={item} />
