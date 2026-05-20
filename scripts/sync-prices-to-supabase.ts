@@ -7,6 +7,7 @@ import {
   DEFAULT_RECENT_SYNC_CANDLE_LIMIT,
   TARGET_STOCK_PRICE_CANDLES,
 } from "../lib/data-source/constants";
+import { updateIntradayCandleForSymbol } from "../lib/data-source/intraday";
 import { vnstockProvider } from "../lib/data-source/vnstock-provider";
 import { createSupabaseAdminClient } from "../lib/supabase/admin";
 import type { Database } from "../lib/supabase/types";
@@ -44,6 +45,10 @@ export type SyncPricesResult = {
   failedSymbols: string[];
   stoppedEarly: boolean;
   stopReason: "time_guard" | null;
+  intradayUpdated: number;
+  intradaySkipped: number;
+  intradayProviderUsed: "vnstock_intraday" | null;
+  latestTradingDate: string | null;
 };
 
 export type SyncSymbolResult = {
@@ -60,6 +65,7 @@ export type SyncSymbolResult = {
 type SyncSingleSymbolOptions = {
   skipIfFetchedOlderThanExisting?: boolean;
   candleLimit?: number;
+  updateIntraday?: boolean;
 };
 
 export type SyncFailedSymbol = {
@@ -106,6 +112,10 @@ export async function syncPricesToSupabase(
     failedSymbols: importedSymbols === targets.length ? [] : symbols,
     stoppedEarly: false,
     stopReason: null,
+    intradayUpdated: 0,
+    intradaySkipped: 0,
+    intradayProviderUsed: null,
+    latestTradingDate: null,
   };
 }
 
@@ -121,6 +131,9 @@ async function syncPricesDirectlyToSupabase(
   const failedSymbols: string[] = [];
   const failedTemporary: SyncFailedSymbol[] = [];
   const failedUnsupported: SyncFailedSymbol[] = [];
+  let intradayUpdated = 0;
+  let intradaySkipped = 0;
+  let latestTradingDate: string | null = null;
 
   for (const target of targets) {
     if (options.shouldStop?.()) {
@@ -133,6 +146,14 @@ async function syncPricesDirectlyToSupabase(
       const prices = await vnstockProvider.getDailyPrices(target.symbol, DEFAULT_RECENT_SYNC_CANDLE_LIMIT);
       await upsertPriceSetsToSupabase([{ symbol: target.symbol, prices }], { upsertSymbols: false });
       await updateSymbolSyncStatus(target.symbol, "synced");
+      const intraday = await updateIntradaySafely(target.symbol);
+      if (intraday.updated) {
+        intradayUpdated += 1;
+        latestTradingDate = intraday.latestTradingDate;
+      } else {
+        intradaySkipped += 1;
+        latestTradingDate = intraday.latestTradingDate ?? latestTradingDate;
+      }
       synced += 1;
       console.log(`${target.symbol}: da fetch va upsert ${prices.length} nen tu ${vnstockProvider.name}`);
     } catch (error) {
@@ -168,6 +189,10 @@ async function syncPricesDirectlyToSupabase(
     failedSymbols,
     stoppedEarly,
     stopReason: stoppedEarly ? "time_guard" : null,
+    intradayUpdated,
+    intradaySkipped,
+    intradayProviderUsed: "vnstock_intraday",
+    latestTradingDate,
   };
 }
 
@@ -206,6 +231,9 @@ export async function syncSingleSymbolToSupabase(
     }
 
     await upsertPriceSetsToSupabase([{ symbol: normalizedSymbol, prices }], { upsertSymbols: false });
+    if (options.updateIntraday) {
+      await updateIntradaySafely(normalizedSymbol);
+    }
     await updateSymbolSyncStatus(normalizedSymbol, "synced");
 
     return {
@@ -228,6 +256,23 @@ export async function syncSingleSymbolToSupabase(
     }
 
     throw error;
+  }
+}
+
+async function updateIntradaySafely(symbol: string) {
+  try {
+    return await updateIntradayCandleForSymbol(symbol);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.warn(`${symbol}: bo qua intraday update (${message})`);
+
+    return {
+      updated: false as const,
+      skipped: true as const,
+      providerUsed: "vnstock_intraday" as const,
+      latestTradingDate: null,
+      reason: message,
+    };
   }
 }
 

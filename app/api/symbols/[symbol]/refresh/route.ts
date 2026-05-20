@@ -106,7 +106,7 @@ export async function POST(
     const existingRows = await readExistingPriceRowCount(symbol);
     const candleLimit =
       existingRows < TARGET_STOCK_PRICE_CANDLES ? DEFAULT_HISTORICAL_CANDLE_LIMIT : DEFAULT_RECENT_SYNC_CANDLE_LIMIT;
-    const refreshPromise = syncSingleSymbolToSupabase(symbol, { candleLimit }).then((result) => ({
+    const refreshPromise = syncSingleSymbolToSupabase(symbol, { candleLimit, updateIntraday: true }).then((result) => ({
       refreshed: result.refreshed,
       candleLimit: result.candleLimit,
       existingRows: result.existingRows,

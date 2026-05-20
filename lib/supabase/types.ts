@@ -76,6 +76,9 @@ export type Database = {
           low: number;
           close: number;
           volume: number;
+          is_intraday: boolean;
+          finalized: boolean;
+          source: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -88,6 +91,9 @@ export type Database = {
           low: number;
           close: number;
           volume: number;
+          is_intraday?: boolean;
+          finalized?: boolean;
+          source?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -100,6 +106,9 @@ export type Database = {
           low?: number;
           close?: number;
           volume?: number;
+          is_intraday?: boolean;
+          finalized?: boolean;
+          source?: string | null;
           created_at?: string;
           updated_at?: string;
         };

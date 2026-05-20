@@ -24,6 +24,10 @@ type PriceRow = {
   low: number;
   close: number;
   volume: number;
+  is_intraday: boolean | null;
+  finalized: boolean | null;
+  source: string | null;
+  updated_at: string | null;
 };
 
 type TechnicalIndicatorRow = {
@@ -214,7 +218,7 @@ async function readSupabasePrices(symbol: string, limit = PRICE_LIMIT): Promise<
   try {
     const { data, error } = await supabase
       .from("stock_prices")
-      .select("date,open,high,low,close,volume")
+      .select("date,open,high,low,close,volume,is_intraday,finalized,source,updated_at")
       .eq("symbol", symbol)
       .order("date", { ascending: false })
       .limit(limit);
@@ -233,6 +237,10 @@ async function readSupabasePrices(symbol: string, limit = PRICE_LIMIT): Promise<
         low: Number(row.low),
         close: Number(row.close),
         volume: Number(row.volume),
+        isIntraday: row.is_intraday ?? false,
+        finalized: row.finalized ?? true,
+        source: row.source,
+        updatedAt: row.updated_at,
       }))
       .filter(isOHLCV)
       .sort((a, b) => a.date.localeCompare(b.date));

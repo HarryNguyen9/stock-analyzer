@@ -40,6 +40,10 @@ export type OHLCV = {
   low: number;
   close: number;
   volume: number;
+  isIntraday?: boolean;
+  finalized?: boolean;
+  source?: string | null;
+  updatedAt?: string | null;
 };
 
 export type IndicatorSnapshot = {

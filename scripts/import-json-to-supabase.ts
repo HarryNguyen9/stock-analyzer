@@ -90,6 +90,10 @@ export async function upsertPriceSetsToSupabase(
       low: price.low,
       close: price.close,
       volume: price.volume,
+      is_intraday: false,
+      finalized: true,
+      source: "vnstock_daily",
+      updated_at: new Date().toISOString(),
     }));
 
     for (let index = 0; index < priceRows.length; index += BATCH_SIZE) {

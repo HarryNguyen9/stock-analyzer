@@ -77,13 +77,16 @@ export default async function StockDetailPage({ params }: StockPageProps) {
   }
 
   const supabaseScore = await readLatestTechnicalScore(symbol);
-  const technicalSnapshot = createTechnicalSnapshot(candles, supabaseScore);
+  const finalizedCandles = candles.filter((candle) => candle.finalized !== false);
+  const analysisCandles = finalizedCandles.length >= 20 ? finalizedCandles : candles;
+  const technicalSnapshot = createTechnicalSnapshot(analysisCandles, supabaseScore);
   const analysis = technicalSnapshot.analysis;
   const displayScore = technicalSnapshot.score;
   const displayStatus = technicalSnapshot.status;
   const signalGroups = groupTechnicalSignals(technicalSnapshot.signals);
   const latest = candles[candles.length - 1];
   const previous = candles[candles.length - 2];
+  const isIntradayLatest = latest.isIntraday === true || latest.finalized === false;
   const change = latest.close - previous.close;
   const changePercent = round((change / previous.close) * 100);
   const isUp = change >= 0;
@@ -150,7 +153,12 @@ export default async function StockDetailPage({ params }: StockPageProps) {
               tone={isUp ? "positive" : "negative"}
             />
             <MetricCard label={vi.stock.volume} value={formatVolume(latest.volume)} />
-            <MetricCard label={vi.stock.latestDate} value={formatDate(latest.date)} />
+            <MetricCard
+              label={vi.stock.latestDate}
+              value={formatDate(latest.date)}
+              subValue={isIntradayLatest ? "Dữ liệu trong phiên" : undefined}
+              tone={isIntradayLatest ? "positive" : "neutral"}
+            />
             <MetricCard label={vi.stock.candles} value={String(candles.length)} />
           </div>
 

@@ -21,6 +21,9 @@ create table if not exists public.stock_prices (
   low numeric not null,
   close numeric not null,
   volume bigint not null,
+  is_intraday boolean not null default false,
+  finalized boolean not null default true,
+  source text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   unique(symbol, date)

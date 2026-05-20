@@ -24,6 +24,10 @@ type CronSuccessResponse = {
   failedTemporary: Array<{ symbol: string; error: string }>;
   failedUnsupported: Array<{ symbol: string; error: string }>;
   snapshotUpdated: boolean;
+  intradayUpdated: number;
+  intradaySkipped: number;
+  intradayProviderUsed: "vnstock_intraday" | null;
+  latestTradingDate: string | null;
   stoppedEarly: boolean;
   stopReason: "time_guard" | null;
   durationMs: number;
@@ -114,6 +118,10 @@ async function handleSyncPricesCron(
         failedSymbols: result.failedSymbols,
         failedTemporary: result.failedTemporary,
         failedUnsupported: result.failedUnsupported,
+        intradayUpdated: result.intradayUpdated,
+        intradaySkipped: result.intradaySkipped,
+        intradayProviderUsed: result.intradayProviderUsed,
+        latestTradingDate: result.latestTradingDate,
         snapshotUpdated,
         snapshotPipeline: shouldUpdateSnapshot ? SNAPSHOT_PIPELINE : null,
         stoppedEarly: result.stoppedEarly,
@@ -137,6 +145,10 @@ async function handleSyncPricesCron(
       failedTemporary: result.failedTemporary,
       failedUnsupported: result.failedUnsupported,
       snapshotUpdated,
+      intradayUpdated: result.intradayUpdated,
+      intradaySkipped: result.intradaySkipped,
+      intradayProviderUsed: result.intradayProviderUsed,
+      latestTradingDate: result.latestTradingDate,
       stoppedEarly: result.stoppedEarly,
       stopReason: result.stopReason,
       durationMs,
