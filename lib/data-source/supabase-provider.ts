@@ -1,11 +1,11 @@
 import { createTechnicalSnapshot, debugTechnicalSnapshot } from "@/lib/data-source/technical-snapshot";
-import { DEFAULT_HISTORICAL_CANDLE_LIMIT } from "@/lib/data-source/constants";
+import { DEFAULT_RECENT_SYNC_CANDLE_LIMIT } from "@/lib/data-source/constants";
 import { createSupabaseClient } from "@/lib/supabase/client";
 import type { AppDataProvider } from "@/lib/data-source/provider";
 import { isOHLCV, toStockSummary } from "@/lib/data-source/local-provider";
 import type { OHLCV, StockExchange, StockMetadata, StockSummary } from "@/types/stock";
 
-const PRICE_LIMIT = DEFAULT_HISTORICAL_CANDLE_LIMIT;
+const PRICE_LIMIT = DEFAULT_RECENT_SYNC_CANDLE_LIMIT;
 
 type SymbolRow = {
   symbol: string;

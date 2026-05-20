@@ -5,7 +5,6 @@ import type { Database } from "@/lib/supabase/types";
 const SYMBOL_PAGE_SIZE = 1_000;
 const PRICE_PAGE_SIZE = 1_000;
 const PRICE_SCAN_LIMIT = 2_000_000;
-const MIN_PRICE_ROWS = TARGET_STOCK_PRICE_CANDLES;
 const DEFAULT_STALE_UPDATED_AT_MS = 7 * 24 * 60 * 60 * 1000;
 
 type SymbolRow = Pick<Database["public"]["Tables"]["symbols"]["Row"], "symbol">;
@@ -24,6 +23,7 @@ export type MissingPriceSymbol = {
 
 type MissingPriceOptions = {
   limit?: number;
+  targetCandles?: number;
   staleUpdatedAtMs?: number;
 };
 
@@ -37,6 +37,7 @@ export async function getSymbolsMissingPriceData(
   options: MissingPriceOptions = {},
 ): Promise<MissingPriceSymbol[]> {
   const limit = options.limit ?? Number.POSITIVE_INFINITY;
+  const targetCandles = options.targetCandles ?? TARGET_STOCK_PRICE_CANDLES;
   const staleUpdatedAtMs = options.staleUpdatedAtMs ?? DEFAULT_STALE_UPDATED_AT_MS;
   const [symbols, prices] = await Promise.all([readSymbols(), readPricesForStats()]);
   const priceStats = toPriceStats(prices);
@@ -48,7 +49,7 @@ export async function getSymbolsMissingPriceData(
       latestDate: null,
       latestUpdatedAt: null,
     };
-    const reasons = getMissingReasons(stats, staleUpdatedAtMs);
+    const reasons = getMissingReasons(stats, staleUpdatedAtMs, targetCandles);
 
     if (reasons.length === 0) {
       continue;
@@ -56,7 +57,7 @@ export async function getSymbolsMissingPriceData(
 
     missing.push({
       symbol: row.symbol,
-      targetCandles: MIN_PRICE_ROWS,
+      targetCandles,
       ...stats,
       reasons,
     });
@@ -148,10 +149,10 @@ function toPriceStats(prices: PriceRow[]): Map<string, PriceStats> {
   return stats;
 }
 
-function getMissingReasons(stats: PriceStats, staleUpdatedAtMs: number): MissingPriceReason[] {
+function getMissingReasons(stats: PriceStats, staleUpdatedAtMs: number, targetCandles: number): MissingPriceReason[] {
   const reasons: MissingPriceReason[] = [];
 
-  if (stats.priceRows < MIN_PRICE_ROWS) {
+  if (stats.priceRows < targetCandles) {
     reasons.push("too-few-rows");
   }
 

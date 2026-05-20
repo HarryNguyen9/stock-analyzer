@@ -1,0 +1,47 @@
+name: Backfill missing prices
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "*/15 * * * *"
+
+concurrency:
+  group: backfill-missing-prices
+  cancel-in-progress: false
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Backfill up to 600 candles
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          BACKFILL_URL: https://stock-analyzer-sigma-one.vercel.app/api/cron/backfill-missing-prices?limit=3&targetCandles=600
+        run: |
+          set -euo pipefail
+
+          response_file="$(mktemp)"
+          status="$(curl \
+            --silent \
+            --show-error \
+            --location \
+            --retry 2 \
+            --retry-delay 5 \
+            --max-time 280 \
+            --output "$response_file" \
+            --write-out "%{http_code}" \
+            --header "Authorization: Bearer ${CRON_SECRET}" \
+            "$BACKFILL_URL")"
+
+          cat "$response_file"
+          echo
+
+          if [ "$status" -lt 200 ] || [ "$status" -ge 300 ]; then
+            echo "Backfill request failed with HTTP $status"
+            exit 1
+          fi
+
+          if grep -q '"ok":false' "$response_file"; then
+            echo "Backfill endpoint returned ok=false"
+            exit 1
+          fi

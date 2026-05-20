@@ -8,7 +8,7 @@ import {
   TARGET_STOCK_PRICE_CANDLES,
 } from "../lib/data-source/constants";
 import { updateIntradayCandleForSymbol } from "../lib/data-source/intraday";
-import { vnstockProvider } from "../lib/data-source/vnstock-provider";
+import { getHistoricalFetchWindow, vnstockProvider } from "../lib/data-source/vnstock-provider";
 import { createSupabaseAdminClient } from "../lib/supabase/admin";
 import type { Database } from "../lib/supabase/types";
 import { fetchPricesToLocalJson } from "./fetch-prices";
@@ -59,12 +59,19 @@ export type SyncSymbolResult = {
   existingRows: number;
   fetchedCandles: number;
   upsertedCandles: number;
+  rowsAfter: number;
   targetCandles: number;
+  lookbackDays: number;
+  startDate: string;
+  providerUsed: string;
+  providerReturnedOnly: number | null;
+  providerLimitReached: boolean;
 };
 
 type SyncSingleSymbolOptions = {
   skipIfFetchedOlderThanExisting?: boolean;
   candleLimit?: number;
+  targetCandles?: number;
   updateIntraday?: boolean;
 };
 
@@ -204,6 +211,8 @@ export async function syncSingleSymbolToSupabase(
 
   const normalizedSymbol = symbol.toUpperCase();
   const candleLimit = options.candleLimit ?? DEFAULT_RECENT_SYNC_CANDLE_LIMIT;
+  const targetCandles = options.targetCandles ?? candleLimit;
+  const fetchWindow = getHistoricalFetchWindow(candleLimit);
   const existingRows = await readExistingPriceRowCount(normalizedSymbol);
 
   try {
@@ -226,7 +235,13 @@ export async function syncSingleSymbolToSupabase(
         existingRows,
         fetchedCandles: prices.length,
         upsertedCandles: 0,
-        targetCandles: TARGET_STOCK_PRICE_CANDLES,
+        rowsAfter: existingRows,
+        targetCandles,
+        lookbackDays: fetchWindow.lookbackDays,
+        startDate: fetchWindow.startDate,
+        providerUsed: vnstockProvider.name,
+        providerReturnedOnly: prices.length < targetCandles ? prices.length : null,
+        providerLimitReached: prices.length < targetCandles,
       };
     }
 
@@ -236,6 +251,8 @@ export async function syncSingleSymbolToSupabase(
     }
     await updateSymbolSyncStatus(normalizedSymbol, "synced");
 
+    const rowsAfter = await readExistingPriceRowCount(normalizedSymbol);
+
     return {
       symbol: normalizedSymbol,
       refreshed: true,
@@ -244,7 +261,13 @@ export async function syncSingleSymbolToSupabase(
       existingRows,
       fetchedCandles: prices.length,
       upsertedCandles: prices.length,
-      targetCandles: TARGET_STOCK_PRICE_CANDLES,
+      rowsAfter,
+      targetCandles,
+      lookbackDays: fetchWindow.lookbackDays,
+      startDate: fetchWindow.startDate,
+      providerUsed: vnstockProvider.name,
+      providerReturnedOnly: prices.length < targetCandles ? prices.length : null,
+      providerLimitReached: prices.length < targetCandles,
     };
   } catch (error) {
     const failure = classifyProviderFailure(error);

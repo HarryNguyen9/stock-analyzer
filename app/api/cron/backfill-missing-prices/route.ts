@@ -1,5 +1,5 @@
 import { getSymbolsMissingPriceData } from "@/lib/data-source/missing-prices";
-import { DEFAULT_HISTORICAL_CANDLE_LIMIT, TARGET_STOCK_PRICE_CANDLES } from "@/lib/data-source/constants";
+import { DEFAULT_BACKFILL_TARGET_CANDLES } from "@/lib/data-source/constants";
 import { classifyProviderFailure } from "@/lib/data-source/provider-errors";
 import { BACKFILL_PRICE_PIPELINE, markSymbolUnsupported, syncSingleSymbolToSupabase } from "@/lib/pipeline/price-sync";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -49,9 +49,17 @@ type SyncJobUpdate = Database["public"]["Tables"]["sync_jobs"]["Update"];
 type BackfillFailedSymbol = { symbol: string; error: string };
 type BackfillSymbolDiagnostic = {
   symbol: string;
-  existingRows: number;
+  targetCandles: number;
+  lookbackDays: number;
+  startDate: string;
+  existingRowsBefore: number;
   fetchedCandles: number;
   upsertedCandles: number;
+  rowsAfter: number;
+  providerUsed: string;
+  providerReturnedOnly: number | null;
+  providerLimitReached: boolean;
+  error?: string;
 };
 
 const DEFAULT_LIMIT = 5;
@@ -84,8 +92,9 @@ async function handleBackfillMissingPrices(request: Request): Promise<Response> 
 
     const limitParam = getClampedNumberParam(request, "limit", DEFAULT_LIMIT, 1, MAX_LIMIT);
     const limit = limitParam.value;
-    const missingSymbols = await getSymbolsMissingPriceData({ limit });
-    const symbolsBelowTarget = missingSymbols.filter((item) => item.priceRows < TARGET_STOCK_PRICE_CANDLES).length;
+    const targetCandles = getNumberParam(request, "targetCandles", DEFAULT_BACKFILL_TARGET_CANDLES, 20, DEFAULT_BACKFILL_TARGET_CANDLES);
+    const missingSymbols = await getSymbolsMissingPriceData({ limit, targetCandles });
+    const symbolsBelowTarget = missingSymbols.filter((item) => item.priceRows < targetCandles).length;
     const processedSymbols: Array<{ symbol: string; status: "synced" | "failed"; message?: string }> = [];
     jobId = await createSyncJob({
       ...BACKFILL_PRICE_PIPELINE,
@@ -94,8 +103,8 @@ async function handleBackfillMissingPrices(request: Request): Promise<Response> 
       limit,
       maxLimit: MAX_LIMIT,
       limitClamped: limitParam.clamped,
-      candleLimit: DEFAULT_HISTORICAL_CANDLE_LIMIT,
-      targetCandles: TARGET_STOCK_PRICE_CANDLES,
+      candleLimit: targetCandles,
+      targetCandles,
       symbolsBelowTarget,
       selectedSymbols: missingSymbols.map((item) => item.symbol),
     });
@@ -116,13 +125,20 @@ async function handleBackfillMissingPrices(request: Request): Promise<Response> 
       }
 
       try {
-        const result = await syncWithRetry(item.symbol);
+        const result = await syncWithRetry(item.symbol, targetCandles);
         synced += 1;
         diagnostics.push({
           symbol: item.symbol,
-          existingRows: result.existingRows,
+          targetCandles,
+          lookbackDays: result.lookbackDays,
+          startDate: result.startDate,
+          existingRowsBefore: result.existingRows,
           fetchedCandles: result.fetchedCandles,
           upsertedCandles: result.upsertedCandles,
+          rowsAfter: result.rowsAfter,
+          providerUsed: result.providerUsed,
+          providerReturnedOnly: result.providerReturnedOnly,
+          providerLimitReached: result.providerLimitReached,
         });
         if (sampleSyncedSymbols.length < 10) {
           sampleSyncedSymbols.push(item.symbol);
@@ -150,10 +166,24 @@ async function handleBackfillMissingPrices(request: Request): Promise<Response> 
           status: "failed",
           message,
         });
+        diagnostics.push({
+          symbol: item.symbol,
+          targetCandles,
+          lookbackDays: 0,
+          startDate: "",
+          existingRowsBefore: item.priceRows,
+          fetchedCandles: 0,
+          upsertedCandles: 0,
+          rowsAfter: item.priceRows,
+          providerUsed: "vnstock",
+          providerReturnedOnly: null,
+          providerLimitReached: false,
+          error: message,
+        });
       }
     }
 
-    const remainingMissing = (await getSymbolsMissingPriceData({ limit: 10_000 })).length;
+    const remainingMissing = (await getSymbolsMissingPriceData({ limit: 10_000, targetCandles })).length;
     const durationMs = Date.now() - startedAt;
 
     await updateSyncJob(jobId, {
@@ -173,8 +203,8 @@ async function handleBackfillMissingPrices(request: Request): Promise<Response> 
         failedUnsupported,
         sampleSyncedSymbols,
         diagnostics,
-        candleLimit: DEFAULT_HISTORICAL_CANDLE_LIMIT,
-        targetCandles: TARGET_STOCK_PRICE_CANDLES,
+        candleLimit: targetCandles,
+        targetCandles,
         symbolsBelowTarget,
         stoppedEarly,
         stopReason: stoppedEarly ? "time_guard" : null,
@@ -188,8 +218,8 @@ async function handleBackfillMissingPrices(request: Request): Promise<Response> 
       limit,
       maxLimit: MAX_LIMIT,
       limitClamped: limitParam.clamped,
-      candleLimit: DEFAULT_HISTORICAL_CANDLE_LIMIT,
-      targetCandles: TARGET_STOCK_PRICE_CANDLES,
+      candleLimit: targetCandles,
+      targetCandles,
       symbolsBelowTarget,
       selected: missingSymbols.length,
       synced,
@@ -219,14 +249,15 @@ async function handleBackfillMissingPrices(request: Request): Promise<Response> 
   }
 }
 
-async function syncWithRetry(symbol: string) {
+async function syncWithRetry(symbol: string, targetCandles = DEFAULT_BACKFILL_TARGET_CANDLES) {
   let lastError: unknown;
 
   for (let attempt = 0; attempt <= RETRIES; attempt += 1) {
     try {
       return await syncSingleSymbolToSupabase(symbol, {
         skipIfFetchedOlderThanExisting: true,
-        candleLimit: DEFAULT_HISTORICAL_CANDLE_LIMIT,
+        candleLimit: targetCandles,
+        targetCandles,
       });
     } catch (error) {
       lastError = error;

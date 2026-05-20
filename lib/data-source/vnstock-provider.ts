@@ -1,5 +1,5 @@
 import vnstock, { stock } from "vnstock-js";
-import { DEFAULT_HISTORICAL_CANDLE_LIMIT } from "@/lib/data-source/constants";
+import { DEFAULT_HISTORICAL_CANDLE_LIMIT, getLookbackDaysForCandles } from "@/lib/data-source/constants";
 import { classifyProviderFailure } from "@/lib/data-source/provider-errors";
 import type { OHLCV } from "../../types/stock";
 import type { PriceProvider } from "./types";
@@ -208,8 +208,19 @@ function normalizeCandle(row: OHLCV): OHLCV | null {
 
 function getLookbackStartDate(limit: number): string {
   const date = new Date();
-  date.setUTCDate(date.getUTCDate() - Math.max(420, limit * 3));
+  date.setUTCDate(date.getUTCDate() - getLookbackDaysForCandles(limit));
   return date.toISOString().slice(0, 10);
+}
+
+export function getHistoricalFetchWindow(targetCandles: number): { lookbackDays: number; startDate: string } {
+  const lookbackDays = getLookbackDaysForCandles(targetCandles);
+  const date = new Date();
+  date.setUTCDate(date.getUTCDate() - lookbackDays);
+
+  return {
+    lookbackDays,
+    startDate: date.toISOString().slice(0, 10),
+  };
 }
 
 function getVietnamTradingDate(): string {
