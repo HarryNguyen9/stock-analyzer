@@ -2,6 +2,7 @@ import { access, mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { fallbackProvider } from "../lib/data-source/fallback-provider";
+import { DEFAULT_HISTORICAL_CANDLE_LIMIT } from "../lib/data-source/constants";
 import type { PriceFetchError } from "../lib/data-source/types";
 import { vnstockProvider } from "../lib/data-source/vnstock-provider";
 import type { OHLCV, StockSymbol } from "../types/stock";
@@ -29,7 +30,7 @@ const SYMBOLS: StockSymbol[] = [
   "ACV",
 ];
 
-const CANDLE_LIMIT = 200;
+const CANDLE_LIMIT = DEFAULT_HISTORICAL_CANDLE_LIMIT;
 const MIN_DELAY_MS = 1_000;
 const MAX_DELAY_MS = 3_000;
 

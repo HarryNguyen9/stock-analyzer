@@ -1,3 +1,4 @@
+import { DEFAULT_HISTORICAL_CANDLE_LIMIT } from "@/lib/data-source/constants";
 import type { OHLCV, StockSymbol } from "@/types/stock";
 
 const BASE_PRICE_BY_SYMBOL: Record<StockSymbol, number> = {
@@ -23,7 +24,7 @@ const BASE_PRICE_BY_SYMBOL: Record<StockSymbol, number> = {
   ACV: 86,
 };
 
-export function generateMockOHLCV(symbol: string, candles = 200): OHLCV[] {
+export function generateMockOHLCV(symbol: string, candles = DEFAULT_HISTORICAL_CANDLE_LIMIT): OHLCV[] {
   const random = seededRandom(symbol);
   const dates = getTradingDates(candles);
   const basePrice = getBasePrice(symbol);

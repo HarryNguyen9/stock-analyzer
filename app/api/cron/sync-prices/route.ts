@@ -16,6 +16,8 @@ type CronSuccessResponse = {
   limit: number;
   maxLimit: number;
   limitClamped: boolean;
+  candleLimit: number;
+  targetCandles: number;
   selected: number;
   synced: number;
   failed: number;
@@ -106,6 +108,8 @@ async function handleSyncPricesCron(
         limit: result.limit,
         maxLimit: MAX_LIMIT,
         limitClamped: limitParam.clamped,
+        candleLimit: result.candleLimit,
+        targetCandles: result.targetCandles,
         selectedSymbols: result.selectedSymbols,
         failedSymbols: result.failedSymbols,
         failedTemporary: result.failedTemporary,
@@ -125,6 +129,8 @@ async function handleSyncPricesCron(
       limit: result.limit,
       maxLimit: MAX_LIMIT,
       limitClamped: limitParam.clamped,
+      candleLimit: result.candleLimit,
+      targetCandles: result.targetCandles,
       selected: result.selected,
       synced: result.synced,
       failed: result.failed,

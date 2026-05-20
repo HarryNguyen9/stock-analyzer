@@ -1,4 +1,5 @@
 import { getSymbolsMissingPriceData } from "@/lib/data-source/missing-prices";
+import { DEFAULT_HISTORICAL_CANDLE_LIMIT, TARGET_STOCK_PRICE_CANDLES } from "@/lib/data-source/constants";
 import { classifyProviderFailure } from "@/lib/data-source/provider-errors";
 import { BACKFILL_PRICE_PIPELINE, markSymbolUnsupported, syncSingleSymbolToSupabase } from "@/lib/pipeline/price-sync";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -17,9 +18,13 @@ type BackfillResponse =
       limit: number;
       maxLimit: number;
       limitClamped: boolean;
+      candleLimit: number;
+      targetCandles: number;
+      symbolsBelowTarget: number;
       selected: number;
       synced: number;
       failed: number;
+      diagnostics: BackfillSymbolDiagnostic[];
       failedSymbols: BackfillFailedSymbol[];
       failedTemporary: BackfillFailedSymbol[];
       failedUnsupported: BackfillFailedSymbol[];
@@ -42,6 +47,12 @@ type BackfillResponse =
 type SyncJobInsert = Database["public"]["Tables"]["sync_jobs"]["Insert"];
 type SyncJobUpdate = Database["public"]["Tables"]["sync_jobs"]["Update"];
 type BackfillFailedSymbol = { symbol: string; error: string };
+type BackfillSymbolDiagnostic = {
+  symbol: string;
+  existingRows: number;
+  fetchedCandles: number;
+  upsertedCandles: number;
+};
 
 const DEFAULT_LIMIT = 5;
 const MAX_LIMIT = 10;
@@ -74,6 +85,7 @@ async function handleBackfillMissingPrices(request: Request): Promise<Response> 
     const limitParam = getClampedNumberParam(request, "limit", DEFAULT_LIMIT, 1, MAX_LIMIT);
     const limit = limitParam.value;
     const missingSymbols = await getSymbolsMissingPriceData({ limit });
+    const symbolsBelowTarget = missingSymbols.filter((item) => item.priceRows < TARGET_STOCK_PRICE_CANDLES).length;
     const processedSymbols: Array<{ symbol: string; status: "synced" | "failed"; message?: string }> = [];
     jobId = await createSyncJob({
       ...BACKFILL_PRICE_PIPELINE,
@@ -82,6 +94,9 @@ async function handleBackfillMissingPrices(request: Request): Promise<Response> 
       limit,
       maxLimit: MAX_LIMIT,
       limitClamped: limitParam.clamped,
+      candleLimit: DEFAULT_HISTORICAL_CANDLE_LIMIT,
+      targetCandles: TARGET_STOCK_PRICE_CANDLES,
+      symbolsBelowTarget,
       selectedSymbols: missingSymbols.map((item) => item.symbol),
     });
 
@@ -92,6 +107,7 @@ async function handleBackfillMissingPrices(request: Request): Promise<Response> 
     const failedTemporary: BackfillFailedSymbol[] = [];
     const failedUnsupported: BackfillFailedSymbol[] = [];
     const sampleSyncedSymbols: string[] = [];
+    const diagnostics: BackfillSymbolDiagnostic[] = [];
 
     for (const item of missingSymbols) {
       if (Date.now() - startedAt >= SOFT_TIME_LIMIT_MS) {
@@ -100,8 +116,14 @@ async function handleBackfillMissingPrices(request: Request): Promise<Response> 
       }
 
       try {
-        await syncWithRetry(item.symbol);
+        const result = await syncWithRetry(item.symbol);
         synced += 1;
+        diagnostics.push({
+          symbol: item.symbol,
+          existingRows: result.existingRows,
+          fetchedCandles: result.fetchedCandles,
+          upsertedCandles: result.upsertedCandles,
+        });
         if (sampleSyncedSymbols.length < 10) {
           sampleSyncedSymbols.push(item.symbol);
         }
@@ -150,6 +172,10 @@ async function handleBackfillMissingPrices(request: Request): Promise<Response> 
         failedTemporary,
         failedUnsupported,
         sampleSyncedSymbols,
+        diagnostics,
+        candleLimit: DEFAULT_HISTORICAL_CANDLE_LIMIT,
+        targetCandles: TARGET_STOCK_PRICE_CANDLES,
+        symbolsBelowTarget,
         stoppedEarly,
         stopReason: stoppedEarly ? "time_guard" : null,
       },
@@ -162,9 +188,13 @@ async function handleBackfillMissingPrices(request: Request): Promise<Response> 
       limit,
       maxLimit: MAX_LIMIT,
       limitClamped: limitParam.clamped,
+      candleLimit: DEFAULT_HISTORICAL_CANDLE_LIMIT,
+      targetCandles: TARGET_STOCK_PRICE_CANDLES,
+      symbolsBelowTarget,
       selected: missingSymbols.length,
       synced,
       failed,
+      diagnostics,
       failedSymbols,
       failedTemporary,
       failedUnsupported,
@@ -194,8 +224,10 @@ async function syncWithRetry(symbol: string) {
 
   for (let attempt = 0; attempt <= RETRIES; attempt += 1) {
     try {
-      await syncSingleSymbolToSupabase(symbol, { skipIfFetchedOlderThanExisting: true });
-      return;
+      return await syncSingleSymbolToSupabase(symbol, {
+        skipIfFetchedOlderThanExisting: true,
+        candleLimit: DEFAULT_HISTORICAL_CANDLE_LIMIT,
+      });
     } catch (error) {
       lastError = error;
 

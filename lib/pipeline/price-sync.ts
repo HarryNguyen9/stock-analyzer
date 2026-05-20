@@ -1,5 +1,6 @@
 export {
   markSymbolUnsupported,
+  readExistingPriceRowCount,
   syncPricesToSupabase,
   syncSingleSymbolToSupabase,
   updateSymbolSyncStatus,

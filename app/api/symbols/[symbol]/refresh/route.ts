@@ -1,5 +1,10 @@
 import { getSymbolMetadata } from "@/lib/data-source/supabase-provider";
-import { PRICE_SYNC_PIPELINE, syncSingleSymbolToSupabase } from "@/lib/pipeline/price-sync";
+import {
+  DEFAULT_HISTORICAL_CANDLE_LIMIT,
+  DEFAULT_RECENT_SYNC_CANDLE_LIMIT,
+  TARGET_STOCK_PRICE_CANDLES,
+} from "@/lib/data-source/constants";
+import { PRICE_SYNC_PIPELINE, readExistingPriceRowCount, syncSingleSymbolToSupabase } from "@/lib/pipeline/price-sync";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -12,6 +17,11 @@ type RefreshResponse =
       source: typeof PRICE_SYNC_PIPELINE.source;
       symbol: string;
       refreshed: boolean;
+      candleLimit: number;
+      existingRows: number;
+      fetchedCandles: number;
+      upsertedCandles: number;
+      targetCandles: number;
       durationMs: number;
     }
   | {
@@ -26,7 +36,17 @@ type RefreshResponse =
 
 const COOLDOWN_MS = 60 * 1000;
 const refreshCooldown = new Map<string, number>();
-const pendingRefreshes = new Map<string, Promise<{ refreshed: boolean }>>();
+const pendingRefreshes = new Map<
+  string,
+  Promise<{
+    refreshed: boolean;
+    candleLimit: number;
+    existingRows: number;
+    fetchedCandles: number;
+    upsertedCandles: number;
+    targetCandles: number;
+  }>
+>();
 
 export async function POST(
   _request: Request,
@@ -56,6 +76,11 @@ export async function POST(
         ...PRICE_SYNC_PIPELINE,
         symbol,
         refreshed: result.refreshed,
+        candleLimit: result.candleLimit,
+        existingRows: result.existingRows,
+        fetchedCandles: result.fetchedCandles,
+        upsertedCandles: result.upsertedCandles,
+        targetCandles: result.targetCandles,
         durationMs: Date.now() - startedAt,
       } satisfies RefreshResponse);
     }
@@ -68,13 +93,26 @@ export async function POST(
         ...PRICE_SYNC_PIPELINE,
         symbol,
         refreshed: false,
+        candleLimit: DEFAULT_RECENT_SYNC_CANDLE_LIMIT,
+        existingRows: await readExistingPriceRowCount(symbol),
+        fetchedCandles: 0,
+        upsertedCandles: 0,
+        targetCandles: TARGET_STOCK_PRICE_CANDLES,
         durationMs: Date.now() - startedAt,
       } satisfies RefreshResponse);
     }
 
     refreshCooldown.set(symbol, Date.now());
-    const refreshPromise = syncSingleSymbolToSupabase(symbol).then((result) => ({
+    const existingRows = await readExistingPriceRowCount(symbol);
+    const candleLimit =
+      existingRows < TARGET_STOCK_PRICE_CANDLES ? DEFAULT_HISTORICAL_CANDLE_LIMIT : DEFAULT_RECENT_SYNC_CANDLE_LIMIT;
+    const refreshPromise = syncSingleSymbolToSupabase(symbol, { candleLimit }).then((result) => ({
       refreshed: result.refreshed,
+      candleLimit: result.candleLimit,
+      existingRows: result.existingRows,
+      fetchedCandles: result.fetchedCandles,
+      upsertedCandles: result.upsertedCandles,
+      targetCandles: result.targetCandles,
     }));
 
     pendingRefreshes.set(symbol, refreshPromise);
@@ -87,6 +125,11 @@ export async function POST(
         ...PRICE_SYNC_PIPELINE,
         symbol,
         refreshed: result.refreshed,
+        candleLimit: result.candleLimit,
+        existingRows: result.existingRows,
+        fetchedCandles: result.fetchedCandles,
+        upsertedCandles: result.upsertedCandles,
+        targetCandles: result.targetCandles,
         durationMs: Date.now() - startedAt,
       } satisfies RefreshResponse);
     } finally {

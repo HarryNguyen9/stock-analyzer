@@ -1,10 +1,11 @@
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { TARGET_STOCK_PRICE_CANDLES } from "@/lib/data-source/constants";
 import type { Database } from "@/lib/supabase/types";
 
 const SYMBOL_PAGE_SIZE = 1_000;
 const PRICE_PAGE_SIZE = 1_000;
-const PRICE_SCAN_LIMIT = 500_000;
-const MIN_PRICE_ROWS = 20;
+const PRICE_SCAN_LIMIT = 2_000_000;
+const MIN_PRICE_ROWS = TARGET_STOCK_PRICE_CANDLES;
 const DEFAULT_STALE_UPDATED_AT_MS = 7 * 24 * 60 * 60 * 1000;
 
 type SymbolRow = Pick<Database["public"]["Tables"]["symbols"]["Row"], "symbol">;
@@ -15,6 +16,7 @@ export type MissingPriceReason = "too-few-rows" | "missing-latest-price" | "stal
 export type MissingPriceSymbol = {
   symbol: string;
   priceRows: number;
+  targetCandles: number;
   latestDate: string | null;
   latestUpdatedAt: string | null;
   reasons: MissingPriceReason[];
@@ -54,6 +56,7 @@ export async function getSymbolsMissingPriceData(
 
     missing.push({
       symbol: row.symbol,
+      targetCandles: MIN_PRICE_ROWS,
       ...stats,
       reasons,
     });

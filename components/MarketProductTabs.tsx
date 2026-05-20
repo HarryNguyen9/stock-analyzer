@@ -26,10 +26,10 @@ export function MarketProductTabs({
 
   return (
     <>
-      <div className="sticky top-0 z-50 border-b border-cyan-400/10 bg-[#07111f]/95 backdrop-blur-xl">
-        <div className="mx-auto w-full max-w-7xl px-4 py-3 sm:px-6 lg:px-8">
-          <div className="rounded-2xl border border-cyan-400/15 bg-[#0b1b31]/80 p-1.5 shadow-[0_18px_60px_rgba(2,8,23,0.28)] ring-1 ring-white/5">
-            <div className="grid grid-cols-2 gap-2">
+      <div className="sticky top-0 z-50 bg-[#07111f]/95 px-2 pt-2 backdrop-blur-xl sm:px-4">
+        <div className="mx-auto w-full max-w-7xl">
+          <div className="rounded-2xl border border-cyan-400/10 bg-[#061323]/95 p-1.5 shadow-[0_16px_52px_rgba(0,0,0,0.30)] ring-1 ring-white/[0.03]">
+            <div className="grid grid-cols-2 gap-1.5">
               <ProductButton
                 active={activeProduct === "stocks"}
                 onClick={() => selectProduct("stocks")}
@@ -49,7 +49,9 @@ export function MarketProductTabs({
         </div>
       </div>
 
-      <div className="bg-slate-50 dark:bg-[#07111f]" hidden={activeProduct !== "stocks"}>{stocks}</div>
+      <div className="bg-slate-50 dark:bg-[#07111f]" hidden={activeProduct !== "stocks"}>
+        {stocks}
+      </div>
       <div hidden={activeProduct !== "covered-warrants"}>
         <CoveredWarrantSubNav />
         {coveredWarrants}
@@ -73,20 +75,18 @@ function ProductButton({
     <button
       type="button"
       onClick={onClick}
-      className={`group relative min-h-14 overflow-hidden rounded-xl border px-3 text-base font-semibold transition sm:min-h-[58px] ${
+      className={`group relative min-h-10 overflow-hidden rounded-xl border px-3 text-xs font-semibold transition sm:min-h-11 sm:text-sm ${
         active
-          ? "border-cyan-300/50 bg-gradient-to-r from-cyan-500/35 to-emerald-400/25 text-white shadow-[0_0_34px_rgba(34,211,238,0.20)]"
-          : "border-transparent text-slate-400 hover:bg-white/5 hover:text-white"
+          ? "border-cyan-300/20 bg-gradient-to-r from-cyan-500/28 to-sky-500/12 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_0_22px_rgba(34,211,238,0.12)]"
+          : "border-cyan-400/5 bg-[#07182b]/70 text-slate-500 hover:bg-white/[0.04] hover:text-slate-300"
       }`}
       aria-pressed={active}
     >
-      {active ? <span className="absolute inset-0 bg-white/10 opacity-70" /> : null}
-      <span className="relative flex items-center justify-center gap-2">
+      {active ? <span className="absolute inset-0 bg-[radial-gradient(circle_at_28%_10%,rgba(34,211,238,0.20),transparent_45%)]" /> : null}
+      <span className="relative flex items-center justify-center gap-1.5 sm:gap-2">
         <span
-          className={`flex h-8 w-8 items-center justify-center rounded-lg transition ${
-            active
-              ? "bg-cyan-300/15 text-cyan-100"
-              : "bg-white/5 text-slate-400 group-hover:text-white"
+          className={`flex h-5 w-5 items-center justify-center transition sm:h-6 sm:w-6 ${
+            active ? "text-cyan-300" : "text-slate-500 group-hover:text-slate-300"
           }`}
         >
           {icon}
@@ -99,14 +99,17 @@ function ProductButton({
 
 function CoveredWarrantSubNav() {
   return (
-    <div className="sticky top-[85px] z-40 border-b border-cyan-400/10 bg-[#07111f]/90 backdrop-blur-xl">
-      <div className="mx-auto flex w-full max-w-7xl gap-3 overflow-x-auto px-4 py-2 sm:px-6 lg:px-8 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        <span className="inline-flex min-h-9 items-center rounded-full border border-cyan-300/35 bg-cyan-400/10 px-4 text-sm font-semibold text-cyan-200">
-          So sánh
-        </span>
-        <span className="inline-flex min-h-9 items-center rounded-full px-4 text-sm font-semibold text-slate-400">
-          Tìm mã cơ sở
-        </span>
+    <div className="sticky top-[58px] z-40 bg-[#07111f]/95 px-2 pb-2 backdrop-blur-xl sm:top-[64px] sm:px-4">
+      <div className="mx-auto w-full max-w-7xl overflow-hidden rounded-b-2xl border-x border-b border-cyan-400/10 bg-[#061323]/95">
+        <div className="grid grid-cols-2">
+          <span className="relative inline-flex min-h-11 items-center justify-center px-4 text-sm font-semibold text-cyan-100">
+            So sánh
+            <span className="absolute bottom-0 h-0.5 w-1/2 rounded-full bg-cyan-300 shadow-[0_0_14px_rgba(34,211,238,0.9)]" />
+          </span>
+          <span className="inline-flex min-h-11 items-center justify-center px-4 text-sm font-semibold text-slate-500">
+            Tìm mã cơ sở
+          </span>
+        </div>
       </div>
     </div>
   );
@@ -114,12 +117,10 @@ function CoveredWarrantSubNav() {
 
 function ChartIcon() {
   return (
-    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="M4 19V5" />
-      <path d="M4 19h16" />
-      <path d="M8 16v-5" />
-      <path d="M12 16V8" />
-      <path d="M16 16v-3" />
+    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.4">
+      <path d="M5 19V9" strokeLinecap="round" />
+      <path d="M12 19V5" strokeLinecap="round" />
+      <path d="M19 19v-8" strokeLinecap="round" />
     </svg>
   );
 }
@@ -127,10 +128,12 @@ function ChartIcon() {
 function CertificateIcon() {
   return (
     <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="M7 3h8l4 4v14H7z" />
-      <path d="M15 3v5h5" />
-      <path d="M9 13h6" />
-      <path d="M9 17h4" />
+      <path d="M7 3h7l4 4v14H7z" />
+      <path d="M14 3v5h5" />
+      <path d="M9.5 13h5" />
+      <path d="M9.5 16.5h3" />
+      <circle cx="16.5" cy="17" r="2.2" />
+      <path d="m15.3 19.1-.6 1.5 1.8-.7 1.8.7-.6-1.5" />
     </svg>
   );
 }

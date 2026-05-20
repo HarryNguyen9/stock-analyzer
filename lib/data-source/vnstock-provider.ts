@@ -1,4 +1,5 @@
 import { stock } from "vnstock-js";
+import { DEFAULT_HISTORICAL_CANDLE_LIMIT } from "@/lib/data-source/constants";
 import { classifyProviderFailure } from "@/lib/data-source/provider-errors";
 import type { OHLCV } from "../../types/stock";
 import type { PriceProvider } from "./types";
@@ -11,12 +12,12 @@ const MAX_RETRIES = 2;
 // Nếu sau này đổi vendor, chỉ cần thay implementation của `fetchDailyOhlcv`.
 export const vnstockProvider: PriceProvider = {
   name: "vnstock",
-  async getDailyPrices(symbol, limit) {
+  async getDailyPrices(symbol, limit = DEFAULT_HISTORICAL_CANDLE_LIMIT) {
     return withRetry(() => fetchDailyOhlcv(symbol, limit), MAX_RETRIES);
   },
 };
 
-export async function fetchDailyOhlcv(symbol: string, limit: number): Promise<OHLCV[]> {
+export async function fetchDailyOhlcv(symbol: string, limit = DEFAULT_HISTORICAL_CANDLE_LIMIT): Promise<OHLCV[]> {
   const start = getLookbackStartDate(limit);
   const rows = await stock.quote({ ticker: symbol, start });
   const candles = rows.map(normalizeCandle).filter((item): item is OHLCV => item !== null);

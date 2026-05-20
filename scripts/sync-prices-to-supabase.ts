@@ -2,13 +2,17 @@ import { pathToFileURL } from "node:url";
 import { loadEnvConfig } from "@next/env";
 import { STOCKS } from "../data/symbols";
 import { classifyProviderFailure } from "../lib/data-source/provider-errors";
+import {
+  DEFAULT_HISTORICAL_CANDLE_LIMIT,
+  DEFAULT_RECENT_SYNC_CANDLE_LIMIT,
+  TARGET_STOCK_PRICE_CANDLES,
+} from "../lib/data-source/constants";
 import { vnstockProvider } from "../lib/data-source/vnstock-provider";
 import { createSupabaseAdminClient } from "../lib/supabase/admin";
 import type { Database } from "../lib/supabase/types";
 import { fetchPricesToLocalJson } from "./fetch-prices";
 import { importJsonToSupabase, upsertPriceSetsToSupabase } from "./import-json-to-supabase";
 
-const CANDLE_LIMIT = 200;
 const DEFAULT_SYNC_BATCH = 0;
 const DEFAULT_SYNC_LIMIT = 100;
 
@@ -29,6 +33,8 @@ type SyncTarget = {
 export type SyncPricesResult = {
   batch: number;
   limit: number;
+  candleLimit: number;
+  targetCandles: number;
   selected: number;
   synced: number;
   failed: number;
@@ -44,10 +50,16 @@ export type SyncSymbolResult = {
   symbol: string;
   refreshed: boolean;
   prices: number;
+  candleLimit: number;
+  existingRows: number;
+  fetchedCandles: number;
+  upsertedCandles: number;
+  targetCandles: number;
 };
 
 type SyncSingleSymbolOptions = {
   skipIfFetchedOlderThanExisting?: boolean;
+  candleLimit?: number;
 };
 
 export type SyncFailedSymbol = {
@@ -83,6 +95,8 @@ export async function syncPricesToSupabase(
   return {
     batch,
     limit,
+    candleLimit: DEFAULT_HISTORICAL_CANDLE_LIMIT,
+    targetCandles: TARGET_STOCK_PRICE_CANDLES,
     selected: targets.length,
     synced: importedSymbols,
     failed: Math.max(0, targets.length - importedSymbols),
@@ -116,7 +130,7 @@ async function syncPricesDirectlyToSupabase(
     }
 
     try {
-      const prices = await vnstockProvider.getDailyPrices(target.symbol, CANDLE_LIMIT);
+      const prices = await vnstockProvider.getDailyPrices(target.symbol, DEFAULT_RECENT_SYNC_CANDLE_LIMIT);
       await upsertPriceSetsToSupabase([{ symbol: target.symbol, prices }], { upsertSymbols: false });
       await updateSymbolSyncStatus(target.symbol, "synced");
       synced += 1;
@@ -143,6 +157,8 @@ async function syncPricesDirectlyToSupabase(
   return {
     batch: options.batch,
     limit: options.limit,
+    candleLimit: DEFAULT_RECENT_SYNC_CANDLE_LIMIT,
+    targetCandles: TARGET_STOCK_PRICE_CANDLES,
     selected: targets.length,
     synced,
     failed,
@@ -162,15 +178,17 @@ export async function syncSingleSymbolToSupabase(
   loadEnvConfig(process.cwd());
 
   const normalizedSymbol = symbol.toUpperCase();
+  const candleLimit = options.candleLimit ?? DEFAULT_RECENT_SYNC_CANDLE_LIMIT;
+  const existingRows = await readExistingPriceRowCount(normalizedSymbol);
 
   try {
-    const prices = await vnstockProvider.getDailyPrices(normalizedSymbol, CANDLE_LIMIT);
+    const prices = await vnstockProvider.getDailyPrices(normalizedSymbol, candleLimit);
     const latestFetchedDate = prices[prices.length - 1]?.date ?? null;
     const latestExistingDate = options.skipIfFetchedOlderThanExisting
       ? await readLatestExistingPriceDate(normalizedSymbol)
       : null;
 
-    if (latestExistingDate && latestFetchedDate && latestFetchedDate < latestExistingDate) {
+    if (latestExistingDate && latestFetchedDate && latestFetchedDate < latestExistingDate && existingRows >= TARGET_STOCK_PRICE_CANDLES) {
       console.warn(
         `${normalizedSymbol}: bo qua backfill vi provider tra ve du lieu cu hon DB (${latestFetchedDate} < ${latestExistingDate})`,
       );
@@ -179,6 +197,11 @@ export async function syncSingleSymbolToSupabase(
         symbol: normalizedSymbol,
         refreshed: false,
         prices: 0,
+        candleLimit,
+        existingRows,
+        fetchedCandles: prices.length,
+        upsertedCandles: 0,
+        targetCandles: TARGET_STOCK_PRICE_CANDLES,
       };
     }
 
@@ -189,6 +212,11 @@ export async function syncSingleSymbolToSupabase(
       symbol: normalizedSymbol,
       refreshed: true,
       prices: prices.length,
+      candleLimit,
+      existingRows,
+      fetchedCandles: prices.length,
+      upsertedCandles: prices.length,
+      targetCandles: TARGET_STOCK_PRICE_CANDLES,
     };
   } catch (error) {
     const failure = classifyProviderFailure(error);
@@ -200,6 +228,24 @@ export async function syncSingleSymbolToSupabase(
     }
 
     throw error;
+  }
+}
+
+export async function readExistingPriceRowCount(symbol: string): Promise<number> {
+  try {
+    const supabase = createSupabaseAdminClient();
+    const { count, error } = await supabase
+      .from("stock_prices")
+      .select("date", { count: "exact", head: true })
+      .eq("symbol", symbol.toUpperCase());
+
+    if (error) {
+      return 0;
+    }
+
+    return count ?? 0;
+  } catch {
+    return 0;
   }
 }
 

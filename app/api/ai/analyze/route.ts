@@ -1,6 +1,7 @@
 import { analyzeWithAiProvider } from "@/lib/ai/provider";
 import { normalizeTechnicalScore } from "@/lib/ai/score-format";
 import type { AiTechnicalAnalysis, AiTechnicalInput } from "@/lib/ai/types";
+import { DEFAULT_RECENT_SYNC_CANDLE_LIMIT } from "@/lib/data-source/constants";
 import { createTechnicalSnapshot } from "@/lib/data-source/technical-snapshot";
 import { isOHLCV } from "@/lib/data-source/local-provider";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -142,7 +143,7 @@ async function createAiInput(
     .select("date,open,high,low,close,volume,updated_at")
     .eq("symbol", symbol)
     .order("date", { ascending: false })
-    .limit(220);
+    .limit(DEFAULT_RECENT_SYNC_CANDLE_LIMIT);
 
   if (priceError || !priceRows || priceRows.length < 2) {
     return null;
@@ -152,7 +153,7 @@ async function createAiInput(
     .map(toOhlcv)
     .filter(isOHLCV)
     .sort((a, b) => a.date.localeCompare(b.date))
-    .slice(-200);
+    .slice(-DEFAULT_RECENT_SYNC_CANDLE_LIMIT);
 
   if (candles.length < 2) {
     return null;

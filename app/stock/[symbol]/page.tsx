@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { AiAnalysisModal } from "@/components/AiAnalysisModal";
 import { BackButton } from "@/components/BackButton";
 import { CandlestickChart } from "@/components/CandlestickChart";
+import { DEFAULT_HISTORICAL_CANDLE_LIMIT } from "@/lib/data-source/constants";
 import { ScoreGauge } from "@/components/ScoreGauge";
 import { StockDetailTabs } from "@/components/StockDetailTabs";
 import { SymbolRefreshPanel } from "@/components/SymbolRefreshPanel";
@@ -27,7 +28,7 @@ type StockPageProps = {
   params: Promise<{ symbol: string }>;
 };
 
-const DEFAULT_DETAIL_CANDLE_LIMIT = 600;
+const DEFAULT_DETAIL_CANDLE_LIMIT = DEFAULT_HISTORICAL_CANDLE_LIMIT;
 
 export function generateStaticParams() {
   return [];

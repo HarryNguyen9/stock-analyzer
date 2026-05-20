@@ -25,15 +25,15 @@ export function HomeTabs({
 
   return (
     <>
-      <div className="sticky top-[85px] z-40 border-b border-cyan-400/10 bg-[#07111f]/90 backdrop-blur-xl">
-        <div className="mx-auto w-full max-w-7xl px-4 py-2 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-2 gap-2 overflow-hidden rounded-2xl border border-cyan-400/10 bg-[#0b1b31]/70 p-1">
-            <TabButton active={activeTab === "discover"} onClick={() => selectTab("discover")} icon={<CompassIcon />}>
+      <div className="sticky top-[58px] z-40 bg-[#07111f]/95 px-2 pb-2 backdrop-blur-xl sm:top-[64px] sm:px-4">
+        <div className="mx-auto w-full max-w-7xl overflow-hidden rounded-b-2xl border-x border-b border-cyan-400/10 bg-[#061323]/95 shadow-[0_12px_34px_rgba(0,0,0,0.22)]">
+          <div className="grid grid-cols-2">
+            <SecondaryTabButton active={activeTab === "discover"} onClick={() => selectTab("discover")}>
               Khám phá
-            </TabButton>
-            <TabButton active={activeTab === "search"} onClick={() => selectTab("search")} icon={<SearchIcon />}>
+            </SecondaryTabButton>
+            <SecondaryTabButton active={activeTab === "search"} onClick={() => selectTab("search")}>
               Tìm cổ phiếu
-            </TabButton>
+            </SecondaryTabButton>
           </div>
         </div>
       </div>
@@ -48,48 +48,28 @@ export function HomeTabs({
   );
 }
 
-function TabButton({
+function SecondaryTabButton({
   active,
   onClick,
-  icon,
   children,
 }: {
   active: boolean;
   onClick: () => void;
-  icon: ReactNode;
   children: ReactNode;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`relative inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-4 text-sm font-semibold transition ${
-        active
-          ? "bg-cyan-400/10 text-cyan-200 shadow-[inset_0_-2px_0_rgba(34,211,238,0.9)] ring-1 ring-cyan-300/25"
-          : "text-slate-400 hover:bg-white/5 hover:text-white"
+      className={`relative min-h-11 px-4 text-sm font-semibold transition ${
+        active ? "text-cyan-100" : "text-slate-500 hover:text-slate-300"
       }`}
       aria-pressed={active}
     >
-      <span className={active ? "text-cyan-200" : "text-slate-500"}>{icon}</span>
-      {children}
+      <span className="relative z-10">{children}</span>
+      {active ? (
+        <span className="absolute bottom-0 left-1/2 h-0.5 w-2/3 -translate-x-1/2 rounded-full bg-cyan-300 shadow-[0_0_14px_rgba(34,211,238,0.9)]" />
+      ) : null}
     </button>
-  );
-}
-
-function CompassIcon() {
-  return (
-    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
-      <circle cx="12" cy="12" r="9" />
-      <path d="m15.5 8.5-2 5-5 2 2-5 5-2Z" />
-    </svg>
-  );
-}
-
-function SearchIcon() {
-  return (
-    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
-      <circle cx="11" cy="11" r="7" />
-      <path d="m20 20-3.5-3.5" />
-    </svg>
   );
 }

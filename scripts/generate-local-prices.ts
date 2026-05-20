@@ -1,5 +1,6 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { DEFAULT_HISTORICAL_CANDLE_LIMIT } from "../lib/data-source/constants";
 import { generateMockOHLCV } from "../lib/data-source/mock-generator";
 import type { StockSymbol } from "../types/stock";
 
@@ -32,7 +33,7 @@ async function main() {
 
   await Promise.all(
     SYMBOLS.map(async (symbol) => {
-      const prices = generateMockOHLCV(symbol, 200);
+      const prices = generateMockOHLCV(symbol, DEFAULT_HISTORICAL_CANDLE_LIMIT);
       const filePath = path.join(outputDir, `${symbol}.json`);
       await writeFile(filePath, `${JSON.stringify(prices, null, 2)}\n`, "utf-8");
     }),

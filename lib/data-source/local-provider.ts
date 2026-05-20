@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { STOCKS } from "@/data/symbols";
+import { DEFAULT_HISTORICAL_CANDLE_LIMIT } from "@/lib/data-source/constants";
 import { fallbackProvider } from "@/lib/data-source/fallback-provider";
 import { createTechnicalSnapshot } from "@/lib/data-source/technical-snapshot";
 import { round } from "@/lib/indicators";
@@ -27,7 +28,7 @@ export const localDataProvider: AppDataProvider = {
     return {
       status: "ready",
       source: "generated-fallback",
-      data: await fallbackProvider.getDailyPrices(symbol, options?.limit ?? 200),
+      data: await fallbackProvider.getDailyPrices(symbol, options?.limit ?? DEFAULT_HISTORICAL_CANDLE_LIMIT),
     };
   },
   async getSummaries() {
