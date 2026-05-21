@@ -18,10 +18,11 @@ export function BackButton({ label }: { label: string }) {
     <button
       type="button"
       onClick={handleBack}
-      className="inline-flex min-h-10 items-center gap-2 rounded-lg px-2 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
+      aria-label={label}
+      className="inline-flex min-h-10 shrink-0 items-center gap-2 rounded-xl border border-cyan-300/10 bg-white/5 px-3 text-sm font-semibold text-cyan-100 transition hover:border-cyan-300/30 hover:bg-cyan-300/10"
     >
-      <span aria-hidden="true" className="text-base leading-none">
-        ⬅️
+      <span aria-hidden="true" className="text-lg leading-none">
+        ←
       </span>
       <span className="hidden sm:inline">{label}</span>
     </button>

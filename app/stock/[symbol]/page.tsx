@@ -90,46 +90,50 @@ export default async function StockDetailPage({ params }: StockPageProps) {
   const isUp = change >= 0;
 
   return (
-    <main className="min-h-screen pb-10">
-      <div className="sticky top-0 z-50 border-b border-slate-200/70 bg-white/85 backdrop-blur-md transition-colors dark:border-slate-800/80 dark:bg-slate-950/85">          <div className="mx-auto flex min-h-14 w-full max-w-7xl items-center justify-between gap-3 px-3 sm:px-6 lg:px-8">
-        <BackButton label={vi.stock.backToWatchlist} />
+    <main className="min-h-screen bg-[#071126] pb-10 text-slate-100">
+      <div className="sticky top-0 z-50 border-b border-cyan-300/10 bg-[#071126]/88 shadow-[0_10px_32px_rgba(0,0,0,0.22)] backdrop-blur-xl transition-colors">
+        <div className="mx-auto flex min-h-14 w-full max-w-7xl items-center justify-between gap-3 px-3 sm:px-6 lg:px-8">
+          <BackButton label={vi.stock.backToWatchlist} />
           <div className="min-w-0 flex-1 text-center">
-            <div className="flex items-center justify-center gap-2">
-              <p className="truncate text-sm font-semibold text-slate-950 dark:text-white">{stock.symbol}</p>
-              <span className="rounded border border-slate-200 px-1.5 py-0.5 text-[11px] font-medium text-slate-500 dark:border-slate-700 dark:text-slate-400">
+            <div className="flex min-w-0 items-center justify-center gap-2">
+              <p className="truncate text-base font-black tracking-normal text-white sm:text-lg">{stock.symbol}</p>
+              <span className="rounded-lg border border-cyan-300/20 bg-white/5 px-2 py-0.5 text-[11px] font-semibold text-cyan-100">
                 {stock.exchange}
               </span>
             </div>
-            <p className="mt-0.5 truncate text-xs text-slate-500 dark:text-slate-400 sm:hidden">{stock.name}</p>
+            <p className="mt-0.5 truncate text-xs text-slate-400 sm:hidden">{stock.name}</p>
           </div>
           <ThemeToggle />
         </div>
       </div>
 
-      <section className="border-b border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950">
-        <div className="mx-auto w-full max-w-7xl px-4 py-5 sm:px-6 sm:py-6 lg:px-8">
-          <div className="mt-5 grid gap-6 lg:grid-cols-[1fr_auto] lg:items-end">
+      <section className="border-b border-cyan-300/10 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.14),transparent_34%),linear-gradient(180deg,#08152d,#071126)]">
+        <div className="mx-auto w-full max-w-7xl px-3 py-4 sm:px-6 sm:py-6 lg:px-8">
+          <div className="grid gap-4 rounded-2xl border border-cyan-300/10 bg-white/[0.03] p-4 shadow-[0_20px_60px_rgba(0,0,0,0.18)] ring-1 ring-white/5 lg:grid-cols-[1fr_auto] lg:items-center lg:p-5">
             <div>
               <div className="flex flex-wrap items-center gap-3">
-                <h1 className="text-4xl font-semibold tracking-normal text-slate-950 dark:text-white sm:text-6xl">
+                <h1 className="text-4xl font-black tracking-normal text-white sm:text-5xl">
                   {stock.symbol}
                 </h1>
-                <span className="rounded border border-slate-200 px-2 py-1 text-sm font-medium text-slate-500 dark:border-slate-700 dark:text-slate-400">
+                <span className="rounded-xl border border-cyan-300/20 bg-cyan-300/10 px-2.5 py-1 text-xs font-bold text-cyan-100">
                   {stock.exchange}
                 </span>
               </div>
-              <p className="mt-3 text-lg text-slate-600 dark:text-slate-300">{stock.name}</p>
-              <p className="mt-2 text-sm font-medium uppercase tracking-normal text-slate-400 dark:text-slate-500">
+              <p className="mt-2 line-clamp-1 text-sm text-slate-300 sm:text-base">{stock.name}</p>
+              <p className="mt-1 text-xs font-semibold uppercase tracking-normal text-slate-500">
                 {stock.sector}
               </p>
             </div>
 
-            <div className="flex items-center gap-5 rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900">
+            <div className="flex items-center gap-4 rounded-2xl border border-cyan-300/10 bg-[#030816]/70 p-4">
               <ScoreGauge score={displayScore} />
               <div>
-                <p className="text-sm text-slate-500 dark:text-slate-400">{vi.stock.technicalScore}</p>
-                <p className="mt-1 text-2xl font-semibold text-slate-950 dark:text-white">
+                <p className="text-sm text-slate-400">{vi.stock.technicalScore}</p>
+                <p className="mt-1 text-xl font-black text-white">
                   {displayStatus}
+                </p>
+                <p className={`mt-1 text-sm font-bold ${isUp ? "text-emerald-300" : "text-rose-300"}`}>
+                  {latest.close.toFixed(2)} · {isUp ? "+" : ""}{changePercent.toFixed(2)}%
                 </p>
               </div>
             </div>
@@ -216,8 +220,8 @@ export default async function StockDetailPage({ params }: StockPageProps) {
           </section>
 
           <aside className="space-y-5">
-          <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-            <h2 className="text-lg font-semibold text-slate-950 dark:text-white">{vi.stock.indicators}</h2>
+          <section className="rounded-2xl border border-cyan-300/10 bg-[#09152c]/95 p-5 shadow-[0_20px_60px_rgba(0,0,0,0.18)] ring-1 ring-white/5">
+            <h2 className="text-lg font-semibold text-white">{vi.stock.indicators}</h2>
             <dl className="mt-4 space-y-4">
               <IndicatorRow
                 label={vi.stock.indicatorLabels.sma20}
@@ -319,18 +323,18 @@ function QuickSignalsSection({
   summary: string;
 }) {
   return (
-    <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+    <section className="rounded-2xl border border-cyan-300/10 bg-[#09152c]/95 p-5 shadow-[0_20px_60px_rgba(0,0,0,0.18)] ring-1 ring-white/5">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-slate-950 dark:text-white">{vi.stock.technicalSignals}</h2>
-          <p className="mt-1 text-sm leading-6 text-slate-600 dark:text-slate-400">{summary}</p>
+          <h2 className="text-lg font-semibold text-white">{vi.stock.technicalSignals}</h2>
+          <p className="mt-1 text-sm leading-6 text-slate-400">{summary}</p>
         </div>
       </div>
 
       <div className="mt-5 grid gap-4 md:grid-cols-2">
         {signalGroups.map((group) => (
-          <div key={group.category} className="rounded-lg border border-slate-100 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950">
-            <h3 className="text-sm font-semibold text-slate-950 dark:text-white">
+          <div key={group.category} className="rounded-2xl border border-cyan-300/10 bg-[#030816]/70 p-4">
+            <h3 className="text-sm font-semibold text-white">
               {categoryLabelsVi[group.category]}
             </h3>
             <div className="mt-3 space-y-2">
@@ -389,23 +393,23 @@ function ScoreBreakdownSection({ breakdown }: { breakdown: ScoreBreakdown }) {
   ] as const;
 
   return (
-    <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-      <h2 className="text-lg font-semibold text-slate-950 dark:text-white">{vi.stock.scoreBreakdown}</h2>
+    <section className="rounded-2xl border border-cyan-300/10 bg-[#09152c]/95 p-5 shadow-[0_20px_60px_rgba(0,0,0,0.18)] ring-1 ring-white/5">
+      <h2 className="text-lg font-semibold text-white">{vi.stock.scoreBreakdown}</h2>
       <div className="mt-4 space-y-4">
         {items.map((item) => (
           <div key={item.key}>
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <p className="text-sm font-semibold text-slate-950 dark:text-white">{item.label}</p>
-                <p className="mt-1 text-sm leading-5 text-slate-500 dark:text-slate-400">{item.description}</p>
+                <p className="text-sm font-semibold text-white">{item.label}</p>
+                <p className="mt-1 text-sm leading-5 text-slate-400">{item.description}</p>
               </div>
-              <p className="shrink-0 text-sm font-semibold tabular-nums text-slate-950 dark:text-white">
+              <p className="shrink-0 text-sm font-semibold tabular-nums text-white">
                 {item.score}/{item.max}
               </p>
             </div>
-            <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+            <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/10">
               <div
-                className="h-full rounded-full bg-slate-950 dark:bg-slate-100"
+                className="h-full rounded-full bg-gradient-to-r from-cyan-300 to-emerald-300 shadow-[0_0_14px_rgba(34,211,238,0.28)]"
                 style={{ width: `${Math.max(0, Math.min(100, (item.score / item.max) * 100))}%` }}
               />
             </div>
@@ -418,7 +422,7 @@ function ScoreBreakdownSection({ breakdown }: { breakdown: ScoreBreakdown }) {
 
 function TechnicalThesisSection({ thesis }: { thesis: TechnicalThesis }) {
   return (
-    <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+    <section className="rounded-2xl border border-cyan-300/10 bg-[#09152c]/95 p-5 shadow-[0_20px_60px_rgba(0,0,0,0.18)] ring-1 ring-white/5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h2 className="text-lg font-semibold text-slate-950 dark:text-white">Luận điểm kỹ thuật</h2>
@@ -496,7 +500,7 @@ function formatThesisLevel(value: number | null): string {
 
 function PriceActionSection({ analysis }: { analysis: PriceActionCore }) {
   return (
-    <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+    <section className="rounded-2xl border border-cyan-300/10 bg-[#09152c]/95 p-5 shadow-[0_20px_60px_rgba(0,0,0,0.18)] ring-1 ring-white/5">
       <div>
         <h2 className="text-lg font-semibold text-slate-950 dark:text-white">Price Action</h2>
         <p className="mt-1 text-sm leading-6 text-slate-600 dark:text-slate-400">
@@ -505,7 +509,7 @@ function PriceActionSection({ analysis }: { analysis: PriceActionCore }) {
       </div>
 
       <div className="mt-5 grid gap-4 md:grid-cols-3">
-        <article className="rounded-lg border border-slate-100 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950">
+        <article className="rounded-2xl border border-cyan-300/10 bg-[#030816]/70 p-4">
           <div className="flex items-start justify-between gap-3">
             <h3 className="text-sm font-semibold text-slate-950 dark:text-white">Cấu trúc giá</h3>
             <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${getBehaviorSentimentClass(analysis.marketStructure.shortTermBias)}`}>
@@ -523,7 +527,7 @@ function PriceActionSection({ analysis }: { analysis: PriceActionCore }) {
           </div>
         </article>
 
-        <article className="rounded-lg border border-slate-100 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950">
+        <article className="rounded-2xl border border-cyan-300/10 bg-[#030816]/70 p-4">
           <div className="flex items-start justify-between gap-3">
             <h3 className="text-sm font-semibold text-slate-950 dark:text-white">Đa khung thời gian</h3>
             <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold text-slate-600 dark:bg-slate-900 dark:text-slate-300">
@@ -540,7 +544,7 @@ function PriceActionSection({ analysis }: { analysis: PriceActionCore }) {
           </div>
         </article>
 
-        <article className="rounded-lg border border-slate-100 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950">
+        <article className="rounded-2xl border border-cyan-300/10 bg-[#030816]/70 p-4">
           <div className="flex items-start justify-between gap-3">
             <h3 className="text-sm font-semibold text-slate-950 dark:text-white">Chất lượng xu hướng</h3>
             <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold text-slate-600 dark:bg-slate-900 dark:text-slate-300">
@@ -623,7 +627,7 @@ function CandlestickPatternsSection({ analysis }: { analysis: PriceBehaviorAnaly
   const indecisionPatterns = highlightedPatterns.filter((pattern) => pattern.type === "indecision");
 
   return (
-    <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+    <section className="rounded-2xl border border-cyan-300/10 bg-[#09152c]/95 p-5 shadow-[0_20px_60px_rgba(0,0,0,0.18)] ring-1 ring-white/5">
       <div>
         <h2 className="text-lg font-semibold text-slate-950 dark:text-white">Patterns</h2>
         <p className="mt-1 text-sm leading-6 text-slate-600 dark:text-slate-400">
@@ -646,7 +650,7 @@ function CandlestickPatternsSection({ analysis }: { analysis: PriceBehaviorAnaly
       )}
 
       {watchPatterns.length > 0 ? (
-        <div className="mt-5 rounded-lg border border-slate-100 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950">
+        <div className="mt-5 rounded-2xl border border-cyan-300/10 bg-[#030816]/70 p-4">
           <h3 className="text-sm font-semibold text-slate-950 dark:text-white">Theo dõi thêm</h3>
           <div className="mt-3 grid gap-3 md:grid-cols-2">
             {watchPatterns.map((pattern) => (
@@ -661,7 +665,7 @@ function CandlestickPatternsSection({ analysis }: { analysis: PriceBehaviorAnaly
 
 function PatternGroup({ title, patterns }: { title: string; patterns: PriceBehaviorAnalysis["candlestickPatterns"] }) {
   return (
-    <div className="rounded-lg border border-slate-100 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950">
+    <div className="rounded-2xl border border-cyan-300/10 bg-[#030816]/70 p-4">
       <h3 className="text-sm font-semibold text-slate-950 dark:text-white">{title}</h3>
       <div className="mt-3 space-y-3">
         {patterns.length > 0 ? (
@@ -714,7 +718,7 @@ function PatternCard({
 
 function WyckoffLiteSection({ analysis }: { analysis: PriceBehaviorAnalysis }) {
   return (
-    <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+    <section className="rounded-2xl border border-cyan-300/10 bg-[#09152c]/95 p-5 shadow-[0_20px_60px_rgba(0,0,0,0.18)] ring-1 ring-white/5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h2 className="text-lg font-semibold text-slate-950 dark:text-white">Wyckoff-lite</h2>
@@ -760,7 +764,7 @@ function AiAnalysisSection({
   sentimentLabel: string;
 }) {
   return (
-    <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+    <section className="rounded-2xl border border-cyan-300/10 bg-[#09152c]/95 p-5 shadow-[0_20px_60px_rgba(0,0,0,0.18)] ring-1 ring-white/5">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-lg font-semibold text-slate-950 dark:text-white">AI Analysis</h2>
@@ -787,7 +791,7 @@ function AiAnalysisSection({
 
 function PriceBehaviorSection({ analysis }: { analysis: PriceBehaviorAnalysis }) {
   return (
-    <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+    <section className="rounded-2xl border border-cyan-300/10 bg-[#09152c]/95 p-5 shadow-[0_20px_60px_rgba(0,0,0,0.18)] ring-1 ring-white/5">
       <div>
         <h2 className="text-lg font-semibold text-slate-950 dark:text-white">Hành vi giá</h2>
         <p className="mt-1 text-sm leading-6 text-slate-600 dark:text-slate-400">
@@ -796,7 +800,7 @@ function PriceBehaviorSection({ analysis }: { analysis: PriceBehaviorAnalysis })
       </div>
 
       <div className="mt-5 grid gap-4 md:grid-cols-2">
-        <article className="rounded-lg border border-slate-100 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950">
+        <article className="rounded-2xl border border-cyan-300/10 bg-[#030816]/70 p-4">
           <div className="flex items-center justify-between gap-3">
             <h3 className="text-sm font-semibold text-slate-950 dark:text-white">Mẫu nến Nhật</h3>
             <span className="rounded-full bg-white px-2 py-0.5 text-xs font-medium text-slate-500 dark:bg-slate-900 dark:text-slate-400">
@@ -830,7 +834,7 @@ function PriceBehaviorSection({ analysis }: { analysis: PriceBehaviorAnalysis })
           </div>
         </article>
 
-        <article className="rounded-lg border border-slate-100 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950">
+        <article className="rounded-2xl border border-cyan-300/10 bg-[#030816]/70 p-4">
           <div className="flex items-center justify-between gap-3">
             <h3 className="text-sm font-semibold text-slate-950 dark:text-white">Wyckoff-lite</h3>
             <span className="rounded-full bg-white px-2 py-0.5 text-xs font-medium text-slate-500 dark:bg-slate-900 dark:text-slate-400">
@@ -886,7 +890,7 @@ function getBehaviorSentimentLabel(sentiment: Signal["sentiment"]): string {
 
 function AdvancedTechnicalSection({ summaries }: { summaries: MethodSummary[] }) {
   return (
-    <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+    <section className="rounded-2xl border border-cyan-300/10 bg-[#09152c]/95 p-5 shadow-[0_20px_60px_rgba(0,0,0,0.18)] ring-1 ring-white/5">
       <div>
         <h2 className="text-lg font-semibold text-slate-950 dark:text-white">Phân tích kỹ thuật nâng cao</h2>
         <p className="mt-1 text-sm leading-6 text-slate-600 dark:text-slate-400">
@@ -1083,14 +1087,14 @@ function MetricCard({
 }) {
   const color =
     tone === "positive"
-      ? "text-emerald-600 dark:text-emerald-400"
+      ? "text-emerald-300"
       : tone === "negative"
-        ? "text-rose-600 dark:text-rose-400"
-        : "text-slate-950 dark:text-white";
+        ? "text-rose-300"
+        : "text-white";
 
   return (
-    <article className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-      <p className="text-sm text-slate-500 dark:text-slate-400">{label}</p>
+    <article className="rounded-2xl border border-cyan-300/10 bg-[#09152c]/95 p-4 shadow-[0_14px_40px_rgba(0,0,0,0.16)] ring-1 ring-white/5">
+      <p className="text-sm text-slate-400">{label}</p>
       <p className={`mt-2 text-xl font-semibold tabular-nums ${color}`}>{value}</p>
       {subValue ? <p className={`mt-1 text-sm font-medium ${color}`}>{subValue}</p> : null}
     </article>
@@ -1099,9 +1103,9 @@ function MetricCard({
 
 function IndicatorRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-center justify-between gap-4 border-b border-slate-100 pb-3 last:border-0 last:pb-0 dark:border-slate-800">
-      <dt className="text-sm text-slate-500 dark:text-slate-400">{label}</dt>
-      <dd className="text-sm font-semibold tabular-nums text-slate-950 dark:text-white">{value}</dd>
+    <div className="flex items-center justify-between gap-4 border-b border-white/10 pb-3 last:border-0 last:pb-0">
+      <dt className="text-sm text-slate-400">{label}</dt>
+      <dd className="text-sm font-semibold tabular-nums text-white">{value}</dd>
     </div>
   );
 }
