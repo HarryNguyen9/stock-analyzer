@@ -40,6 +40,14 @@ type RefreshResponse =
 
 const COOLDOWN_MS = 60 * 1000;
 const refreshCooldown = new Map<string, number>();
+const lastRefreshResults = new Map<
+  string,
+  {
+    latestDateBefore: string | null;
+    latestDateAfter: string | null;
+    dataDateChanged: boolean;
+  }
+>();
 const pendingRefreshes = new Map<
   string,
   Promise<{
@@ -98,6 +106,9 @@ export async function POST(
     const lastRefreshAt = refreshCooldown.get(symbol);
 
     if (lastRefreshAt && Date.now() - lastRefreshAt < COOLDOWN_MS) {
+      const latestDate = await readLatestPriceDate(symbol);
+      const lastResult = lastRefreshResults.get(symbol);
+
       return Response.json({
         ok: true,
         ...PRICE_SYNC_PIPELINE,
@@ -108,9 +119,9 @@ export async function POST(
         fetchedCandles: 0,
         upsertedCandles: 0,
         targetCandles: TARGET_STOCK_PRICE_CANDLES,
-        latestDateBefore: await readLatestPriceDate(symbol),
-        latestDateAfter: await readLatestPriceDate(symbol),
-        dataDateChanged: false,
+        latestDateBefore: lastResult?.latestDateBefore ?? latestDate,
+        latestDateAfter: lastResult?.latestDateAfter ?? latestDate,
+        dataDateChanged: lastResult?.dataDateChanged ?? false,
         durationMs: Date.now() - startedAt,
       } satisfies RefreshResponse);
     }
@@ -122,6 +133,12 @@ export async function POST(
       existingRows < TARGET_STOCK_PRICE_CANDLES ? DEFAULT_HISTORICAL_CANDLE_LIMIT : DEFAULT_RECENT_SYNC_CANDLE_LIMIT;
     const refreshPromise = syncSingleSymbolToSupabase(symbol, { candleLimit, updateIntraday: true }).then(async (result) => {
       const latestDateAfter = await readLatestPriceDate(symbol);
+      const dateChanged = Boolean(latestDateAfter && latestDateAfter !== latestDateBefore);
+      lastRefreshResults.set(symbol, {
+        latestDateBefore,
+        latestDateAfter,
+        dataDateChanged: dateChanged,
+      });
 
       return {
         refreshed: result.refreshed,
@@ -132,7 +149,7 @@ export async function POST(
         targetCandles: result.targetCandles,
         latestDateBefore,
         latestDateAfter,
-        dataDateChanged: Boolean(latestDateAfter && latestDateAfter !== latestDateBefore),
+        dataDateChanged: dateChanged,
       };
     });
 
