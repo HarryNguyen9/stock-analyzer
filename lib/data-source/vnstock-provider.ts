@@ -2,7 +2,7 @@ import vnstock, { stock } from "vnstock-js";
 import { DEFAULT_HISTORICAL_CANDLE_LIMIT, getLookbackDaysForCandles } from "@/lib/data-source/constants";
 import { classifyProviderFailure } from "@/lib/data-source/provider-errors";
 import type { OHLCV } from "../../types/stock";
-import type { PriceProvider } from "./types";
+import type { HistoricalPriceRequest, PriceProvider } from "./types";
 
 const MAX_RETRIES = 2;
 
@@ -12,8 +12,8 @@ const MAX_RETRIES = 2;
 // Nếu sau này đổi vendor, chỉ cần thay implementation của `fetchDailyOhlcv`.
 export const vnstockProvider: PriceProvider = {
   name: "vnstock",
-  async getDailyPrices(symbol, limit = DEFAULT_HISTORICAL_CANDLE_LIMIT) {
-    return withRetry(() => fetchDailyOhlcv(symbol, limit), MAX_RETRIES);
+  async getDailyPrices(symbol, request = DEFAULT_HISTORICAL_CANDLE_LIMIT) {
+    return withRetry(() => fetchDailyOhlcv(symbol, request), MAX_RETRIES);
   },
   async fetchLatestQuote(symbol) {
     return withRetry(() => fetchLatestQuote(symbol), MAX_RETRIES);
@@ -23,16 +23,19 @@ export const vnstockProvider: PriceProvider = {
   },
 };
 
-export async function fetchDailyOhlcv(symbol: string, limit = DEFAULT_HISTORICAL_CANDLE_LIMIT): Promise<OHLCV[]> {
-  const start = getLookbackStartDate(limit);
-  const rows = await stock.quote({ ticker: symbol, start });
+export async function fetchDailyOhlcv(
+  symbol: string,
+  request: number | HistoricalPriceRequest = DEFAULT_HISTORICAL_CANDLE_LIMIT,
+): Promise<OHLCV[]> {
+  const options = resolveHistoricalPriceRequest(request);
+  const rows = await stock.quote({ ticker: symbol, start: options.startDate, end: options.endDate });
   const candles = rows.map(normalizeCandle).filter((item): item is OHLCV => item !== null);
 
   if (candles.length < 2) {
     throw new Error(`Dữ liệu ${symbol} không đủ nến hợp lệ từ vnstock-js`);
   }
 
-  return candles.sort((a, b) => a.date.localeCompare(b.date)).slice(-limit);
+  return candles.sort((a, b) => a.date.localeCompare(b.date)).slice(-options.targetCandles);
 }
 
 export type LatestQuote = {
@@ -206,20 +209,37 @@ function normalizeCandle(row: OHLCV): OHLCV | null {
   };
 }
 
-function getLookbackStartDate(limit: number): string {
-  const date = new Date();
-  date.setUTCDate(date.getUTCDate() - getLookbackDaysForCandles(limit));
-  return date.toISOString().slice(0, 10);
-}
-
-export function getHistoricalFetchWindow(targetCandles: number): { lookbackDays: number; startDate: string } {
-  const lookbackDays = getLookbackDaysForCandles(targetCandles);
-  const date = new Date();
-  date.setUTCDate(date.getUTCDate() - lookbackDays);
+export function getHistoricalFetchWindow(
+  targetCandles: number,
+  lookbackDays = getLookbackDaysForCandles(targetCandles),
+): { lookbackDays: number; startDate: string; endDate: string } {
+  const safeLookbackDays = Math.max(1, lookbackDays);
+  const endDate = getVietnamTradingDate();
+  const date = new Date(`${endDate}T00:00:00+07:00`);
+  date.setUTCDate(date.getUTCDate() - safeLookbackDays);
 
   return {
-    lookbackDays,
+    lookbackDays: safeLookbackDays,
     startDate: date.toISOString().slice(0, 10),
+    endDate,
+  };
+}
+
+function resolveHistoricalPriceRequest(request: number | HistoricalPriceRequest) {
+  const targetCandles =
+    typeof request === "number"
+      ? request
+      : (request.targetCandles ?? DEFAULT_HISTORICAL_CANDLE_LIMIT);
+  const window = getHistoricalFetchWindow(
+    targetCandles,
+    typeof request === "number" ? undefined : request.lookbackDays,
+  );
+
+  return {
+    targetCandles,
+    lookbackDays: window.lookbackDays,
+    startDate: typeof request === "number" ? window.startDate : (request.startDate ?? window.startDate),
+    endDate: typeof request === "number" ? window.endDate : (request.endDate ?? window.endDate),
   };
 }
 

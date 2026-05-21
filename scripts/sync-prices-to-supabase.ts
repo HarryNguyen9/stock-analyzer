@@ -63,6 +63,7 @@ export type SyncSymbolResult = {
   targetCandles: number;
   lookbackDays: number;
   startDate: string;
+  endDate: string;
   providerUsed: string;
   providerReturnedOnly: number | null;
   providerLimitReached: boolean;
@@ -212,11 +213,16 @@ export async function syncSingleSymbolToSupabase(
   const normalizedSymbol = symbol.toUpperCase();
   const candleLimit = options.candleLimit ?? DEFAULT_RECENT_SYNC_CANDLE_LIMIT;
   const targetCandles = options.targetCandles ?? candleLimit;
-  const fetchWindow = getHistoricalFetchWindow(candleLimit);
+  const fetchWindow = getHistoricalFetchWindow(targetCandles);
   const existingRows = await readExistingPriceRowCount(normalizedSymbol);
 
   try {
-    const prices = await vnstockProvider.getDailyPrices(normalizedSymbol, candleLimit);
+    const prices = await vnstockProvider.getDailyPrices(normalizedSymbol, {
+      targetCandles,
+      startDate: fetchWindow.startDate,
+      endDate: fetchWindow.endDate,
+      lookbackDays: fetchWindow.lookbackDays,
+    });
     const latestFetchedDate = prices[prices.length - 1]?.date ?? null;
     const latestExistingDate = options.skipIfFetchedOlderThanExisting
       ? await readLatestExistingPriceDate(normalizedSymbol)
@@ -239,6 +245,7 @@ export async function syncSingleSymbolToSupabase(
         targetCandles,
         lookbackDays: fetchWindow.lookbackDays,
         startDate: fetchWindow.startDate,
+        endDate: fetchWindow.endDate,
         providerUsed: vnstockProvider.name,
         providerReturnedOnly: prices.length < targetCandles ? prices.length : null,
         providerLimitReached: prices.length < targetCandles,
@@ -265,6 +272,7 @@ export async function syncSingleSymbolToSupabase(
       targetCandles,
       lookbackDays: fetchWindow.lookbackDays,
       startDate: fetchWindow.startDate,
+      endDate: fetchWindow.endDate,
       providerUsed: vnstockProvider.name,
       providerReturnedOnly: prices.length < targetCandles ? prices.length : null,
       providerLimitReached: prices.length < targetCandles,

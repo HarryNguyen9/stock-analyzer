@@ -1,8 +1,15 @@
 import type { OHLCV } from "../../types/stock";
 
+export type HistoricalPriceRequest = {
+  targetCandles?: number;
+  startDate?: string;
+  endDate?: string;
+  lookbackDays?: number;
+};
+
 export type PriceProvider = {
   name: string;
-  getDailyPrices(symbol: string, limit?: number): Promise<OHLCV[]>;
+  getDailyPrices(symbol: string, limit?: number | HistoricalPriceRequest): Promise<OHLCV[]>;
   fetchLatestQuote?(symbol: string): Promise<unknown>;
   fetchIntradayTrades?(symbol: string): Promise<unknown[]>;
 };

@@ -1,5 +1,5 @@
 import { getSymbolsMissingPriceData } from "@/lib/data-source/missing-prices";
-import { DEFAULT_BACKFILL_TARGET_CANDLES } from "@/lib/data-source/constants";
+import { DEFAULT_BACKFILL_TARGET_CANDLES, getLookbackDaysForCandles } from "@/lib/data-source/constants";
 import { classifyProviderFailure } from "@/lib/data-source/provider-errors";
 import { BACKFILL_PRICE_PIPELINE, markSymbolUnsupported, syncSingleSymbolToSupabase } from "@/lib/pipeline/price-sync";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -52,6 +52,7 @@ type BackfillSymbolDiagnostic = {
   targetCandles: number;
   lookbackDays: number;
   startDate: string;
+  endDate: string;
   existingRowsBefore: number;
   fetchedCandles: number;
   upsertedCandles: number;
@@ -59,7 +60,9 @@ type BackfillSymbolDiagnostic = {
   providerUsed: string;
   providerReturnedOnly: number | null;
   providerLimitReached: boolean;
-  error?: string;
+  errorMessage?: string;
+  errorName?: string;
+  errorStack?: string;
 };
 
 const DEFAULT_LIMIT = 5;
@@ -93,6 +96,7 @@ async function handleBackfillMissingPrices(request: Request): Promise<Response> 
     const limitParam = getClampedNumberParam(request, "limit", DEFAULT_LIMIT, 1, MAX_LIMIT);
     const limit = limitParam.value;
     const targetCandles = getNumberParam(request, "targetCandles", DEFAULT_BACKFILL_TARGET_CANDLES, 20, DEFAULT_BACKFILL_TARGET_CANDLES);
+    const fetchWindow = getBackfillFetchWindow(targetCandles);
     const missingSymbols = await getSymbolsMissingPriceData({ limit, targetCandles });
     const symbolsBelowTarget = missingSymbols.filter((item) => item.priceRows < targetCandles).length;
     const processedSymbols: Array<{ symbol: string; status: "synced" | "failed"; message?: string }> = [];
@@ -105,6 +109,9 @@ async function handleBackfillMissingPrices(request: Request): Promise<Response> 
       limitClamped: limitParam.clamped,
       candleLimit: targetCandles,
       targetCandles,
+      lookbackDays: fetchWindow.lookbackDays,
+      startDate: fetchWindow.startDate,
+      endDate: fetchWindow.endDate,
       symbolsBelowTarget,
       selectedSymbols: missingSymbols.map((item) => item.symbol),
     });
@@ -132,6 +139,7 @@ async function handleBackfillMissingPrices(request: Request): Promise<Response> 
           targetCandles,
           lookbackDays: result.lookbackDays,
           startDate: result.startDate,
+          endDate: result.endDate,
           existingRowsBefore: result.existingRows,
           fetchedCandles: result.fetchedCandles,
           upsertedCandles: result.upsertedCandles,
@@ -145,8 +153,9 @@ async function handleBackfillMissingPrices(request: Request): Promise<Response> 
         }
         processedSymbols.push({ symbol: item.symbol, status: "synced" });
       } catch (error) {
-        const failure = classifyProviderFailure(error);
-        const message = failure.message;
+        const serializedError = serializeBackfillError(error);
+        const failure = classifyProviderFailure(serializedError.errorMessage);
+        const message = serializedError.errorMessage;
         failed += 1;
         failedSymbols.push({
           symbol: item.symbol,
@@ -169,8 +178,9 @@ async function handleBackfillMissingPrices(request: Request): Promise<Response> 
         diagnostics.push({
           symbol: item.symbol,
           targetCandles,
-          lookbackDays: 0,
-          startDate: "",
+          lookbackDays: fetchWindow.lookbackDays,
+          startDate: fetchWindow.startDate,
+          endDate: fetchWindow.endDate,
           existingRowsBefore: item.priceRows,
           fetchedCandles: 0,
           upsertedCandles: 0,
@@ -178,7 +188,9 @@ async function handleBackfillMissingPrices(request: Request): Promise<Response> 
           providerUsed: "vnstock",
           providerReturnedOnly: null,
           providerLimitReached: false,
-          error: message,
+          errorMessage: message,
+          errorName: serializedError.errorName,
+          ...(serializedError.errorStack ? { errorStack: serializedError.errorStack } : {}),
         });
       }
     }
@@ -205,6 +217,9 @@ async function handleBackfillMissingPrices(request: Request): Promise<Response> 
         diagnostics,
         candleLimit: targetCandles,
         targetCandles,
+        lookbackDays: fetchWindow.lookbackDays,
+        startDate: fetchWindow.startDate,
+        endDate: fetchWindow.endDate,
         symbolsBelowTarget,
         stoppedEarly,
         stopReason: stoppedEarly ? "time_guard" : null,
@@ -288,6 +303,57 @@ async function markBackfillFailed(symbol: string, errorMessage: string) {
   } catch (error) {
     console.warn(`${symbol}: khong cap nhat duoc backfill_failed (${getShortErrorMessage(error)})`);
   }
+}
+
+function getBackfillFetchWindow(targetCandles: number): { lookbackDays: number; startDate: string; endDate: string } {
+  const lookbackDays = Math.max(1, getLookbackDaysForCandles(targetCandles));
+  const endDate = getVietnamDateString();
+  const start = new Date(`${endDate}T00:00:00+07:00`);
+  start.setUTCDate(start.getUTCDate() - lookbackDays);
+
+  return {
+    lookbackDays,
+    startDate: start.toISOString().slice(0, 10),
+    endDate,
+  };
+}
+
+function getVietnamDateString(date = new Date()): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Ho_Chi_Minh",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date);
+}
+
+function serializeBackfillError(error: unknown): { errorMessage: string; errorName: string; errorStack?: string } {
+  if (error instanceof Error) {
+    return {
+      errorMessage: getShortErrorMessage(error),
+      errorName: error.name || "Error",
+      ...(error.stack ? { errorStack: error.stack } : {}),
+    };
+  }
+
+  if (typeof error === "object" && error !== null) {
+    try {
+      return {
+        errorMessage: JSON.stringify(error).slice(0, 500) || "Unknown backfill error",
+        errorName: error.constructor?.name ?? "Object",
+      };
+    } catch {
+      return {
+        errorMessage: "Unable to serialize backfill error",
+        errorName: error.constructor?.name ?? "Object",
+      };
+    }
+  }
+
+  return {
+    errorMessage: getShortErrorMessage(error),
+    errorName: typeof error,
+  };
 }
 
 function getShortErrorMessage(error: unknown): string {
