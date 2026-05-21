@@ -107,6 +107,7 @@ function SectorTopSymbols({ sector }: { sector: SectorSummary | null }) {
             <Link
               key={`${sector.sector}-${stock.symbol}`}
               href={`/stock/${stock.symbol}`}
+              prefetch={false}
               className="flex items-center justify-between gap-3 rounded-lg bg-white px-3 py-2 transition hover:bg-slate-100 dark:bg-slate-900 dark:hover:bg-slate-800"
             >
               <div className="min-w-0">

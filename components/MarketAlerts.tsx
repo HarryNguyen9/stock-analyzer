@@ -80,7 +80,7 @@ function AlertCard({ alert, index }: { alert: MarketAlert; index: number }) {
 
   if (alert.symbol) {
     return (
-      <Link href={`/stock/${alert.symbol}`} className="block shrink-0">
+      <Link href={`/stock/${alert.symbol}`} prefetch={false} className="block shrink-0">
         {content}
       </Link>
     );

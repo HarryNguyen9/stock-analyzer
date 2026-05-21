@@ -28,6 +28,10 @@ type StockPageProps = {
   params: Promise<{ symbol: string }>;
 };
 
+export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
+export const revalidate = 0;
+
 export function generateStaticParams() {
   return [];
 }
@@ -165,6 +169,7 @@ export default async function StockDetailPage({ params }: StockPageProps) {
           </div>
 
           <CandlestickChart
+            key={`${stock.symbol}-${latest.date}-${latest.close}`}
             data={candles}
             supportResistance={analysis.supportResistance}
             patterns={analysis.priceBehavior.candlestickPatterns}

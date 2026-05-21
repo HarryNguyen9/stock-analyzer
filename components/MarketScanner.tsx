@@ -74,6 +74,7 @@ function ScannerCard({ item }: { item: ScannerItem }) {
   return (
     <Link
       href={`/stock/${item.stock.symbol}`}
+      prefetch={false}
       className="w-56 shrink-0 snap-start rounded-xl border border-cyan-400/15 bg-[#10223b]/80 p-4 shadow-[0_12px_36px_rgba(2,8,23,0.16)] transition hover:-translate-y-0.5 hover:border-cyan-300/30 hover:bg-[#132945] active:scale-[0.99]"
     >
       <div className="flex items-start justify-between gap-3">

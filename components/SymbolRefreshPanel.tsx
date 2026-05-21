@@ -61,6 +61,12 @@ export function SymbolRefreshPanel({
 
       setState("success");
       setMessage(getRefreshSuccessMessage(payload));
+
+      if (payload.dataDateChanged) {
+        window.location.reload();
+        return;
+      }
+
       router.refresh();
     } catch (error) {
       setState("error");

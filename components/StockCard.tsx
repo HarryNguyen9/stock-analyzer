@@ -18,6 +18,7 @@ export function StockCard({ stock }: { stock: StockSummary }) {
   return (
     <Link
       href={`/stock/${stock.symbol}`}
+      prefetch={false}
       className="group block w-full min-w-0 overflow-hidden rounded-2xl border border-sky-200 bg-white p-5 shadow-[0_18px_60px_rgba(15,23,42,0.10)] ring-1 ring-slate-900/[0.03] transition hover:-translate-y-0.5 hover:border-cyan-300 hover:bg-sky-50 active:scale-[0.99] dark:border-cyan-400/15 dark:bg-[#0b1b31] dark:shadow-[0_18px_60px_rgba(2,8,23,0.22)] dark:ring-white/5 dark:hover:border-cyan-300/30 dark:hover:bg-[#10223b]"
     >
       <div className="grid grid-cols-[1fr_auto] gap-4">
