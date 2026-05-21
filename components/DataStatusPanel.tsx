@@ -118,6 +118,10 @@ export function DataStatusPanel({
           await triggerSync(secret);
           return;
         }
+
+        setSyncState("idle");
+        setMessage(null);
+        return;
       }
 
       const payload = (await response.json()) as TriggerSyncResponse;
