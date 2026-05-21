@@ -1,6 +1,6 @@
 import { getSymbolsMissingPriceData } from "@/lib/data-source/missing-prices";
 import { DEFAULT_BACKFILL_TARGET_CANDLES, getLookbackDaysForCandles } from "@/lib/data-source/constants";
-import { classifyProviderFailure } from "@/lib/data-source/provider-errors";
+import { classifyProviderFailure, serializeProviderError } from "@/lib/data-source/provider-errors";
 import { BACKFILL_PRICE_PIPELINE, markSymbolUnsupported, syncSingleSymbolToSupabase } from "@/lib/pipeline/price-sync";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { Database, Json } from "@/lib/supabase/types";
@@ -60,6 +60,8 @@ type BackfillSymbolDiagnostic = {
   providerUsed: string;
   providerReturnedOnly: number | null;
   providerLimitReached: boolean;
+  partialBackfill: boolean;
+  providerDiagnostics?: Json;
   errorMessage?: string;
   errorName?: string;
   errorStack?: string;
@@ -147,6 +149,7 @@ async function handleBackfillMissingPrices(request: Request): Promise<Response> 
           providerUsed: result.providerUsed,
           providerReturnedOnly: result.providerReturnedOnly,
           providerLimitReached: result.providerLimitReached,
+          partialBackfill: result.partialBackfill,
         });
         if (sampleSyncedSymbols.length < 10) {
           sampleSyncedSymbols.push(item.symbol);
@@ -188,6 +191,8 @@ async function handleBackfillMissingPrices(request: Request): Promise<Response> 
           providerUsed: "vnstock",
           providerReturnedOnly: null,
           providerLimitReached: false,
+          partialBackfill: false,
+          providerDiagnostics: serializedError.providerDiagnostics,
           errorMessage: message,
           errorName: serializedError.errorName,
           ...(serializedError.errorStack ? { errorStack: serializedError.errorStack } : {}),
@@ -257,7 +262,7 @@ async function handleBackfillMissingPrices(request: Request): Promise<Response> 
       status: "failed",
       finished_at: new Date().toISOString(),
       duration_ms: durationMs,
-      error_message: error instanceof Error ? error.message : String(error),
+      error_message: serializeBackfillError(error).errorMessage,
     });
 
     return jsonError(error, 500, jobId);
@@ -283,7 +288,7 @@ async function syncWithRetry(symbol: string, targetCandles = DEFAULT_BACKFILL_TA
     }
   }
 
-  throw lastError instanceof Error ? lastError : new Error(String(lastError));
+  throw lastError instanceof Error ? lastError : new Error(serializeProviderError(lastError).errorMessage);
 }
 
 async function markBackfillFailed(symbol: string, errorMessage: string) {
@@ -327,37 +332,43 @@ function getVietnamDateString(date = new Date()): string {
   }).format(date);
 }
 
-function serializeBackfillError(error: unknown): { errorMessage: string; errorName: string; errorStack?: string } {
-  if (error instanceof Error) {
-    return {
-      errorMessage: getShortErrorMessage(error),
-      errorName: error.name || "Error",
-      ...(error.stack ? { errorStack: error.stack } : {}),
-    };
+function serializeBackfillError(error: unknown): {
+  errorMessage: string;
+  errorName: string;
+  errorStack?: string;
+  providerDiagnostics?: Json;
+} {
+  const serialized = serializeProviderError(error);
+
+  return {
+    errorMessage: getShortErrorMessage(serialized.errorMessage),
+    errorName: serialized.errorName,
+    ...(serialized.errorStack ? { errorStack: serialized.errorStack } : {}),
+    ...(extractProviderDiagnostics(error) ? { providerDiagnostics: extractProviderDiagnostics(error) } : {}),
+  };
+}
+
+function extractProviderDiagnostics(error: unknown): Json | null {
+  if (typeof error !== "object" || error === null) {
+    return null;
   }
 
-  if (typeof error === "object" && error !== null) {
-    try {
-      return {
-        errorMessage: JSON.stringify(error).slice(0, 500) || "Unknown backfill error",
-        errorName: error.constructor?.name ?? "Object",
-      };
-    } catch {
-      return {
-        errorMessage: "Unable to serialize backfill error",
-        errorName: error.constructor?.name ?? "Object",
-      };
-    }
+  const candidate = error as { attempts?: unknown; providerName?: unknown; inputSymbol?: unknown; inputTargetCandles?: unknown };
+
+  if (!Array.isArray(candidate.attempts)) {
+    return null;
   }
 
   return {
-    errorMessage: getShortErrorMessage(error),
-    errorName: typeof error,
+    providerName: typeof candidate.providerName === "string" ? candidate.providerName : "unknown",
+    inputSymbol: typeof candidate.inputSymbol === "string" ? candidate.inputSymbol : null,
+    inputTargetCandles: typeof candidate.inputTargetCandles === "number" ? candidate.inputTargetCandles : null,
+    attempts: candidate.attempts as Json,
   };
 }
 
 function getShortErrorMessage(error: unknown): string {
-  const message = error instanceof Error ? error.message : String(error);
+  const message = serializeProviderError(error).errorMessage;
   return message.replace(/\s+/g, " ").trim().slice(0, 220) || "Unknown backfill error";
 }
 
@@ -443,8 +454,9 @@ function delay(ms: number) {
 }
 
 function jsonError(error: unknown, status: number, jobId: string | null = null): Response {
-  const message = error instanceof Error ? error.message : "Backfill missing prices that bai.";
-  const stack = error instanceof Error ? error.stack : undefined;
+  const serializedError = serializeBackfillError(error);
+  const message = serializedError.errorMessage || "Backfill missing prices that bai.";
+  const stack = serializedError.errorStack;
 
   return Response.json(
     {

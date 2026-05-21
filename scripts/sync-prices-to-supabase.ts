@@ -1,7 +1,7 @@
 import { pathToFileURL } from "node:url";
 import { loadEnvConfig } from "@next/env";
 import { STOCKS } from "../data/symbols";
-import { classifyProviderFailure } from "../lib/data-source/provider-errors";
+import { classifyProviderFailure, serializeProviderError } from "../lib/data-source/provider-errors";
 import {
   DEFAULT_HISTORICAL_CANDLE_LIMIT,
   DEFAULT_RECENT_SYNC_CANDLE_LIMIT,
@@ -67,6 +67,7 @@ export type SyncSymbolResult = {
   providerUsed: string;
   providerReturnedOnly: number | null;
   providerLimitReached: boolean;
+  partialBackfill: boolean;
 };
 
 type SyncSingleSymbolOptions = {
@@ -249,6 +250,7 @@ export async function syncSingleSymbolToSupabase(
         providerUsed: vnstockProvider.name,
         providerReturnedOnly: prices.length < targetCandles ? prices.length : null,
         providerLimitReached: prices.length < targetCandles,
+        partialBackfill: prices.length < targetCandles,
       };
     }
 
@@ -276,6 +278,7 @@ export async function syncSingleSymbolToSupabase(
       providerUsed: vnstockProvider.name,
       providerReturnedOnly: prices.length < targetCandles ? prices.length : null,
       providerLimitReached: prices.length < targetCandles,
+      partialBackfill: prices.length < targetCandles,
     };
   } catch (error) {
     const failure = classifyProviderFailure(error);
@@ -294,7 +297,7 @@ async function updateIntradaySafely(symbol: string) {
   try {
     return await updateIntradayCandleForSymbol(symbol);
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = serializeProviderError(error).errorMessage;
     console.warn(`${symbol}: bo qua intraday update (${message})`);
 
     return {
@@ -389,7 +392,7 @@ async function getSyncTargets(options: { batch: number; limit: number }): Promis
     console.log("Supabase chua co symbols auto_sync=true, fallback ve danh sach mac dinh.");
     return getFallbackTargets(options);
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = serializeProviderError(error).errorMessage;
     console.warn(`Khong doc duoc symbols auto_sync tu Supabase (${message}), fallback ve danh sach mac dinh.`);
     return getFallbackTargets(options);
   }
@@ -417,7 +420,7 @@ export async function markSymbolUnsupported(symbol: string, reason: string) {
       throw error;
     }
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = serializeProviderError(error).errorMessage;
     console.warn(`${symbol}: khong cap nhat duoc unsupported (${message})`);
   }
 }
@@ -491,7 +494,7 @@ export async function updateSymbolSyncStatus(
       throw error;
     }
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = serializeProviderError(error).errorMessage;
     console.warn(`${symbol}: khong cap nhat duoc sync_status (${message})`);
   }
 }

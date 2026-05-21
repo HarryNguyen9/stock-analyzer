@@ -1,6 +1,6 @@
 import vnstock, { stock } from "vnstock-js";
 import { DEFAULT_HISTORICAL_CANDLE_LIMIT, getLookbackDaysForCandles } from "@/lib/data-source/constants";
-import { classifyProviderFailure } from "@/lib/data-source/provider-errors";
+import { classifyProviderFailure, serializeProviderError } from "@/lib/data-source/provider-errors";
 import type { OHLCV } from "../../types/stock";
 import type { HistoricalPriceRequest, PriceProvider } from "./types";
 
@@ -28,14 +28,35 @@ export async function fetchDailyOhlcv(
   request: number | HistoricalPriceRequest = DEFAULT_HISTORICAL_CANDLE_LIMIT,
 ): Promise<OHLCV[]> {
   const options = resolveHistoricalPriceRequest(request);
-  const rows = await stock.quote({ ticker: symbol, start: options.startDate, end: options.endDate });
-  const candles = rows.map(normalizeCandle).filter((item): item is OHLCV => item !== null);
+  return fetchDailyOhlcvWithFallback(symbol, options);
+}
 
-  if (candles.length < 2) {
-    throw new Error(`Dữ liệu ${symbol} không đủ nến hợp lệ từ vnstock-js`);
+export type HistoricalProviderAttemptDiagnostic = {
+  providerName: typeof vnstockProvider.name;
+  inputSymbol: string;
+  inputStartDate: string;
+  inputEndDate: string;
+  inputTargetCandles: number;
+  inputLookbackDays: number;
+  rawErrorMessage: string;
+  rawErrorName: string;
+  rawErrorStatus?: string | number;
+  rawErrorCode?: string | number;
+};
+
+export class HistoricalProviderError extends Error {
+  providerName = vnstockProvider.name;
+  inputSymbol: string;
+  inputTargetCandles: number;
+  attempts: HistoricalProviderAttemptDiagnostic[];
+
+  constructor(message: string, input: { symbol: string; targetCandles: number }, attempts: HistoricalProviderAttemptDiagnostic[]) {
+    super(message);
+    this.name = "HistoricalProviderError";
+    this.inputSymbol = input.symbol;
+    this.inputTargetCandles = input.targetCandles;
+    this.attempts = attempts;
   }
-
-  return candles.sort((a, b) => a.date.localeCompare(b.date)).slice(-options.targetCandles);
 }
 
 export type LatestQuote = {
@@ -184,7 +205,66 @@ async function withRetry<T>(operation: () => Promise<T>, retries: number): Promi
     }
   }
 
-  throw lastError instanceof Error ? lastError : new Error(String(lastError));
+  throw lastError instanceof Error ? lastError : new Error(serializeProviderError(lastError).errorMessage);
+}
+
+async function fetchDailyOhlcvWithFallback(
+  symbol: string,
+  options: ResolvedHistoricalPriceRequest,
+): Promise<OHLCV[]> {
+  const attempts = buildHistoricalFetchAttempts(options);
+  const errors: HistoricalProviderAttemptDiagnostic[] = [];
+
+  for (const attempt of attempts) {
+    try {
+      const rows = await stock.quote({
+        ticker: symbol,
+        start: attempt.startDate,
+        end: attempt.endDate,
+      });
+      const candles = rows.map(normalizeCandle).filter((item): item is OHLCV => item !== null);
+
+      if (candles.length < 2) {
+        throw new Error(`Du lieu ${symbol} khong du nen hop le tu vnstock-js`);
+      }
+
+      return candles.sort((a, b) => a.date.localeCompare(b.date)).slice(-options.targetCandles);
+    } catch (error) {
+      const serialized = serializeProviderError(error);
+      errors.push({
+        providerName: vnstockProvider.name,
+        inputSymbol: symbol,
+        inputStartDate: attempt.startDate,
+        inputEndDate: attempt.endDate,
+        inputTargetCandles: options.targetCandles,
+        inputLookbackDays: attempt.lookbackDays,
+        rawErrorMessage: serialized.errorMessage,
+        rawErrorName: serialized.errorName,
+        ...(serialized.errorStatus ? { rawErrorStatus: serialized.errorStatus } : {}),
+        ...(serialized.errorCode ? { rawErrorCode: serialized.errorCode } : {}),
+      });
+    }
+  }
+
+  throw new HistoricalProviderError(
+    `vnstock failed to fetch historical candles for ${symbol}: ${errors.map((item) => item.rawErrorMessage).join(" | ")}`,
+    { symbol, targetCandles: options.targetCandles },
+    errors,
+  );
+}
+
+function buildHistoricalFetchAttempts(options: ResolvedHistoricalPriceRequest): ResolvedHistoricalPriceRequest[] {
+  if (options.targetCandles < 600) {
+    return [options];
+  }
+
+  const lookbackDays = [options.lookbackDays, 730, 550];
+  const uniqueLookbackDays = [...new Set(lookbackDays.filter((days) => days > 0))];
+
+  return uniqueLookbackDays.map((days) => ({
+    ...options,
+    ...getHistoricalFetchWindow(options.targetCandles, days),
+  }));
 }
 
 function normalizeCandle(row: OHLCV): OHLCV | null {
@@ -225,7 +305,14 @@ export function getHistoricalFetchWindow(
   };
 }
 
-function resolveHistoricalPriceRequest(request: number | HistoricalPriceRequest) {
+type ResolvedHistoricalPriceRequest = {
+  targetCandles: number;
+  lookbackDays: number;
+  startDate: string;
+  endDate: string;
+};
+
+function resolveHistoricalPriceRequest(request: number | HistoricalPriceRequest): ResolvedHistoricalPriceRequest {
   const targetCandles =
     typeof request === "number"
       ? request
