@@ -134,25 +134,25 @@ export function LazyStockSearchList({ active }: { active: boolean }) {
 
   return (
     <section className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-      <div className="rounded-2xl border border-cyan-400/15 bg-[#0b1b31] p-5 shadow-[0_20px_70px_rgba(2,8,23,0.24)] ring-1 ring-white/5 sm:p-7">
+      <div className="rounded-2xl border border-sky-200 bg-white p-5 shadow-[0_20px_70px_rgba(15,23,42,0.10)] ring-1 ring-slate-900/[0.03] dark:border-cyan-400/15 dark:bg-[#0b1b31] dark:shadow-[0_20px_70px_rgba(2,8,23,0.24)] dark:ring-white/5 sm:p-7">
         <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-start gap-4">
-            <span className="grid h-14 w-14 shrink-0 place-items-center rounded-full border border-emerald-300/25 bg-emerald-400/10 text-emerald-300">
+            <span className="grid h-14 w-14 shrink-0 place-items-center rounded-full border border-emerald-300/30 bg-emerald-50 text-emerald-600 dark:border-emerald-300/25 dark:bg-emerald-400/10 dark:text-emerald-300">
               <SearchIcon />
             </span>
             <div>
-              <h2 className="text-2xl font-semibold text-white">Tìm mã cổ phiếu</h2>
-              <p className="mt-2 text-sm leading-6 text-slate-400">Tra cứu mã, tên công ty hoặc sàn giao dịch.</p>
+              <h2 className="text-2xl font-semibold text-slate-950 dark:text-white">Tìm mã cổ phiếu</h2>
+              <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-400">Tra cứu mã, tên công ty hoặc sàn giao dịch.</p>
             </div>
           </div>
           <div className="text-left sm:text-right">
-            <p className="text-sm font-medium text-slate-300">{vi.home.searchResults(displayStocks.length)}</p>
-            <p className="mt-1 text-sm text-emerald-300">{vi.home.marketData}</p>
+            <p className="text-sm font-medium text-slate-600 dark:text-slate-300">{vi.home.searchResults(displayStocks.length)}</p>
+            <p className="mt-1 text-sm text-emerald-600 dark:text-emerald-300">{vi.home.marketData}</p>
           </div>
         </div>
 
-        <div className="mt-5 flex min-h-14 items-center rounded-2xl border border-cyan-400/25 bg-[#10223b] px-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] focus-within:border-cyan-300/70 focus-within:shadow-[0_0_28px_rgba(34,211,238,0.14)]">
-          <span className="mr-3 text-slate-500">
+        <div className="mt-5 flex min-h-14 items-center rounded-2xl border border-sky-200 bg-slate-50 px-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] focus-within:border-cyan-400 focus-within:shadow-[0_0_28px_rgba(14,165,233,0.12)] dark:border-cyan-400/25 dark:bg-[#10223b] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] dark:focus-within:border-cyan-300/70 dark:focus-within:shadow-[0_0_28px_rgba(34,211,238,0.14)]">
+          <span className="mr-3 text-slate-400 dark:text-slate-500">
             <SearchIcon />
           </span>
           <input
@@ -161,13 +161,13 @@ export function LazyStockSearchList({ active }: { active: boolean }) {
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder={vi.home.searchPlaceholder}
-            className="min-h-14 min-w-0 flex-1 bg-transparent text-base text-white outline-none placeholder:text-slate-500"
+            className="min-h-14 min-w-0 flex-1 bg-transparent text-base text-slate-950 outline-none placeholder:text-slate-400 dark:text-white dark:placeholder:text-slate-500"
           />
           {query ? (
             <button
               type="button"
               onClick={() => setQuery("")}
-              className="ml-2 rounded-full border border-cyan-400/15 px-3 py-1.5 text-sm font-medium text-slate-300 transition hover:border-cyan-300/40 hover:text-white"
+              className="ml-2 rounded-full border border-sky-200 px-3 py-1.5 text-sm font-medium text-slate-600 transition hover:border-cyan-300 hover:text-slate-950 dark:border-cyan-400/15 dark:text-slate-300 dark:hover:border-cyan-300/40 dark:hover:text-white"
             >
               {vi.home.searchClear}
             </button>
@@ -179,7 +179,7 @@ export function LazyStockSearchList({ active }: { active: boolean }) {
         </div>
 
         {!hasQuery ? (
-          <p className="mt-4 text-sm leading-6 text-slate-400">
+          <p className="mt-4 text-sm leading-6 text-slate-600 dark:text-slate-400">
             Nhập mã để tìm cổ phiếu hoặc xem các mã nổi bật bên dưới.
           </p>
         ) : null}
@@ -187,15 +187,15 @@ export function LazyStockSearchList({ active }: { active: boolean }) {
 
       <div className="mt-8 flex items-center justify-between gap-4">
         <div className="flex min-w-0 items-center gap-3">
-          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-cyan-300/25 bg-cyan-400/10 text-cyan-300">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-cyan-300/30 bg-cyan-50 text-cyan-600 dark:border-cyan-300/25 dark:bg-cyan-400/10 dark:text-cyan-300">
             <StarIcon />
           </span>
-          <h2 className="truncate text-2xl font-semibold text-white">
+          <h2 className="truncate text-2xl font-semibold text-slate-950 dark:text-white">
             {hasQuery ? vi.home.searchResultTitle : vi.home.featuredSymbols}
           </h2>
         </div>
         <div className="shrink-0 text-right">
-          <p className="text-sm font-medium text-slate-300">{vi.home.searchResults(displayStocks.length)}</p>
+          <p className="text-sm font-medium text-slate-600 dark:text-slate-300">{vi.home.searchResults(displayStocks.length)}</p>
           <p className="text-xs text-slate-500">{vi.home.marketData}</p>
         </div>
       </div>
@@ -273,7 +273,7 @@ function SearchSkeleton() {
   return (
     <div className="mt-4 grid gap-4 lg:grid-cols-2">
       {Array.from({ length: 3 }).map((_, index) => (
-        <div key={index} className="h-56 animate-pulse rounded-2xl border border-cyan-400/10 bg-[#0b1b31]" />
+        <div key={index} className="h-56 animate-pulse rounded-2xl border border-sky-200 bg-white dark:border-cyan-400/10 dark:bg-[#0b1b31]" />
       ))}
     </div>
   );
@@ -281,7 +281,7 @@ function SearchSkeleton() {
 
 function SearchError({ message, onRetry }: { message: string; onRetry: () => void }) {
   return (
-    <div className="mt-4 rounded-2xl border border-amber-300/20 bg-amber-400/10 p-5 text-amber-100">
+    <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-5 text-amber-900 dark:border-amber-300/20 dark:bg-amber-400/10 dark:text-amber-100">
       <h2 className="text-lg font-semibold">Không thể tải danh sách cổ phiếu</h2>
       <p className="mt-2 text-sm leading-6 opacity-85">{message}</p>
       <button
@@ -297,9 +297,9 @@ function SearchError({ message, onRetry }: { message: string; onRetry: () => voi
 
 function SearchEmpty({ message, isSearching }: { message: string | null; isSearching: boolean }) {
   return (
-    <div className="mt-4 rounded-2xl border border-dashed border-cyan-400/15 bg-[#0b1b31] p-6 text-center text-slate-300">
-      <p className="text-base font-semibold text-white">{isSearching ? vi.home.searchEmptyTitle : "Chưa có mã nổi bật"}</p>
-      <p className="mt-2 text-sm leading-6 text-slate-400">
+    <div className="mt-4 rounded-2xl border border-dashed border-sky-200 bg-white p-6 text-center text-slate-600 dark:border-cyan-400/15 dark:bg-[#0b1b31] dark:text-slate-300">
+      <p className="text-base font-semibold text-slate-950 dark:text-white">{isSearching ? vi.home.searchEmptyTitle : "Chưa có mã nổi bật"}</p>
+      <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-400">
         {message ?? (isSearching ? vi.home.searchEmptyDescription : "Dữ liệu sẽ xuất hiện sau lần cập nhật snapshot tiếp theo.")}
       </p>
     </div>

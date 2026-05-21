@@ -138,8 +138,8 @@ export function DataStatusPanel({
 
   return (
     <div className="flex w-full flex-col gap-3 lg:flex-row lg:items-start">
-      <div className="flex w-full flex-wrap items-center rounded-2xl border border-cyan-400/15 bg-[#0b1b31]/95 px-4 py-4 shadow-[0_16px_48px_rgba(8,145,178,0.10)] ring-1 ring-white/5 sm:flex-nowrap sm:px-5 lg:max-w-3xl">
-        <div className="mr-4 grid h-12 w-12 shrink-0 place-items-center rounded-full border border-cyan-300/20 bg-cyan-400/10 text-cyan-300 shadow-[0_0_34px_rgba(34,211,238,0.16)]">
+      <div className="flex w-full flex-wrap items-center rounded-2xl border border-sky-200 bg-white/90 px-4 py-4 shadow-[0_16px_48px_rgba(15,23,42,0.08)] ring-1 ring-slate-900/[0.03] dark:border-cyan-400/15 dark:bg-[#0b1b31]/95 dark:shadow-[0_16px_48px_rgba(8,145,178,0.10)] dark:ring-white/5 sm:flex-nowrap sm:px-5 lg:max-w-3xl">
+        <div className="mr-4 grid h-12 w-12 shrink-0 place-items-center rounded-full border border-cyan-400/20 bg-cyan-50 text-cyan-600 shadow-[0_0_34px_rgba(14,165,233,0.12)] dark:border-cyan-300/20 dark:bg-cyan-400/10 dark:text-cyan-300 dark:shadow-[0_0_34px_rgba(34,211,238,0.16)]">
           <svg
             aria-hidden="true"
             viewBox="0 0 24 24"
@@ -157,11 +157,11 @@ export function DataStatusPanel({
           </svg>
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-medium text-slate-400">{vi.home.dataFreshnessTitle}</p>
-          <p className="mt-1 text-base font-semibold tabular-nums text-white sm:text-xl">
+          <p className="text-sm font-medium text-slate-500 dark:text-slate-400">{vi.home.dataFreshnessTitle}</p>
+          <p className="mt-1 text-base font-semibold tabular-nums text-slate-950 dark:text-white sm:text-xl">
             {freshnessView.timeText}
             {freshness.updatedAt ? (
-              <span className="ml-2 text-sm font-medium text-slate-400">
+              <span className="ml-2 text-sm font-medium text-slate-500 dark:text-slate-400">
                 {vi.home.dataTimezone}
               </span>
             ) : null}
@@ -179,7 +179,7 @@ export function DataStatusPanel({
           type="button"
           onClick={() => triggerSync()}
           disabled={isDisabled}
-          className="inline-flex min-h-12 flex-1 items-center justify-center gap-3 rounded-xl border border-cyan-400/15 bg-[#0b1b31] px-4 py-3 text-sm font-semibold text-white shadow-[0_14px_40px_rgba(2,8,23,0.16)] transition hover:border-cyan-300/40 hover:bg-[#10223b] disabled:cursor-not-allowed disabled:opacity-60 sm:flex-none"
+          className="inline-flex min-h-12 flex-1 items-center justify-center gap-3 rounded-xl border border-sky-200 bg-white px-4 py-3 text-sm font-semibold text-slate-900 shadow-[0_14px_40px_rgba(15,23,42,0.08)] transition hover:border-cyan-300 hover:bg-sky-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-cyan-400/15 dark:bg-[#0b1b31] dark:text-white dark:shadow-[0_14px_40px_rgba(2,8,23,0.16)] dark:hover:border-cyan-300/40 dark:hover:bg-[#10223b] sm:flex-none"
         >
           <svg
             aria-hidden="true"

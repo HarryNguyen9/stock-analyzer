@@ -55,7 +55,7 @@ export default async function Home({
 
   return (
     <main className="min-h-screen bg-slate-50 text-slate-950 dark:bg-[#07111f] dark:text-white">
-      <section className="bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.14),transparent_34%),linear-gradient(180deg,#081526_0%,#07111f_100%)] dark:bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.16),transparent_34%),linear-gradient(180deg,#06111f_0%,#07111f_100%)]">
+      <section className="bg-[radial-gradient(circle_at_top_left,rgba(14,165,233,0.16),transparent_34%),linear-gradient(180deg,#f8fafc_0%,#eef6fb_100%)] dark:bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.16),transparent_34%),linear-gradient(180deg,#06111f_0%,#07111f_100%)]">
         <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-4 py-5 sm:px-6 lg:px-8">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
             <DataStatusPanel initialFreshness={dataFreshness} trailingAction={<ThemeToggle />} />

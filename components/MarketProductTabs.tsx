@@ -26,9 +26,9 @@ export function MarketProductTabs({
 
   return (
     <>
-      <div className="sticky top-0 z-50 bg-[#07111f]/95 px-2 pt-2 backdrop-blur-xl sm:px-4">
+      <div className="sticky top-0 z-50 bg-slate-50/95 px-2 pt-2 backdrop-blur-xl dark:bg-[#07111f]/95 sm:px-4">
         <div className="mx-auto w-full max-w-7xl">
-          <div className="rounded-2xl border border-cyan-400/10 bg-[#061323]/95 p-1.5 shadow-[0_16px_52px_rgba(0,0,0,0.30)] ring-1 ring-white/[0.03]">
+          <div className="rounded-2xl border border-sky-200 bg-white/90 p-1.5 shadow-[0_16px_52px_rgba(15,23,42,0.10)] ring-1 ring-slate-900/[0.03] dark:border-cyan-400/10 dark:bg-[#061323]/95 dark:shadow-[0_16px_52px_rgba(0,0,0,0.30)] dark:ring-white/[0.03]">
             <div className="grid grid-cols-2 gap-1.5">
               <ProductButton
                 active={activeProduct === "stocks"}
@@ -77,8 +77,8 @@ function ProductButton({
       onClick={onClick}
       className={`group relative min-h-10 overflow-hidden rounded-xl border px-3 text-xs font-semibold transition sm:min-h-11 sm:text-sm ${
         active
-          ? "border-cyan-300/20 bg-gradient-to-r from-cyan-500/28 to-sky-500/12 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_0_22px_rgba(34,211,238,0.12)]"
-          : "border-cyan-400/5 bg-[#07182b]/70 text-slate-500 hover:bg-white/[0.04] hover:text-slate-300"
+          ? "border-sky-300 bg-gradient-to-r from-cyan-100 to-sky-50 text-slate-950 shadow-[inset_0_1px_0_rgba(255,255,255,0.8),0_0_22px_rgba(14,165,233,0.16)] dark:border-cyan-300/20 dark:from-cyan-500/28 dark:to-sky-500/12 dark:text-white dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_0_22px_rgba(34,211,238,0.12)]"
+          : "border-slate-200 bg-slate-50 text-slate-500 hover:bg-white hover:text-slate-800 dark:border-cyan-400/5 dark:bg-[#07182b]/70 dark:text-slate-500 dark:hover:bg-white/[0.04] dark:hover:text-slate-300"
       }`}
       aria-pressed={active}
     >
@@ -86,7 +86,7 @@ function ProductButton({
       <span className="relative flex items-center justify-center gap-1.5 sm:gap-2">
         <span
           className={`flex h-5 w-5 items-center justify-center transition sm:h-6 sm:w-6 ${
-            active ? "text-cyan-300" : "text-slate-500 group-hover:text-slate-300"
+            active ? "text-cyan-600 dark:text-cyan-300" : "text-slate-400 group-hover:text-slate-600 dark:text-slate-500 dark:group-hover:text-slate-300"
           }`}
         >
           {icon}
@@ -99,8 +99,8 @@ function ProductButton({
 
 function CoveredWarrantSubNav() {
   return (
-    <div className="sticky top-[58px] z-40 bg-[#07111f]/95 px-2 pb-2 backdrop-blur-xl sm:top-[64px] sm:px-4">
-      <div className="mx-auto w-full max-w-7xl overflow-hidden rounded-b-2xl border-x border-b border-cyan-400/10 bg-[#061323]/95">
+    <div className="sticky top-[58px] z-40 bg-slate-50/95 px-2 pb-2 backdrop-blur-xl dark:bg-[#07111f]/95 sm:top-[64px] sm:px-4">
+      <div className="mx-auto w-full max-w-7xl overflow-hidden rounded-b-2xl border-x border-b border-sky-200 bg-white/90 dark:border-cyan-400/10 dark:bg-[#061323]/95">
         <div className="grid grid-cols-2">
           <span className="relative inline-flex min-h-11 items-center justify-center px-4 text-sm font-semibold text-cyan-100">
             So sánh

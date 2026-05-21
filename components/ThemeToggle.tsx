@@ -35,7 +35,7 @@ export function ThemeToggle() {
 
   return (
     <div
-      className="inline-flex items-center gap-1 rounded-2xl border border-cyan-400/15 bg-[#0b1b31] p-1 shadow-[0_14px_40px_rgba(2,8,23,0.16)] sm:gap-2 sm:p-1.5"
+      className="inline-flex items-center gap-1 rounded-2xl border border-sky-200 bg-white p-1 shadow-[0_14px_40px_rgba(15,23,42,0.08)] dark:border-cyan-400/15 dark:bg-[#0b1b31] dark:shadow-[0_14px_40px_rgba(2,8,23,0.16)] sm:gap-2 sm:p-1.5"
       aria-label={vi.theme.select}
     >
       {MODES.map((item) => (
@@ -47,8 +47,8 @@ export function ThemeToggle() {
           title={vi.theme[item]}
           className={`grid h-9 w-9 place-items-center rounded-xl transition sm:h-11 sm:w-11 ${
             mode === item
-              ? "border border-cyan-300/70 bg-cyan-400/10 text-cyan-200 shadow-[0_0_24px_rgba(34,211,238,0.18)]"
-              : "border border-transparent text-slate-400 hover:bg-white/5 hover:text-white"
+              ? "border border-cyan-400/70 bg-cyan-50 text-cyan-700 shadow-[0_0_24px_rgba(14,165,233,0.14)] dark:border-cyan-300/70 dark:bg-cyan-400/10 dark:text-cyan-200 dark:shadow-[0_0_24px_rgba(34,211,238,0.18)]"
+              : "border border-transparent text-slate-400 hover:bg-slate-100 hover:text-slate-800 dark:hover:bg-white/5 dark:hover:text-white"
           }`}
         >
           <ThemeIcon mode={item} />

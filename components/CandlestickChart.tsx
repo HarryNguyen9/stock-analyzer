@@ -476,7 +476,7 @@ export function CandlestickChart({
   return (
     <section
       data-chart-interactive="true"
-      className="overflow-hidden rounded-2xl border border-cyan-300/10 bg-[#09152c]/95 p-3 shadow-[0_20px_60px_rgba(0,0,0,0.24)] ring-1 ring-white/5 sm:p-4"
+      className="overflow-hidden rounded-2xl border border-sky-200 bg-white p-3 shadow-[0_20px_60px_rgba(15,23,42,0.10)] ring-1 ring-slate-900/[0.03] dark:border-cyan-300/10 dark:bg-[#09152c]/95 dark:shadow-[0_20px_60px_rgba(0,0,0,0.24)] dark:ring-white/5 sm:p-4"
     >
       <div className="space-y-3">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -488,8 +488,8 @@ export function CandlestickChart({
                 onClick={() => setRange(option)}
                 className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition ${
                   range === option
-                    ? "bg-cyan-300 text-slate-950 shadow-[0_0_18px_rgba(34,211,238,0.18)]"
-                    : "bg-white/5 text-slate-400 hover:bg-white/10 hover:text-cyan-100"
+                    ? "bg-cyan-500 text-white shadow-[0_0_18px_rgba(14,165,233,0.16)] dark:bg-cyan-300 dark:text-slate-950 dark:shadow-[0_0_18px_rgba(34,211,238,0.18)]"
+                    : "bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-900 dark:bg-white/5 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-cyan-100"
                 }`}
               >
                 {option}
@@ -507,7 +507,7 @@ export function CandlestickChart({
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-4 px-1 text-xs font-medium text-slate-400">
+        <div className="flex flex-wrap items-center gap-4 px-1 text-xs font-medium text-slate-500 dark:text-slate-400">
           {toggles.sma20 ? <LegendSwatch color="bg-blue-600" label={vi.chart.sma20} /> : null}
           {toggles.sma50 ? <LegendSwatch color="bg-amber-500" label={vi.chart.sma50} /> : null}
           {toggles.volume ? <LegendSwatch color="bg-emerald-600/40" label="Volume" /> : null}
@@ -516,7 +516,7 @@ export function CandlestickChart({
           </span>
         </div>
       </div>
-      <div ref={containerRef} className="relative mt-3 h-[360px] w-full overflow-hidden rounded-xl border border-white/5 sm:h-[520px]" />
+      <div ref={containerRef} className="relative mt-3 h-[360px] w-full overflow-hidden rounded-xl border border-slate-200 dark:border-white/5 sm:h-[520px]" />
     </section>
   );
 }
@@ -536,8 +536,8 @@ function ToggleButton({
       onClick={onClick}
       className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition ${
         active
-          ? "bg-emerald-400/15 text-emerald-200 ring-1 ring-emerald-300/20"
-          : "bg-white/5 text-slate-400 hover:bg-white/10 hover:text-cyan-100"
+          ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-300/35 dark:bg-emerald-400/15 dark:text-emerald-200 dark:ring-emerald-300/20"
+          : "bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-900 dark:bg-white/5 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-cyan-100"
       }`}
     >
       {label}
