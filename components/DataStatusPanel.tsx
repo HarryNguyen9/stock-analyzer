@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import { vi } from "@/lib/i18n/vi";
 import type { DataFreshnessResult } from "@/lib/data-source/provider";
 
@@ -22,7 +23,13 @@ const POLL_INTERVAL_MS = 20_000;
 const POLL_TIMEOUT_MS = 5 * 60 * 1000;
 const COOLDOWN_MS = 2 * 60 * 1000;
 
-export function DataStatusPanel({ initialFreshness }: { initialFreshness: DataFreshnessResult }) {
+export function DataStatusPanel({
+  initialFreshness,
+  trailingAction,
+}: {
+  initialFreshness: DataFreshnessResult;
+  trailingAction?: ReactNode;
+}) {
   const [freshness, setFreshness] = useState(initialFreshness);
   const [syncState, setSyncState] = useState<SyncState>("idle");
   const [message, setMessage] = useState<string | null>(null);
@@ -131,7 +138,7 @@ export function DataStatusPanel({ initialFreshness }: { initialFreshness: DataFr
 
   return (
     <div className="flex w-full flex-col gap-3 lg:flex-row lg:items-start">
-      <div className="flex w-full items-center rounded-2xl border border-cyan-400/15 bg-[#0b1b31]/95 px-4 py-4 shadow-[0_16px_48px_rgba(8,145,178,0.10)] ring-1 ring-white/5 sm:px-5 lg:max-w-3xl">
+      <div className="flex w-full flex-wrap items-center rounded-2xl border border-cyan-400/15 bg-[#0b1b31]/95 px-4 py-4 shadow-[0_16px_48px_rgba(8,145,178,0.10)] ring-1 ring-white/5 sm:flex-nowrap sm:px-5 lg:max-w-3xl">
         <div className="mr-4 grid h-12 w-12 shrink-0 place-items-center rounded-full border border-cyan-300/20 bg-cyan-400/10 text-cyan-300 shadow-[0_0_34px_rgba(34,211,238,0.16)]">
           <svg
             aria-hidden="true"
@@ -151,7 +158,7 @@ export function DataStatusPanel({ initialFreshness }: { initialFreshness: DataFr
         </div>
         <div className="min-w-0 flex-1">
           <p className="text-sm font-medium text-slate-400">{vi.home.dataFreshnessTitle}</p>
-          <p className="mt-1 truncate text-lg font-semibold tabular-nums text-white sm:text-xl">
+          <p className="mt-1 text-base font-semibold tabular-nums text-white sm:text-xl">
             {freshnessView.timeText}
             {freshness.updatedAt ? (
               <span className="ml-2 text-sm font-medium text-slate-400">
@@ -160,19 +167,19 @@ export function DataStatusPanel({ initialFreshness }: { initialFreshness: DataFr
             ) : null}
           </p>
         </div>
-        <div className="ml-3 flex items-center">
+        <div className="mt-3 flex w-full items-center pl-16 sm:ml-3 sm:mt-0 sm:w-auto sm:pl-0">
           <span className={`rounded-full border px-3 py-1.5 text-sm font-semibold ${freshnessView.statusClass}`}>
             {getSyncStatusText(syncState, freshnessView.statusText)}
           </span>
         </div>
       </div>
 
-      <div className="flex flex-col items-start gap-2 lg:items-end">
+      <div className="flex w-full flex-wrap items-center gap-3 lg:w-auto lg:justify-end">
         <button
           type="button"
           onClick={() => triggerSync()}
           disabled={isDisabled}
-          className="inline-flex min-h-12 items-center gap-3 rounded-xl border border-cyan-400/15 bg-[#0b1b31] px-4 py-3 text-sm font-semibold text-white shadow-[0_14px_40px_rgba(2,8,23,0.16)] transition hover:border-cyan-300/40 hover:bg-[#10223b] disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex min-h-12 flex-1 items-center justify-center gap-3 rounded-xl border border-cyan-400/15 bg-[#0b1b31] px-4 py-3 text-sm font-semibold text-white shadow-[0_14px_40px_rgba(2,8,23,0.16)] transition hover:border-cyan-300/40 hover:bg-[#10223b] disabled:cursor-not-allowed disabled:opacity-60 sm:flex-none"
         >
           <svg
             aria-hidden="true"
@@ -191,9 +198,10 @@ export function DataStatusPanel({ initialFreshness }: { initialFreshness: DataFr
           </svg>
           {isWaiting ? vi.home.manualSync.loading : vi.home.manualSync.label}
         </button>
+        {trailingAction ? <div className="shrink-0">{trailingAction}</div> : null}
         {message ? (
           <p
-            className={`max-w-xs text-xs leading-5 ${
+            className={`w-full text-xs leading-5 lg:max-w-xs ${
               syncState === "error" || syncState === "timeout"
                 ? "text-amber-600 dark:text-amber-400"
                 : "text-emerald-700 dark:text-emerald-400"

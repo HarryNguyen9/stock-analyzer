@@ -58,10 +58,7 @@ export default async function Home({
       <section className="bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.14),transparent_34%),linear-gradient(180deg,#081526_0%,#07111f_100%)] dark:bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.16),transparent_34%),linear-gradient(180deg,#06111f_0%,#07111f_100%)]">
         <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-4 py-5 sm:px-6 lg:px-8">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-            <DataStatusPanel initialFreshness={dataFreshness} />
-            <div className="flex justify-start lg:justify-end">
-              <ThemeToggle />
-            </div>
+            <DataStatusPanel initialFreshness={dataFreshness} trailingAction={<ThemeToggle />} />
           </div>
         </div>
       </section>

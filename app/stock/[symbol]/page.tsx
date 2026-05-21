@@ -92,16 +92,16 @@ export default async function StockDetailPage({ params }: StockPageProps) {
   return (
     <main className="min-h-screen bg-[#071126] pb-10 text-slate-100">
       <div className="sticky top-0 z-50 border-b border-cyan-300/10 bg-[#071126]/88 shadow-[0_10px_32px_rgba(0,0,0,0.22)] backdrop-blur-xl transition-colors">
-        <div className="mx-auto flex min-h-14 w-full max-w-7xl items-center justify-between gap-3 px-3 sm:px-6 lg:px-8">
+        <div className="mx-auto flex min-h-14 w-full max-w-7xl items-center justify-between gap-2 px-2 sm:gap-3 sm:px-6 lg:px-8">
           <BackButton label={vi.stock.backToWatchlist} />
-          <div className="min-w-0 flex-1 text-center">
+          <div className="min-w-0 flex-1 px-1 text-center">
             <div className="flex min-w-0 items-center justify-center gap-2">
               <p className="truncate text-base font-black tracking-normal text-white sm:text-lg">{stock.symbol}</p>
               <span className="rounded-lg border border-cyan-300/20 bg-white/5 px-2 py-0.5 text-[11px] font-semibold text-cyan-100">
                 {stock.exchange}
               </span>
             </div>
-            <p className="mt-0.5 truncate text-xs text-slate-400 sm:hidden">{stock.name}</p>
+            <p className="mx-auto mt-0.5 max-w-[150px] truncate text-xs text-slate-400 min-[390px]:max-w-[190px] sm:hidden">{stock.name}</p>
           </div>
           <ThemeToggle />
         </div>
