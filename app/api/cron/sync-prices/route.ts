@@ -27,6 +27,8 @@ type CronSuccessResponse = {
   intradayUpdated: number;
   intradaySkipped: number;
   intradayProviderUsed: "vnstock_intraday" | null;
+  finalizedDaily: number;
+  finalizeSkipped: number;
   latestTradingDate: string | null;
   stoppedEarly: boolean;
   stopReason: "time_guard" | null;
@@ -121,6 +123,8 @@ async function handleSyncPricesCron(
         intradayUpdated: result.intradayUpdated,
         intradaySkipped: result.intradaySkipped,
         intradayProviderUsed: result.intradayProviderUsed,
+        finalizedDaily: result.finalizedDaily,
+        finalizeSkipped: result.finalizeSkipped,
         latestTradingDate: result.latestTradingDate,
         snapshotUpdated,
         snapshotPipeline: shouldUpdateSnapshot ? SNAPSHOT_PIPELINE : null,
@@ -148,6 +152,8 @@ async function handleSyncPricesCron(
       intradayUpdated: result.intradayUpdated,
       intradaySkipped: result.intradaySkipped,
       intradayProviderUsed: result.intradayProviderUsed,
+      finalizedDaily: result.finalizedDaily,
+      finalizeSkipped: result.finalizeSkipped,
       latestTradingDate: result.latestTradingDate,
       stoppedEarly: result.stoppedEarly,
       stopReason: result.stopReason,

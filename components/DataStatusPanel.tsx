@@ -249,6 +249,7 @@ function getSyncStatusText(syncState: SyncState, fallback: string): string {
 function getFreshnessView(dataFreshness: DataFreshnessResult) {
   const statusTextByStatus = {
     synced: vi.home.dataSynced,
+    intraday: vi.home.dataIntradayPending,
     stale: vi.home.dataStale,
     "market-closed": vi.home.dataMarketClosed,
     empty: vi.home.dataEmpty,
@@ -257,6 +258,7 @@ function getFreshnessView(dataFreshness: DataFreshnessResult) {
 
   const statusClassByStatus = {
     synced: "border-emerald-400/25 bg-emerald-400/10 text-emerald-300",
+    intraday: "border-cyan-400/25 bg-cyan-400/10 text-cyan-300",
     stale: "border-amber-400/25 bg-amber-400/10 text-amber-300",
     "market-closed": "border-slate-500/25 bg-slate-500/15 text-slate-300",
     empty: "border-slate-500/25 bg-slate-500/15 text-slate-300",

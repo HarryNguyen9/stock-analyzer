@@ -1,0 +1,44 @@
+name: Finalize daily candles
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "*/15 9-10 * * 1-5"
+
+concurrency:
+  group: finalize-daily-candles
+  cancel-in-progress: false
+
+jobs:
+  finalize:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Finalize batch 0
+        run: |
+          curl -fsS --retry 2 --max-time 280 \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "https://stock-analyzer-sigma-one.vercel.app/api/cron/finalize-daily-candles?batch=0&limit=20"
+
+      - name: Finalize batch 1
+        run: |
+          curl -fsS --retry 2 --max-time 280 \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "https://stock-analyzer-sigma-one.vercel.app/api/cron/finalize-daily-candles?batch=1&limit=20"
+
+      - name: Finalize batch 2
+        run: |
+          curl -fsS --retry 2 --max-time 280 \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "https://stock-analyzer-sigma-one.vercel.app/api/cron/finalize-daily-candles?batch=2&limit=20"
+
+      - name: Finalize batch 3
+        run: |
+          curl -fsS --retry 2 --max-time 280 \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "https://stock-analyzer-sigma-one.vercel.app/api/cron/finalize-daily-candles?batch=3&limit=20"
+
+      - name: Finalize batch 4
+        run: |
+          curl -fsS --retry 2 --max-time 280 \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "https://stock-analyzer-sigma-one.vercel.app/api/cron/finalize-daily-candles?batch=4&limit=20"

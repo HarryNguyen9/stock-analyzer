@@ -48,6 +48,8 @@ export type SyncPricesResult = {
   intradayUpdated: number;
   intradaySkipped: number;
   intradayProviderUsed: "vnstock_intraday" | null;
+  finalizedDaily: number;
+  finalizeSkipped: number;
   latestTradingDate: string | null;
 };
 
@@ -124,6 +126,8 @@ export async function syncPricesToSupabase(
     intradayUpdated: 0,
     intradaySkipped: 0,
     intradayProviderUsed: null,
+    finalizedDaily: 0,
+    finalizeSkipped: 0,
     latestTradingDate: null,
   };
 }
@@ -142,6 +146,8 @@ async function syncPricesDirectlyToSupabase(
   const failedUnsupported: SyncFailedSymbol[] = [];
   let intradayUpdated = 0;
   let intradaySkipped = 0;
+  let finalizedDaily = 0;
+  let finalizeSkipped = 0;
   let latestTradingDate: string | null = null;
 
   for (const target of targets) {
@@ -155,6 +161,11 @@ async function syncPricesDirectlyToSupabase(
       const prices = await vnstockProvider.getDailyPrices(target.symbol, DEFAULT_RECENT_SYNC_CANDLE_LIMIT);
       await upsertPriceSetsToSupabase([{ symbol: target.symbol, prices }], { upsertSymbols: false });
       await updateSymbolSyncStatus(target.symbol, "synced");
+      if (prices.at(-1)?.date === getVietnamTradingDate()) {
+        finalizedDaily += 1;
+      } else {
+        finalizeSkipped += 1;
+      }
       const intraday = await updateIntradaySafely(target.symbol);
       if (intraday.updated) {
         intradayUpdated += 1;
@@ -201,6 +212,8 @@ async function syncPricesDirectlyToSupabase(
     intradayUpdated,
     intradaySkipped,
     intradayProviderUsed: "vnstock_intraday",
+    finalizedDaily,
+    finalizeSkipped,
     latestTradingDate,
   };
 }
@@ -532,6 +545,15 @@ function getNextRetryAt(retryCount: number): Date {
 
 function isVercelProduction(): boolean {
   return process.env.VERCEL === "1" && process.env.VERCEL_ENV === "production";
+}
+
+function getVietnamTradingDate(): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Ho_Chi_Minh",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
 }
 
 function isDirectRun(importMetaUrl: string): boolean {

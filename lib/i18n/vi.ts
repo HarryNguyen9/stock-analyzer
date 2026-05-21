@@ -50,6 +50,7 @@ export const vi = {
     },
     dataFreshnessTitle: "Cập nhật lần cuối",
     dataSynced: "Đã đồng bộ",
+    dataIntradayPending: "Chờ nến đóng phiên",
     dataStale: "Dữ liệu cũ",
     dataMarketClosed: "Thị trường nghỉ",
     dataEmpty: "Chưa có dữ liệu",

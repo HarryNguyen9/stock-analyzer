@@ -1,5 +1,5 @@
 import { localDataProvider } from "@/lib/data-source/local-provider";
-import { readLatestSupabaseUpdatedAt, supabaseDataProvider } from "@/lib/data-source/supabase-provider";
+import { readLatestPendingIntradayUpdatedAt, readLatestSupabaseUpdatedAt, supabaseDataProvider } from "@/lib/data-source/supabase-provider";
 import { isSupabaseClientConfigured } from "@/lib/supabase/client";
 import type { OHLCV, StockSummary } from "@/types/stock";
 
@@ -27,7 +27,7 @@ export type HistoricalPriceOptions = {
   limit?: number;
 };
 
-export type DataFreshnessStatus = "synced" | "stale" | "market-closed" | "local-fallback" | "empty";
+export type DataFreshnessStatus = "synced" | "intraday" | "stale" | "market-closed" | "local-fallback" | "empty";
 
 export type DataFreshnessResult = {
   status: DataFreshnessStatus;
@@ -73,6 +73,7 @@ export async function getDataFreshness(): Promise<DataFreshnessResult> {
   }
 
   const updatedAt = latestUpdate.updatedAt;
+  const pendingIntraday = await readLatestPendingIntradayUpdatedAt();
 
   if (!updatedAt) {
     return {
@@ -94,7 +95,7 @@ export async function getDataFreshness(): Promise<DataFreshnessResult> {
   const isStale = Date.now() - updatedAtTime > thirtyMinutesMs;
 
   return {
-    status: isStale ? (isVietnamWeekend() ? "market-closed" : "stale") : "synced",
+    status: isStale ? (isVietnamWeekend() ? "market-closed" : "stale") : pendingIntraday.updatedAt ? "intraday" : "synced",
     updatedAt,
   };
 }

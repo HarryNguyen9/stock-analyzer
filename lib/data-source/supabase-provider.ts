@@ -154,6 +154,36 @@ export async function readLatestSupabaseUpdatedAt(): Promise<SupabaseUpdatedAtRe
   };
 }
 
+export async function readLatestPendingIntradayUpdatedAt(): Promise<SupabaseUpdatedAtResult> {
+  const supabase = createSupabaseClient();
+
+  if (!supabase) {
+    return {
+      available: false,
+      updatedAt: null,
+    };
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from("stock_prices")
+      .select("updated_at")
+      .eq("date", getVietnamTradingDate())
+      .eq("is_intraday", true)
+      .eq("finalized", false)
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    return toUpdatedAtResult(data as unknown as UpdatedAtRow | null, error);
+  } catch {
+    return {
+      available: false,
+      updatedAt: null,
+    };
+  }
+}
+
 async function readLatestUpdatedAt(
   table: "technical_indicators" | "stock_prices",
 ): Promise<SupabaseUpdatedAtResult> {
@@ -206,6 +236,15 @@ function toUpdatedAtResult(row: UpdatedAtRow | null, error: unknown): SupabaseUp
     available: true,
     updatedAt: row?.updated_at ?? null,
   };
+}
+
+function getVietnamTradingDate(): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Ho_Chi_Minh",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
 }
 
 async function readSupabasePrices(symbol: string, limit = PRICE_LIMIT): Promise<OHLCV[] | null> {
