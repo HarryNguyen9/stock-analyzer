@@ -13,10 +13,10 @@ jobs:
   backfill:
     runs-on: ubuntu-latest
     steps:
-      - name: Backfill up to 600 candles
+      - name: Backfill up to 365 candles
         env:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
-          BACKFILL_URL: https://stock-analyzer-sigma-one.vercel.app/api/cron/backfill-missing-prices?limit=3&targetCandles=600
+          BACKFILL_URL: https://stock-analyzer-sigma-one.vercel.app/api/cron/backfill-missing-prices?limit=3&targetCandles=365
         run: |
           set -euo pipefail
 

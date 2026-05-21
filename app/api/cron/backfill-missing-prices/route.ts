@@ -1,5 +1,9 @@
 import { getSymbolsMissingPriceData } from "@/lib/data-source/missing-prices";
-import { DEFAULT_BACKFILL_TARGET_CANDLES, getLookbackDaysForCandles } from "@/lib/data-source/constants";
+import {
+  DEFAULT_BACKFILL_TARGET_CANDLES,
+  MAX_HISTORICAL_CANDLES,
+  getLookbackDaysForCandles,
+} from "@/lib/data-source/constants";
 import { classifyProviderFailure, serializeProviderError } from "@/lib/data-source/provider-errors";
 import { BACKFILL_PRICE_PIPELINE, markSymbolUnsupported, syncSingleSymbolToSupabase } from "@/lib/pipeline/price-sync";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -19,7 +23,10 @@ type BackfillResponse =
       maxLimit: number;
       limitClamped: boolean;
       candleLimit: number;
+      requestedTargetCandles: number;
       targetCandles: number;
+      targetClamped: boolean;
+      maxHistoricalCandles: number;
       symbolsBelowTarget: number;
       selected: number;
       synced: number;
@@ -97,7 +104,8 @@ async function handleBackfillMissingPrices(request: Request): Promise<Response> 
 
     const limitParam = getClampedNumberParam(request, "limit", DEFAULT_LIMIT, 1, MAX_LIMIT);
     const limit = limitParam.value;
-    const targetCandles = getNumberParam(request, "targetCandles", DEFAULT_BACKFILL_TARGET_CANDLES, 20, DEFAULT_BACKFILL_TARGET_CANDLES);
+    const targetParam = getTargetCandlesParam(request);
+    const targetCandles = targetParam.value;
     const fetchWindow = getBackfillFetchWindow(targetCandles);
     const missingSymbols = await getSymbolsMissingPriceData({ limit, targetCandles });
     const symbolsBelowTarget = missingSymbols.filter((item) => item.priceRows < targetCandles).length;
@@ -110,7 +118,10 @@ async function handleBackfillMissingPrices(request: Request): Promise<Response> 
       maxLimit: MAX_LIMIT,
       limitClamped: limitParam.clamped,
       candleLimit: targetCandles,
+      requestedTargetCandles: targetParam.requested,
       targetCandles,
+      targetClamped: targetParam.clamped,
+      maxHistoricalCandles: MAX_HISTORICAL_CANDLES,
       lookbackDays: fetchWindow.lookbackDays,
       startDate: fetchWindow.startDate,
       endDate: fetchWindow.endDate,
@@ -221,7 +232,10 @@ async function handleBackfillMissingPrices(request: Request): Promise<Response> 
         sampleSyncedSymbols,
         diagnostics,
         candleLimit: targetCandles,
+        requestedTargetCandles: targetParam.requested,
         targetCandles,
+        targetClamped: targetParam.clamped,
+        maxHistoricalCandles: MAX_HISTORICAL_CANDLES,
         lookbackDays: fetchWindow.lookbackDays,
         startDate: fetchWindow.startDate,
         endDate: fetchWindow.endDate,
@@ -239,7 +253,10 @@ async function handleBackfillMissingPrices(request: Request): Promise<Response> 
       maxLimit: MAX_LIMIT,
       limitClamped: limitParam.clamped,
       candleLimit: targetCandles,
+      requestedTargetCandles: targetParam.requested,
       targetCandles,
+      targetClamped: targetParam.clamped,
+      maxHistoricalCandles: MAX_HISTORICAL_CANDLES,
       symbolsBelowTarget,
       selected: missingSymbols.length,
       synced,
@@ -372,15 +389,32 @@ function getShortErrorMessage(error: unknown): string {
   return message.replace(/\s+/g, " ").trim().slice(0, 220) || "Unknown backfill error";
 }
 
-function getNumberParam(request: Request, key: string, fallback: number, min: number, max: number): number {
-  const value = new URL(request.url).searchParams.get(key);
+function getTargetCandlesParam(request: Request): { value: number; requested: number; clamped: boolean } {
+  const value = new URL(request.url).searchParams.get("targetCandles");
 
   if (!value) {
-    return fallback;
+    return {
+      value: DEFAULT_BACKFILL_TARGET_CANDLES,
+      requested: DEFAULT_BACKFILL_TARGET_CANDLES,
+      clamped: false,
+    };
   }
 
   const parsed = Number(value);
-  return Number.isInteger(parsed) && parsed >= min ? Math.min(parsed, max) : fallback;
+
+  if (!Number.isInteger(parsed) || parsed < 20) {
+    return {
+      value: DEFAULT_BACKFILL_TARGET_CANDLES,
+      requested: DEFAULT_BACKFILL_TARGET_CANDLES,
+      clamped: false,
+    };
+  }
+
+  return {
+    value: Math.min(parsed, MAX_HISTORICAL_CANDLES),
+    requested: parsed,
+    clamped: parsed > MAX_HISTORICAL_CANDLES,
+  };
 }
 
 function getClampedNumberParam(

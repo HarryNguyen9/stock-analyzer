@@ -1,5 +1,5 @@
 import vnstock, { stock } from "vnstock-js";
-import { DEFAULT_HISTORICAL_CANDLE_LIMIT, getLookbackDaysForCandles } from "@/lib/data-source/constants";
+import { DEFAULT_HISTORICAL_CANDLE_LIMIT, MAX_HISTORICAL_CANDLES, getLookbackDaysForCandles } from "@/lib/data-source/constants";
 import { classifyProviderFailure, serializeProviderError } from "@/lib/data-source/provider-errors";
 import type { OHLCV } from "../../types/stock";
 import type { HistoricalPriceRequest, PriceProvider } from "./types";
@@ -254,7 +254,7 @@ async function fetchDailyOhlcvWithFallback(
 }
 
 function buildHistoricalFetchAttempts(options: ResolvedHistoricalPriceRequest): ResolvedHistoricalPriceRequest[] {
-  if (options.targetCandles < 600) {
+  if (options.targetCandles <= MAX_HISTORICAL_CANDLES) {
     return [options];
   }
 

@@ -22,6 +22,7 @@ import {
 } from "lightweight-charts";
 import { calculateSMA } from "@/lib/indicators";
 import { vi } from "@/lib/i18n/vi";
+import { MAX_HISTORICAL_CANDLES } from "@/lib/data-source/constants";
 import type { CandlestickPatternSignal, SupportResistance } from "@/lib/technical-analysis";
 import type { OHLCV } from "@/types/stock";
 
@@ -508,7 +509,7 @@ export function CandlestickChart({
           {toggles.sma50 ? <LegendSwatch color="bg-amber-500" label={vi.chart.sma50} /> : null}
           {toggles.volume ? <LegendSwatch color="bg-emerald-600/40" label="Volume" /> : null}
           <span className="ml-auto hidden text-[11px] text-slate-400 dark:text-slate-500 sm:inline">
-            {data.length} nến · limit 600 · preserve {visibleRangePreserved ? "on" : "ready"}
+            {data.length} nến · limit {MAX_HISTORICAL_CANDLES} · preserve {visibleRangePreserved ? "on" : "ready"}
           </span>
         </div>
       </div>
