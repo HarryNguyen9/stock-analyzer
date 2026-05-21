@@ -5,6 +5,7 @@ import {
   TARGET_STOCK_PRICE_CANDLES,
 } from "@/lib/data-source/constants";
 import { PRICE_SYNC_PIPELINE, readExistingPriceRowCount, syncSingleSymbolToSupabase } from "@/lib/pipeline/price-sync";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -22,6 +23,9 @@ type RefreshResponse =
       fetchedCandles: number;
       upsertedCandles: number;
       targetCandles: number;
+      latestDateBefore: string | null;
+      latestDateAfter: string | null;
+      dataDateChanged: boolean;
       durationMs: number;
     }
   | {
@@ -45,6 +49,9 @@ const pendingRefreshes = new Map<
     fetchedCandles: number;
     upsertedCandles: number;
     targetCandles: number;
+    latestDateBefore: string | null;
+    latestDateAfter: string | null;
+    dataDateChanged: boolean;
   }>
 >();
 
@@ -81,6 +88,9 @@ export async function POST(
         fetchedCandles: result.fetchedCandles,
         upsertedCandles: result.upsertedCandles,
         targetCandles: result.targetCandles,
+        latestDateBefore: result.latestDateBefore,
+        latestDateAfter: result.latestDateAfter,
+        dataDateChanged: result.dataDateChanged,
         durationMs: Date.now() - startedAt,
       } satisfies RefreshResponse);
     }
@@ -98,22 +108,33 @@ export async function POST(
         fetchedCandles: 0,
         upsertedCandles: 0,
         targetCandles: TARGET_STOCK_PRICE_CANDLES,
+        latestDateBefore: await readLatestPriceDate(symbol),
+        latestDateAfter: await readLatestPriceDate(symbol),
+        dataDateChanged: false,
         durationMs: Date.now() - startedAt,
       } satisfies RefreshResponse);
     }
 
     refreshCooldown.set(symbol, Date.now());
     const existingRows = await readExistingPriceRowCount(symbol);
+    const latestDateBefore = await readLatestPriceDate(symbol);
     const candleLimit =
       existingRows < TARGET_STOCK_PRICE_CANDLES ? DEFAULT_HISTORICAL_CANDLE_LIMIT : DEFAULT_RECENT_SYNC_CANDLE_LIMIT;
-    const refreshPromise = syncSingleSymbolToSupabase(symbol, { candleLimit, updateIntraday: true }).then((result) => ({
-      refreshed: result.refreshed,
-      candleLimit: result.candleLimit,
-      existingRows: result.existingRows,
-      fetchedCandles: result.fetchedCandles,
-      upsertedCandles: result.upsertedCandles,
-      targetCandles: result.targetCandles,
-    }));
+    const refreshPromise = syncSingleSymbolToSupabase(symbol, { candleLimit, updateIntraday: true }).then(async (result) => {
+      const latestDateAfter = await readLatestPriceDate(symbol);
+
+      return {
+        refreshed: result.refreshed,
+        candleLimit: result.candleLimit,
+        existingRows: result.existingRows,
+        fetchedCandles: result.fetchedCandles,
+        upsertedCandles: result.upsertedCandles,
+        targetCandles: result.targetCandles,
+        latestDateBefore,
+        latestDateAfter,
+        dataDateChanged: Boolean(latestDateAfter && latestDateAfter !== latestDateBefore),
+      };
+    });
 
     pendingRefreshes.set(symbol, refreshPromise);
 
@@ -130,6 +151,9 @@ export async function POST(
         fetchedCandles: result.fetchedCandles,
         upsertedCandles: result.upsertedCandles,
         targetCandles: result.targetCandles,
+        latestDateBefore: result.latestDateBefore,
+        latestDateAfter: result.latestDateAfter,
+        dataDateChanged: result.dataDateChanged,
         durationMs: Date.now() - startedAt,
       } satisfies RefreshResponse);
     } finally {
@@ -143,6 +167,27 @@ export async function POST(
       startedAt,
       500,
     );
+  }
+}
+
+async function readLatestPriceDate(symbol: string): Promise<string | null> {
+  try {
+    const supabase = createSupabaseAdminClient();
+    const { data, error } = await supabase
+      .from("stock_prices")
+      .select("date")
+      .eq("symbol", symbol.toUpperCase())
+      .order("date", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error || !data || typeof data.date !== "string") {
+      return null;
+    }
+
+    return data.date;
+  } catch {
+    return null;
   }
 }
 

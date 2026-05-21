@@ -12,6 +12,9 @@ type RefreshResponse =
       ok: true;
       symbol: string;
       refreshed: boolean;
+      dataDateChanged?: boolean;
+      latestDateBefore?: string | null;
+      latestDateAfter?: string | null;
       durationMs: number;
     }
   | {
@@ -57,7 +60,7 @@ export function SymbolRefreshPanel({
       }
 
       setState("success");
-      setMessage(payload.refreshed ? vi.stock.refresh.success : vi.stock.refresh.cooldown);
+      setMessage(getRefreshSuccessMessage(payload));
       router.refresh();
     } catch (error) {
       setState("error");
@@ -95,6 +98,18 @@ export function SymbolRefreshPanel({
       </div>
     </div>
   );
+}
+
+function getRefreshSuccessMessage(payload: Extract<RefreshResponse, { ok: true }>): string {
+  if (!payload.refreshed) {
+    return vi.stock.refresh.cooldown;
+  }
+
+  if (payload.dataDateChanged === false) {
+    return vi.stock.refresh.noNewCandle;
+  }
+
+  return vi.stock.refresh.success;
 }
 
 function getFreshnessText(freshness: SymbolFreshness): string {

@@ -111,6 +111,7 @@ export const vi = {
       fresh: "Dữ liệu đang còn mới.",
       noRecentSync: "Mã này chưa được đồng bộ gần đây.",
       success: "Đã cập nhật dữ liệu mới.",
+      noNewCandle: "Đã kiểm tra nguồn dữ liệu, nhưng chưa có nến mới hơn.",
       cooldown: "Vừa làm mới gần đây, giữ dữ liệu hiện tại.",
       error: "Không làm mới được dữ liệu, vẫn hiển thị dữ liệu cũ.",
     },
