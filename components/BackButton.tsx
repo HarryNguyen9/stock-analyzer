@@ -6,12 +6,7 @@ export function BackButton({ label }: { label: string }) {
   const router = useRouter();
 
   function handleBack() {
-    if (window.history.length > 1) {
-      router.back();
-      return;
-    }
-
-    router.push("/");
+    router.push("/?tab=search");
   }
 
   return (
