@@ -10,6 +10,7 @@ import {
   formatPrice,
   formatVolume,
 } from "@/components/cw/CwDetailCards";
+import { CwDetailSearch } from "@/components/cw/CwDetailSearch";
 import { CwDetailTabs } from "@/components/cw/CwDetailTabs";
 import { getCoveredWarrantBySymbol } from "@/lib/cw/cw-provider";
 import type { CoveredWarrantWithMetrics } from "@/lib/cw/types";
@@ -64,6 +65,9 @@ export default async function CoveredWarrantDetailPage({ params }: CwPageProps) 
             </p>
           </div>
           <ThemeToggle />
+        </div>
+        <div className="mx-auto w-full max-w-7xl px-2 pb-2 sm:px-6 lg:px-8">
+          <CwDetailSearch currentSymbol={warrant.symbol} />
         </div>
       </div>
 
@@ -166,6 +170,9 @@ function CwEmptyState({ symbol, message }: { symbol: string; message: string }) 
         <div className="mx-auto flex min-h-14 w-full max-w-4xl items-center justify-between gap-3 px-3 sm:px-6">
           <CwBackLink />
           <ThemeToggle />
+        </div>
+        <div className="mx-auto w-full max-w-4xl px-3 pb-2 sm:px-6">
+          <CwDetailSearch currentSymbol={symbol} />
         </div>
       </div>
       <section className="mx-auto w-full max-w-4xl px-4 py-8 sm:px-6">

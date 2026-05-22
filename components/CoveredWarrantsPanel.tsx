@@ -30,6 +30,7 @@ const lowPriceRiskThreshold = 0.1;
 export function CoveredWarrantsPanel({ active }: { active: boolean }) {
   const router = useRouter();
   const [query, setQuery] = useState("");
+  const [compactQuery, setCompactQuery] = useState("");
   const [submittedUnderlying, setSubmittedUnderlying] = useState("");
   const searchInputWrapRef = useRef<HTMLDivElement | null>(null);
   const lastCompactSearchQueryRef = useRef("");
@@ -41,6 +42,12 @@ export function CoveredWarrantsPanel({ active }: { active: boolean }) {
   const [state, setState] = useState<LoadState>({
     status: "intro",
     message: "Nhập mã cơ sở để xem chứng quyền đang giao dịch.",
+    warrants: [],
+  });
+
+  const [compactState, setCompactState] = useState<LoadState>({
+    status: "intro",
+    message: null,
     warrants: [],
   });
 

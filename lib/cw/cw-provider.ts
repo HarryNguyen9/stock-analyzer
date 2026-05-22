@@ -217,6 +217,31 @@ export async function searchCoveredWarrantUnderlyings(query: string, limit = 20)
     .slice(0, limit);
 }
 
+export async function searchCoveredWarrants(query: string, limit = 8): Promise<CoveredWarrantWithMetrics[]> {
+  const normalizedQuery = normalizeUnderlying(query);
+  const supabase = createSupabaseClient();
+  if (!supabase || normalizedQuery.length === 0) return [];
+
+  const safeLimit = Math.min(Math.max(limit, 1), 20);
+  const { data, error } = await supabase
+    .from("covered_warrants")
+    .select(coveredWarrantSelect)
+    .eq("is_active", true)
+    .or(`symbol.ilike.${normalizedQuery}%,underlying_symbol.ilike.${normalizedQuery}%`)
+    .order("volume", { ascending: false, nullsFirst: false })
+    .order("maturity_date", { ascending: true, nullsFirst: false })
+    .limit(safeLimit);
+
+  if (error) {
+    console.warn("Khong doc duoc danh sach CW de tim nhanh:", error.message);
+    return [];
+  }
+
+  return sortCoveredWarrants(
+    attachCoveredWarrantMetrics(((data ?? []) as CoveredWarrantRow[]).map((row) => mapCoveredWarrantRow(row, row.underlying_price))),
+  ).slice(0, safeLimit);
+}
+
 async function hasAnyCoveredWarrantData(): Promise<boolean> {
   const supabase = createSupabaseClient();
   if (!supabase) return false;

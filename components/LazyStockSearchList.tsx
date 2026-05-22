@@ -71,6 +71,7 @@ export function LazyStockSearchList({ active }: { active: boolean }) {
   useEffect(() => {
     if (!active) {
       setCompactSearchVisible(false);
+      resetSearchState();
       return;
     }
 
@@ -83,7 +84,13 @@ export function LazyStockSearchList({ active }: { active: boolean }) {
 
       const stickyTriggerTop = window.innerWidth >= 640 ? 120 : 112;
       const rect = target.getBoundingClientRect();
-      setCompactSearchVisible(rect.bottom <= stickyTriggerTop + 8);
+      const nextVisible = rect.bottom <= stickyTriggerTop + 8;
+      setCompactSearchVisible((wasVisible) => {
+        if (wasVisible && !nextVisible) {
+          resetCompactSearchState();
+        }
+        return nextVisible;
+      });
     }
 
     updateCompactVisibility();
@@ -393,6 +400,18 @@ export function LazyStockSearchList({ active }: { active: boolean }) {
   function updateCompactQuery(nextQuery: string) {
     pendingCompactScrollYRef.current = window.scrollY;
     setCompactQuery(nextQuery);
+  }
+
+  function resetSearchState() {
+    setQuery("");
+    setResults({ status: "idle", stocks: [], message: null });
+    resetCompactSearchState();
+  }
+
+  function resetCompactSearchState() {
+    pendingCompactScrollYRef.current = null;
+    setCompactQuery("");
+    setCompactResults({ status: "idle", stocks: [], message: null });
   }
 }
 
