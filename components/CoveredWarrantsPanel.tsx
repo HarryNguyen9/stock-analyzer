@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
 import type { CoveredWarrantWithMetrics } from "@/lib/cw/types";
@@ -26,6 +28,7 @@ const weakVolumeThreshold = 10_000;
 const lowPriceRiskThreshold = 0.1;
 
 export function CoveredWarrantsPanel({ active }: { active: boolean }) {
+  const router = useRouter();
   const [query, setQuery] = useState("");
   const [submittedUnderlying, setSubmittedUnderlying] = useState("");
   const searchInputWrapRef = useRef<HTMLDivElement | null>(null);
@@ -365,7 +368,19 @@ export function CoveredWarrantsPanel({ active }: { active: boolean }) {
                   </thead>
                   <tbody className="divide-y divide-cyan-400/10">
                     {displayWarrants.map((warrant) => (
-                      <tr key={warrant.symbol} className="transition hover:bg-cyan-400/5">
+                      <tr
+                        key={warrant.symbol}
+                        tabIndex={0}
+                        role="link"
+                        onClick={() => router.push(`/cw/${encodeURIComponent(warrant.symbol)}`)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            router.push(`/cw/${encodeURIComponent(warrant.symbol)}`);
+                          }
+                        }}
+                        className="cursor-pointer transition hover:bg-cyan-400/5 focus:bg-cyan-400/10 focus:outline-none"
+                      >
                         <TableCell>
                           <span className="font-bold text-white">{warrant.symbol}</span>
                           {warrant.type ? (
@@ -387,6 +402,9 @@ export function CoveredWarrantsPanel({ active }: { active: boolean }) {
                                 {badge.label}
                               </span>
                             ))}
+                            <span className="rounded-full border border-cyan-300/15 px-2 py-1 text-[11px] font-semibold text-cyan-200">
+                              Xem
+                            </span>
                           </div>
                         </TableCell>
                       </tr>
@@ -535,7 +553,11 @@ function CompactCoveredWarrantPanel({
       ) : (
         <div className="divide-y divide-cyan-400/10">
           {topWarrants.map((warrant) => (
-            <div key={warrant.symbol} className="flex items-center justify-between gap-3 px-4 py-3">
+            <Link
+              key={warrant.symbol}
+              href={`/cw/${encodeURIComponent(warrant.symbol)}`}
+              className="flex items-center justify-between gap-3 px-4 py-3 transition hover:bg-cyan-400/5"
+            >
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
                   <p className="truncate text-base font-black text-white">{warrant.symbol}</p>
@@ -553,7 +575,7 @@ function CompactCoveredWarrantPanel({
                 <p className="text-sm font-bold text-white">{formatPrice(warrant.lastPrice)}</p>
                 <p className="mt-1 text-xs font-semibold text-cyan-200">{formatVolume(warrant.volume)}</p>
               </div>
-            </div>
+            </Link>
           ))}
         </div>
       )}

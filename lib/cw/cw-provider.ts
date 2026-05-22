@@ -39,6 +39,17 @@ export type CoveredWarrantSearchResult = {
   message: string | null;
 };
 
+export type CoveredWarrantDetailResult = {
+  warrant: CoveredWarrantWithMetrics | null;
+  related: CoveredWarrantWithMetrics[];
+  source: "supabase";
+  updatedAt: string | null;
+  message: string | null;
+};
+
+const coveredWarrantSelect =
+  "symbol, underlying_symbol, issuer, type, strike_price, exercise_ratio, maturity_date, last_price, change_percent, bid, ask, volume, open_interest, underlying_price, sx_value, break_even_price, days_to_maturity, is_active, source, raw, updated_at";
+
 export async function getCoveredWarrantsByUnderlying(underlying: string): Promise<CoveredWarrantSearchResult> {
   const normalizedUnderlying = normalizeUnderlying(underlying);
   const supabase = createSupabaseClient();
@@ -55,7 +66,7 @@ export async function getCoveredWarrantsByUnderlying(underlying: string): Promis
 
   const { data, error } = await supabase
     .from("covered_warrants")
-    .select("symbol, underlying_symbol, issuer, type, strike_price, exercise_ratio, maturity_date, last_price, change_percent, bid, ask, volume, open_interest, underlying_price, sx_value, break_even_price, days_to_maturity, is_active, source, raw, updated_at")
+    .select(coveredWarrantSelect)
     .ilike("underlying_symbol", normalizedUnderlying)
     .eq("is_active", true)
     .order("volume", { ascending: false, nullsFirst: false })
@@ -82,7 +93,7 @@ export async function getCoveredWarrantsByUnderlying(underlying: string): Promis
       if (syncedCount > 0) {
         const retry = await supabase
           .from("covered_warrants")
-          .select("symbol, underlying_symbol, issuer, type, strike_price, exercise_ratio, maturity_date, last_price, change_percent, bid, ask, volume, open_interest, underlying_price, sx_value, break_even_price, days_to_maturity, is_active, source, raw, updated_at")
+          .select(coveredWarrantSelect)
           .ilike("underlying_symbol", normalizedUnderlying)
           .eq("is_active", true)
           .order("volume", { ascending: false, nullsFirst: false })
@@ -122,6 +133,61 @@ export async function getCoveredWarrantsByUnderlying(underlying: string): Promis
     warrants,
     source: "supabase",
     updatedAt: getLatestCoveredWarrantUpdatedAt(rows),
+    message: null,
+  };
+}
+
+export async function getCoveredWarrantBySymbol(symbol: string): Promise<CoveredWarrantDetailResult> {
+  const normalizedSymbol = normalizeUnderlying(symbol);
+  const supabase = createSupabaseClient();
+
+  if (!supabase) {
+    return {
+      warrant: null,
+      related: [],
+      source: "supabase",
+      updatedAt: null,
+      message: "Chưa cấu hình Supabase cho dữ liệu chứng quyền.",
+    };
+  }
+
+  const { data, error } = await supabase
+    .from("covered_warrants")
+    .select(coveredWarrantSelect)
+    .eq("symbol", normalizedSymbol)
+    .maybeSingle();
+
+  if (error) {
+    console.warn("Không đọc được chi tiết covered_warrants từ Supabase:", error.message);
+    return {
+      warrant: null,
+      related: [],
+      source: "supabase",
+      updatedAt: null,
+      message: "Không tải được dữ liệu chứng quyền.",
+    };
+  }
+
+  if (!data) {
+    return {
+      warrant: null,
+      related: [],
+      source: "supabase",
+      updatedAt: null,
+      message: "Không tìm thấy mã chứng quyền này.",
+    };
+  }
+
+  const row = data as CoveredWarrantRow;
+  const relatedResult = await getCoveredWarrantsByUnderlying(row.underlying_symbol);
+  const fallbackWarrant = attachCoveredWarrantMetrics([mapCoveredWarrantRow(row, row.underlying_price)])[0] ?? null;
+  const warrant = relatedResult.warrants.find((item) => item.symbol === normalizedSymbol) ?? fallbackWarrant;
+
+  return {
+    warrant,
+    related: relatedResult.warrants,
+    source: "supabase",
+    updatedAt: row.updated_at ?? relatedResult.updatedAt,
     message: null,
   };
 }
