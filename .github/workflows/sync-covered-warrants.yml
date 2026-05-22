@@ -1,0 +1,23 @@
+name: Sync covered warrants
+
+on:
+  workflow_dispatch:
+  schedule:
+    # 09:00-15:00 Vietnam time (UTC+7), Monday-Friday.
+    - cron: "*/15 2-8 * * 1-5"
+    # 17:00 Vietnam time (UTC+7), Monday-Friday.
+    - cron: "0 10 * * 1-5"
+
+concurrency:
+  group: sync-covered-warrants
+  cancel-in-progress: false
+
+jobs:
+  sync-covered-warrants:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Sync covered warrants from provider
+        run: |
+          curl -fsS --retry 2 --max-time 280 \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "https://stock-analyzer-sigma-one.vercel.app/api/cron/sync-covered-warrants"

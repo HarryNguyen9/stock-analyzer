@@ -1,5 +1,8 @@
 import { createSupabaseClient } from "@/lib/supabase/client";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { attachCoveredWarrantMetrics, sortCoveredWarrants } from "@/lib/cw/cw-metrics";
+import { getCoveredWarrantProvider } from "@/lib/cw/providers/provider";
+import type { Database, Json } from "@/lib/supabase/types";
 import type { CoveredWarrantRecord, CoveredWarrantWithMetrics } from "@/lib/cw/types";
 
 type CoveredWarrantRow = {
@@ -26,12 +29,6 @@ type CoveredWarrantRow = {
   updated_at: string;
 };
 
-type UnderlyingPriceRow = {
-  symbol: string;
-  close: number;
-  date: string;
-};
-
 export type CoveredWarrantSearchResult = {
   underlying: string;
   warrants: CoveredWarrantWithMetrics[];
@@ -54,7 +51,7 @@ export async function getCoveredWarrantsByUnderlying(underlying: string): Promis
     };
   }
 
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from("covered_warrants")
     .select("symbol, underlying_symbol, issuer, type, strike_price, exercise_ratio, maturity_date, last_price, change_percent, bid, ask, volume, open_interest, underlying_price, sx_value, break_even_price, days_to_maturity, is_active, source, raw, updated_at")
     .ilike("underlying_symbol", normalizedUnderlying)
@@ -74,7 +71,32 @@ export async function getCoveredWarrantsByUnderlying(underlying: string): Promis
     };
   }
 
-  const rows = (data ?? []) as CoveredWarrantRow[];
+  let rows = (data ?? []) as CoveredWarrantRow[];
+
+  if (rows.length === 0) {
+    try {
+      await syncCoveredWarrantsByUnderlying(normalizedUnderlying);
+      const retry = await supabase
+        .from("covered_warrants")
+        .select("symbol, underlying_symbol, issuer, type, strike_price, exercise_ratio, maturity_date, last_price, change_percent, bid, ask, volume, open_interest, underlying_price, sx_value, break_even_price, days_to_maturity, is_active, source, raw, updated_at")
+        .ilike("underlying_symbol", normalizedUnderlying)
+        .eq("is_active", true)
+        .order("volume", { ascending: false, nullsFirst: false })
+        .order("maturity_date", { ascending: true, nullsFirst: false })
+        .limit(100);
+
+      if (!retry.error) {
+        data = retry.data;
+        rows = (data ?? []) as CoveredWarrantRow[];
+      }
+    } catch (syncError) {
+      console.warn("Không sync được CW on-demand:", {
+        underlying: normalizedUnderlying,
+        error: syncError instanceof Error ? syncError.message : String(syncError),
+      });
+    }
+  }
+
   if (rows.length === 0) {
     const hasAnyData = await hasAnyCoveredWarrantData();
 
@@ -87,9 +109,8 @@ export async function getCoveredWarrantsByUnderlying(underlying: string): Promis
     };
   }
 
-  const underlyingPrice = rows[0]?.underlying_price ?? await readLatestUnderlyingPrice(normalizedUnderlying);
   const warrants = sortCoveredWarrants(
-    attachCoveredWarrantMetrics(rows.map((row) => mapCoveredWarrantRow(row, row.underlying_price ?? underlyingPrice))),
+    attachCoveredWarrantMetrics(rows.map((row) => mapCoveredWarrantRow(row, row.underlying_price))),
   );
 
   return {
@@ -126,26 +147,6 @@ export async function searchCoveredWarrantUnderlyings(query: string, limit = 20)
     .slice(0, limit);
 }
 
-async function readLatestUnderlyingPrice(symbol: string): Promise<number | null> {
-  const supabase = createSupabaseClient();
-  if (!supabase) return null;
-
-  const { data, error } = await supabase
-    .from("stock_prices")
-    .select("symbol, close, date")
-    .eq("symbol", symbol)
-    .order("date", { ascending: false })
-    .limit(1);
-
-  if (error) {
-    console.warn("Khong doc duoc gia co so cho chung quyen:", { symbol, error: error.message });
-    return null;
-  }
-
-  const row = (data?.[0] ?? null) as UnderlyingPriceRow | null;
-  return typeof row?.close === "number" ? row.close : null;
-}
-
 async function hasAnyCoveredWarrantData(): Promise<boolean> {
   const supabase = createSupabaseClient();
   if (!supabase) return false;
@@ -157,6 +158,48 @@ async function hasAnyCoveredWarrantData(): Promise<boolean> {
 
   if (error) return false;
   return (count ?? 0) > 0;
+}
+
+type CoveredWarrantUpsert = Database["public"]["Tables"]["covered_warrants"]["Insert"];
+
+async function syncCoveredWarrantsByUnderlying(underlying: string): Promise<number> {
+  const provider = getCoveredWarrantProvider();
+  const result = await provider.fetchCoveredWarrantsByUnderlying(underlying);
+
+  if (result.warrants.length === 0) {
+    return 0;
+  }
+
+  const now = new Date().toISOString();
+  const rows: CoveredWarrantUpsert[] = result.warrants.map((warrant) => ({
+    symbol: warrant.symbol,
+    underlying_symbol: warrant.underlyingSymbol,
+    issuer: warrant.issuer,
+    type: warrant.type,
+    strike_price: warrant.strikePrice,
+    exercise_ratio: warrant.exerciseRatio,
+    maturity_date: warrant.maturityDate,
+    last_price: warrant.lastPrice,
+    change_percent: warrant.changePercent,
+    bid: warrant.bid,
+    ask: warrant.ask,
+    volume: warrant.volume,
+    open_interest: warrant.openInterest,
+    underlying_price: warrant.underlyingPrice,
+    sx_value: warrant.sxValue,
+    break_even_price: warrant.breakEvenPrice,
+    days_to_maturity: warrant.daysToMaturity,
+    is_active: warrant.isActive,
+    source: warrant.source,
+    raw: warrant.raw as Json | null,
+    updated_at: now,
+  }));
+
+  const supabase = createSupabaseAdminClient();
+  const { error } = await supabase.from("covered_warrants").upsert(rows, { onConflict: "symbol" });
+  if (error) throw new Error(`Không upsert được covered_warrants theo mã cơ sở: ${error.message}`);
+
+  return rows.length;
 }
 
 function mapCoveredWarrantRow(row: CoveredWarrantRow, underlyingPrice: number | null): CoveredWarrantRecord {
