@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { StockCard } from "@/components/StockCard";
 import { vi } from "@/lib/i18n/vi";
@@ -7,6 +8,7 @@ import type { StockSummary } from "@/types/stock";
 
 const FEATURED_LIMIT = 20;
 const SEARCH_LIMIT = 30;
+const COMPACT_SEARCH_LIMIT = 8;
 const SEARCH_MIN_LENGTH = 2;
 const REQUEST_TIMEOUT_MS = 8_000;
 
@@ -26,6 +28,7 @@ type SearchResponse = {
 
 export function LazyStockSearchList({ active }: { active: boolean }) {
   const [query, setQuery] = useState("");
+  const [compactQuery, setCompactQuery] = useState("");
   const [featured, setFeatured] = useState<LoadState>({
     status: "idle",
     stocks: [],
@@ -45,6 +48,18 @@ export function LazyStockSearchList({ active }: { active: boolean }) {
   const normalizedQuery = useMemo(() => query.trim(), [query]);
   const hasQuery = normalizedQuery.length > 0;
   const canSearch = normalizedQuery.length >= SEARCH_MIN_LENGTH;
+  const normalizedCompactQuery = useMemo(() => compactQuery.trim(), [compactQuery]);
+  const compactHasQuery = normalizedCompactQuery.length > 0;
+  const compactCanSearch = normalizedCompactQuery.length >= SEARCH_MIN_LENGTH;
+  const [compactResults, setCompactResults] = useState<LoadState>({
+    status: "idle",
+    stocks: [],
+    message: null,
+  });
+  const compactDisplayStatus = compactHasQuery && !compactCanSearch ? "ready" : compactResults.status;
+  const compactDisplayMessage = compactHasQuery && !compactCanSearch
+    ? `Nhập ít nhất ${SEARCH_MIN_LENGTH} ký tự để tìm nhanh hơn.`
+    : compactResults.message;
   const displayStocks = hasQuery ? results.stocks : featured.stocks;
   const displayStatus = hasQuery && !canSearch ? "ready" : hasQuery ? results.status : featured.status;
   const displayMessage = hasQuery && !canSearch
@@ -92,7 +107,7 @@ export function LazyStockSearchList({ active }: { active: boolean }) {
     window.requestAnimationFrame(() => {
       window.scrollTo(window.scrollX, scrollY);
     });
-  }, [query, displayStatus]);
+  }, [compactQuery, compactDisplayStatus]);
 
   useEffect(() => {
     if (!active || featured.status !== "idle") {
@@ -173,6 +188,53 @@ export function LazyStockSearchList({ active }: { active: boolean }) {
     };
   }, [active, canSearch, normalizedQuery, retryKey]);
 
+  useEffect(() => {
+    if (!active || !compactSearchVisible) {
+      return;
+    }
+
+    if (normalizedCompactQuery.length === 0) {
+      setCompactResults({ status: "idle", stocks: [], message: null });
+      return;
+    }
+
+    if (!compactCanSearch) {
+      setCompactResults({
+        status: "ready",
+        stocks: [],
+        message: `Nhập ít nhất ${SEARCH_MIN_LENGTH} ký tự để tìm nhanh hơn.`,
+      });
+      return;
+    }
+
+    const controller = new AbortController();
+    let cancelled = false;
+    const debounceId = window.setTimeout(() => {
+      void loadStocks({
+        url: `/api/symbols/search?q=${encodeURIComponent(normalizedCompactQuery)}&limit=${COMPACT_SEARCH_LIMIT}`,
+        controller,
+        onStart: () => setCompactResults({ status: "loading", stocks: [], message: null }),
+        onSuccess: (stocks) => {
+          if (cancelled) return;
+          setCompactResults({
+            status: "ready",
+            stocks,
+            message: stocks.length > 0 ? null : "Không tìm thấy mã phù hợp.",
+          });
+        },
+        onError: (message) => {
+          if (!cancelled) setCompactResults({ status: "error", stocks: [], message });
+        },
+      });
+    }, 250);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(debounceId);
+      controller.abort();
+    };
+  }, [active, compactCanSearch, compactSearchVisible, normalizedCompactQuery]);
+
   if (!active && featured.status === "idle") {
     return null;
   }
@@ -185,7 +247,7 @@ export function LazyStockSearchList({ active }: { active: boolean }) {
         }`}
         aria-hidden={!compactSearchVisible}
       >
-        <div className="rounded-2xl border border-cyan-300/20 bg-white/95 p-2 shadow-[0_14px_40px_rgba(15,23,42,0.12)] backdrop-blur-xl dark:bg-[#071a31]/95 dark:shadow-[0_14px_40px_rgba(0,0,0,0.26)]">
+        <div className="relative rounded-2xl border border-cyan-300/20 bg-white/95 p-2 shadow-[0_14px_40px_rgba(15,23,42,0.12)] backdrop-blur-xl dark:bg-[#071a31]/95 dark:shadow-[0_14px_40px_rgba(0,0,0,0.26)]">
           <div className="flex min-h-11 items-center rounded-xl border border-sky-200 bg-slate-50 px-3 focus-within:border-cyan-400 focus-within:shadow-[0_0_22px_rgba(14,165,233,0.12)] dark:border-cyan-400/25 dark:bg-[#10223b] dark:focus-within:border-cyan-300/70">
             <span className="mr-3 text-slate-400 dark:text-slate-500">
               <SearchIcon />
@@ -194,15 +256,15 @@ export function LazyStockSearchList({ active }: { active: boolean }) {
               id="stock-search-compact"
               ref={compactSearchInputRef}
               type="search"
-              value={query}
-              onChange={(event) => updateQuery(event.target.value, "compact")}
+              value={compactQuery}
+              onChange={(event) => updateCompactQuery(event.target.value)}
               placeholder={vi.home.searchPlaceholder}
               className="min-h-11 min-w-0 flex-1 bg-transparent text-sm text-slate-950 outline-none placeholder:text-slate-400 dark:text-white dark:placeholder:text-slate-500"
             />
-            {query ? (
+            {compactQuery ? (
               <button
                 type="button"
-                onClick={() => updateQuery("", "compact")}
+                onClick={() => updateCompactQuery("")}
                 className="ml-2 rounded-full border border-sky-200 px-3 py-1 text-xs font-medium text-slate-600 transition hover:border-cyan-300 hover:text-slate-950 dark:border-cyan-400/15 dark:text-slate-300 dark:hover:border-cyan-300/40 dark:hover:text-white"
               >
                 {vi.home.searchClear}
@@ -213,6 +275,14 @@ export function LazyStockSearchList({ active }: { active: boolean }) {
               </span>
             )}
           </div>
+          {compactHasQuery ? (
+            <CompactSearchPanel
+              stocks={compactResults.stocks}
+              status={compactDisplayStatus}
+              message={compactDisplayMessage}
+              canSearch={compactCanSearch}
+            />
+          ) : null}
         </div>
       </div>
 
@@ -291,8 +361,8 @@ export function LazyStockSearchList({ active }: { active: boolean }) {
         <SearchError message={displayMessage ?? "Không tải được danh sách, vui lòng thử lại"} onRetry={() => retryCurrentLoad(hasQuery)} />
       ) : displayStocks.length > 0 ? (
         <div className="mt-4 grid gap-4 lg:grid-cols-2">
-          {displayStocks.map((stock) => (
-            <StockCard key={stock.symbol} stock={stock} />
+          {displayStocks.map((stock, index) => (
+            <StockCard key={getStockListKey(stock, index)} stock={stock} />
           ))}
         </div>
       ) : (
@@ -318,6 +388,11 @@ export function LazyStockSearchList({ active }: { active: boolean }) {
     }
 
     setQuery(nextQuery);
+  }
+
+  function updateCompactQuery(nextQuery: string) {
+    pendingCompactScrollYRef.current = window.scrollY;
+    setCompactQuery(nextQuery);
   }
 }
 
@@ -397,6 +472,73 @@ function SearchEmpty({ message, isSearching }: { message: string | null; isSearc
       </p>
     </div>
   );
+}
+
+function CompactSearchPanel({
+  stocks,
+  status,
+  message,
+  canSearch,
+}: {
+  stocks: StockSummary[];
+  status: "idle" | "loading" | "ready" | "error";
+  message: string | null;
+  canSearch: boolean;
+}) {
+  return (
+    <div className="absolute left-2 right-2 top-[calc(100%-0.25rem)] z-50 overflow-hidden rounded-2xl border border-sky-200 bg-white shadow-[0_18px_60px_rgba(15,23,42,0.18)] dark:border-cyan-300/15 dark:bg-[#061225] dark:shadow-[0_18px_60px_rgba(0,0,0,0.36)]">
+      {!canSearch ? (
+        <p className="p-4 text-sm text-slate-500 dark:text-slate-400">{message}</p>
+      ) : status === "loading" || status === "idle" ? (
+        <div className="space-y-2 p-3">
+          <div className="h-12 animate-pulse rounded-xl bg-slate-100 dark:bg-white/5" />
+          <div className="h-12 animate-pulse rounded-xl bg-slate-100 dark:bg-white/5" />
+        </div>
+      ) : status === "error" ? (
+        <p className="p-4 text-sm text-amber-700 dark:text-amber-200">{message ?? "Không thể tải danh sách cổ phiếu."}</p>
+      ) : stocks.length > 0 ? (
+        <div className="max-h-80 overflow-y-auto p-2">
+          {stocks.slice(0, 8).map((stock, index) => (
+            <Link
+              key={getStockListKey(stock, index)}
+              href={`/stock/${stock.symbol}`}
+              prefetch={false}
+              className="flex items-center justify-between gap-3 rounded-xl px-3 py-2.5 transition hover:bg-sky-50 dark:hover:bg-cyan-300/10"
+            >
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <p className="font-black text-slate-950 dark:text-white">{stock.symbol}</p>
+                  <span className="rounded-md border border-cyan-300/40 px-1.5 py-0.5 text-[10px] font-bold text-cyan-700 dark:text-cyan-200">
+                    {stock.exchange}
+                  </span>
+                </div>
+                <p className="mt-0.5 line-clamp-1 text-xs text-slate-500 dark:text-slate-400">{stock.name}</p>
+              </div>
+              <div className="shrink-0 text-right">
+                {stock.dataStatus === "ready" ? (
+                  <>
+                    <p className="text-sm font-bold text-slate-950 dark:text-white">{stock.lastClose.toFixed(2)}</p>
+                    <p className={stock.dayChangePercent >= 0 ? "text-xs font-semibold text-emerald-500" : "text-xs font-semibold text-rose-500"}>
+                      {stock.dayChangePercent >= 0 ? "+" : ""}
+                      {stock.dayChangePercent.toFixed(2)}%
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-xs font-semibold text-slate-400">Chưa có giá</p>
+                )}
+              </div>
+            </Link>
+          ))}
+        </div>
+      ) : (
+        <p className="p-4 text-sm text-slate-500 dark:text-slate-400">{message ?? vi.home.searchEmptyDescription}</p>
+      )}
+    </div>
+  );
+}
+
+function getStockListKey(stock: StockSummary, index: number) {
+  return `${stock.symbol}-${stock.exchange}-${index}`;
 }
 
 function SearchIcon() {

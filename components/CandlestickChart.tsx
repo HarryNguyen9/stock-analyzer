@@ -48,7 +48,6 @@ type CandlestickChartProps = {
 type BollingerLine = { color: string; data: LineData<Time>[] };
 
 const rangeOptions: TimeRange[] = ["3M", "6M", "1Y", "All"];
-const chartSettingsKey = "stock-chart-settings";
 const defaultToggles: ChartToggles = {
   sma20: true,
   sma50: true,
@@ -92,7 +91,7 @@ export function CandlestickChart({
     markers: [],
   });
   const [range, setRange] = useState<TimeRange>("1Y");
-  const [toggles, setToggles] = useState<ChartToggles>(() => readStoredToggles());
+  const [toggles, setToggles] = useState<ChartToggles>(defaultToggles);
   const [visibleRangePreserved, setVisibleRangePreserved] = useState(false);
   const filteredData = useMemo(() => filterByRange(data, range), [data, range]);
   const chartData = useMemo<CandlestickData<Time>[]>(
@@ -137,14 +136,6 @@ export function CandlestickChart({
     supportResistance,
   };
   candlesByDateRef.current = candlesByDate;
-
-  useEffect(() => {
-    try {
-      window.localStorage.setItem(chartSettingsKey, JSON.stringify(toggles));
-    } catch {
-      // Local storage is optional; chart controls still work without it.
-    }
-  }, [toggles]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -559,24 +550,6 @@ function toggle(key: keyof ChartToggles, setToggles: Dispatch<SetStateAction<Cha
     ...current,
     [key]: !current[key],
   }));
-}
-
-function readStoredToggles(): ChartToggles {
-  if (typeof window === "undefined") {
-    return defaultToggles;
-  }
-
-  try {
-    const raw = window.localStorage.getItem(chartSettingsKey);
-    const parsed = raw ? (JSON.parse(raw) as Partial<ChartToggles>) : null;
-
-    return {
-      ...defaultToggles,
-      ...parsed,
-    };
-  } catch {
-    return defaultToggles;
-  }
 }
 
 function applyTheme(chart: IChartApi, volumeEnabled: boolean) {
