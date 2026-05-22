@@ -8,6 +8,7 @@ import {
   TARGET_STOCK_PRICE_CANDLES,
 } from "../lib/data-source/constants";
 import { updateIntradayCandleForSymbol } from "../lib/data-source/intraday";
+import { getVietnamTradingDate, isVietnamAfterMarketClose } from "../lib/data-source/vietnam-market-time";
 import { getHistoricalFetchWindow, vnstockProvider } from "../lib/data-source/vnstock-provider";
 import { createSupabaseAdminClient } from "../lib/supabase/admin";
 import type { Database } from "../lib/supabase/types";
@@ -161,7 +162,7 @@ async function syncPricesDirectlyToSupabase(
       const prices = await vnstockProvider.getDailyPrices(target.symbol, DEFAULT_RECENT_SYNC_CANDLE_LIMIT);
       await upsertPriceSetsToSupabase([{ symbol: target.symbol, prices }], { upsertSymbols: false });
       await updateSymbolSyncStatus(target.symbol, "synced");
-      if (prices.at(-1)?.date === getVietnamTradingDate()) {
+      if (prices.at(-1)?.date === getVietnamTradingDate() && isVietnamAfterMarketClose()) {
         finalizedDaily += 1;
       } else {
         finalizeSkipped += 1;
@@ -545,15 +546,6 @@ function getNextRetryAt(retryCount: number): Date {
 
 function isVercelProduction(): boolean {
   return process.env.VERCEL === "1" && process.env.VERCEL_ENV === "production";
-}
-
-function getVietnamTradingDate(): string {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Ho_Chi_Minh",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date());
 }
 
 function isDirectRun(importMetaUrl: string): boolean {

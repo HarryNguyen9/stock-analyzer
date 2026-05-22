@@ -1,5 +1,10 @@
 import { DEFAULT_RECENT_SYNC_CANDLE_LIMIT } from "@/lib/data-source/constants";
 import { serializeProviderError } from "@/lib/data-source/provider-errors";
+import {
+  getVietnamTradingDate,
+  isVietnamAfterMarketClose,
+  isVietnamWeekend,
+} from "@/lib/data-source/vietnam-market-time";
 import { vnstockProvider } from "@/lib/data-source/vnstock-provider";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { Database } from "@/lib/supabase/types";
@@ -31,6 +36,10 @@ export async function finalizeDailyCandleForSymbol(symbol: string): Promise<Fina
 
   if (isVietnamWeekend()) {
     return skipped(normalizedSymbol, tradingDate, null, "Thi truong dang nghi cuoi tuan.");
+  }
+
+  if (!isVietnamAfterMarketClose()) {
+    return skipped(normalizedSymbol, tradingDate, null, "Chua toi gio chot nen dong phien.");
   }
 
   const prices = await vnstockProvider.getDailyPrices(normalizedSymbol, DEFAULT_RECENT_SYNC_CANDLE_LIMIT);
@@ -101,22 +110,4 @@ function skipped(symbol: string, tradingDate: string, providerDate: string | nul
     reason,
     providerUsed: "vnstock_daily",
   };
-}
-
-function getVietnamTradingDate(): string {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Ho_Chi_Minh",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date());
-}
-
-function isVietnamWeekend(): boolean {
-  const weekday = new Intl.DateTimeFormat("en-US", {
-    timeZone: "Asia/Ho_Chi_Minh",
-    weekday: "short",
-  }).format(new Date());
-
-  return weekday === "Sat" || weekday === "Sun";
 }

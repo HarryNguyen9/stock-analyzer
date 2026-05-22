@@ -1,5 +1,10 @@
 import { localDataProvider } from "@/lib/data-source/local-provider";
 import { readLatestPendingIntradayUpdatedAt, readLatestSupabaseUpdatedAt, supabaseDataProvider } from "@/lib/data-source/supabase-provider";
+import {
+  isVietnamAfterMarketClose,
+  isVietnamMarketIntradayWindow,
+  isVietnamWeekend,
+} from "@/lib/data-source/vietnam-market-time";
 import { isSupabaseClientConfigured } from "@/lib/supabase/client";
 import type { OHLCV, StockSummary } from "@/types/stock";
 
@@ -93,18 +98,11 @@ export async function getDataFreshness(): Promise<DataFreshnessResult> {
 
   const thirtyMinutesMs = 30 * 60 * 1000;
   const isStale = Date.now() - updatedAtTime > thirtyMinutesMs;
+  const hasValidPendingIntraday =
+    Boolean(pendingIntraday.updatedAt) && (isVietnamMarketIntradayWindow() || isVietnamAfterMarketClose());
 
   return {
-    status: isStale ? (isVietnamWeekend() ? "market-closed" : "stale") : pendingIntraday.updatedAt ? "intraday" : "synced",
+    status: isStale ? (isVietnamWeekend() ? "market-closed" : "stale") : hasValidPendingIntraday ? "intraday" : "synced",
     updatedAt,
   };
-}
-
-function isVietnamWeekend(): boolean {
-  const weekday = new Intl.DateTimeFormat("en-US", {
-    timeZone: "Asia/Ho_Chi_Minh",
-    weekday: "short",
-  }).format(new Date());
-
-  return weekday === "Sat" || weekday === "Sun";
 }

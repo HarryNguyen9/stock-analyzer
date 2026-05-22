@@ -3,6 +3,11 @@ import {
   fetchIntradayTrades,
   fetchLatestQuote,
 } from "@/lib/data-source/vnstock-provider";
+import {
+  getVietnamTradingDate,
+  isVietnamMarketIntradayWindow,
+  isVietnamWeekday,
+} from "@/lib/data-source/vietnam-market-time";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { Database } from "@/lib/supabase/types";
 import type { OHLCV } from "@/types/stock";
@@ -36,6 +41,18 @@ export async function updateIntradayCandleForSymbol(symbol: string): Promise<Int
       providerUsed: "vnstock_intraday",
       latestTradingDate: tradingDate,
       reason: "Ngoài ngày giao dịch theo giờ Việt Nam.",
+    };
+  }
+
+  if (!isVietnamMarketIntradayWindow()) {
+    await deletePendingIntradayRow(normalizedSymbol, tradingDate);
+
+    return {
+      updated: false,
+      skipped: true,
+      providerUsed: "vnstock_intraday",
+      latestTradingDate: tradingDate,
+      reason: "Ngoai khung giao dich trong phien, khong tao nen intraday tam thoi.",
     };
   }
 
@@ -101,6 +118,21 @@ export async function updateIntradayCandleForSymbol(symbol: string): Promise<Int
   };
 }
 
+async function deletePendingIntradayRow(symbol: string, date: string) {
+  try {
+    const supabase = createSupabaseAdminClient();
+    await supabase
+      .from("stock_prices")
+      .delete()
+      .eq("symbol", symbol)
+      .eq("date", date)
+      .eq("is_intraday", true)
+      .eq("finalized", false);
+  } catch {
+    // Best-effort cleanup only. A failed cleanup should not break price sync.
+  }
+}
+
 async function readExistingPriceRow(
   symbol: string,
   date: string,
@@ -122,22 +154,4 @@ async function readExistingPriceRow(
   } catch {
     return null;
   }
-}
-
-function getVietnamTradingDate(): string {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Ho_Chi_Minh",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date());
-}
-
-function isVietnamWeekday(): boolean {
-  const weekday = new Intl.DateTimeFormat("en-US", {
-    timeZone: "Asia/Ho_Chi_Minh",
-    weekday: "short",
-  }).format(new Date());
-
-  return weekday !== "Sat" && weekday !== "Sun";
 }

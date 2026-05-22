@@ -4,6 +4,7 @@ import { pathToFileURL } from "node:url";
 import { loadEnvConfig } from "@next/env";
 import { STOCKS } from "../data/symbols";
 import { analyzeTechnical } from "../lib/analysis";
+import { getDailyCandleStorageState } from "../lib/data-source/vietnam-market-time";
 import { createSupabaseAdminClient } from "../lib/supabase/admin";
 import type { Database, Json } from "../lib/supabase/types";
 import type { OHLCV } from "../types/stock";
@@ -82,19 +83,30 @@ export async function upsertPriceSetsToSupabase(
       continue;
     }
 
-    const priceRows: StockPriceInsert[] = prices.map((price) => ({
-      symbol,
-      date: price.date,
-      open: price.open,
-      high: price.high,
-      low: price.low,
-      close: price.close,
-      volume: price.volume,
-      is_intraday: false,
-      finalized: true,
-      source: "vnstock_daily",
-      updated_at: new Date().toISOString(),
-    }));
+    const storedPrices = prices.filter((price) => getDailyCandleStorageState(price.date).shouldStore);
+
+    if (storedPrices.length === 0) {
+      console.log(`${symbol}: bo qua vi provider chi tra ve nen hom nay truoc gio giao dich`);
+      continue;
+    }
+
+    const priceRows: StockPriceInsert[] = storedPrices.map((price) => {
+      const storageState = getDailyCandleStorageState(price.date);
+
+      return {
+        symbol,
+        date: price.date,
+        open: price.open,
+        high: price.high,
+        low: price.low,
+        close: price.close,
+        volume: price.volume,
+        is_intraday: storageState.isIntraday,
+        finalized: storageState.finalized,
+        source: storageState.source,
+        updated_at: new Date().toISOString(),
+      };
+    });
 
     for (let index = 0; index < priceRows.length; index += BATCH_SIZE) {
       const batch = priceRows.slice(index, index + BATCH_SIZE);
@@ -107,8 +119,8 @@ export async function upsertPriceSetsToSupabase(
       }
     }
 
-    const latest = prices[prices.length - 1];
-    const analysis = analyzeTechnical(prices);
+    const latest = storedPrices[storedPrices.length - 1];
+    const analysis = analyzeTechnical(storedPrices);
     const indicatorRow: IndicatorInsert = {
       symbol,
       date: latest.date,
