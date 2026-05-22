@@ -39,6 +39,8 @@ export function LazyStockSearchList({ active }: { active: boolean }) {
   const [featuredRetryKey, setFeaturedRetryKey] = useState(0);
   const [retryKey, setRetryKey] = useState(0);
   const searchInputWrapRef = useRef<HTMLDivElement | null>(null);
+  const compactSearchInputRef = useRef<HTMLInputElement | null>(null);
+  const pendingCompactScrollYRef = useRef<number | null>(null);
   const [compactSearchVisible, setCompactSearchVisible] = useState(false);
   const normalizedQuery = useMemo(() => query.trim(), [query]);
   const hasQuery = normalizedQuery.length > 0;
@@ -78,6 +80,19 @@ export function LazyStockSearchList({ active }: { active: boolean }) {
       window.removeEventListener("resize", updateCompactVisibility);
     };
   }, [active]);
+
+  useEffect(() => {
+    const scrollY = pendingCompactScrollYRef.current;
+
+    if (scrollY === null) {
+      return;
+    }
+
+    pendingCompactScrollYRef.current = null;
+    window.requestAnimationFrame(() => {
+      window.scrollTo(window.scrollX, scrollY);
+    });
+  }, [query, displayStatus]);
 
   useEffect(() => {
     if (!active || featured.status !== "idle") {
@@ -177,16 +192,17 @@ export function LazyStockSearchList({ active }: { active: boolean }) {
             </span>
             <input
               id="stock-search-compact"
+              ref={compactSearchInputRef}
               type="search"
               value={query}
-              onChange={(event) => setQuery(event.target.value)}
+              onChange={(event) => updateQuery(event.target.value, "compact")}
               placeholder={vi.home.searchPlaceholder}
               className="min-h-11 min-w-0 flex-1 bg-transparent text-sm text-slate-950 outline-none placeholder:text-slate-400 dark:text-white dark:placeholder:text-slate-500"
             />
             {query ? (
               <button
                 type="button"
-                onClick={() => setQuery("")}
+                onClick={() => updateQuery("", "compact")}
                 className="ml-2 rounded-full border border-sky-200 px-3 py-1 text-xs font-medium text-slate-600 transition hover:border-cyan-300 hover:text-slate-950 dark:border-cyan-400/15 dark:text-slate-300 dark:hover:border-cyan-300/40 dark:hover:text-white"
               >
                 {vi.home.searchClear}
@@ -228,14 +244,14 @@ export function LazyStockSearchList({ active }: { active: boolean }) {
             id="stock-search"
             type="search"
             value={query}
-            onChange={(event) => setQuery(event.target.value)}
+            onChange={(event) => updateQuery(event.target.value, "full")}
             placeholder={vi.home.searchPlaceholder}
             className="min-h-14 min-w-0 flex-1 bg-transparent text-base text-slate-950 outline-none placeholder:text-slate-400 dark:text-white dark:placeholder:text-slate-500"
           />
           {query ? (
             <button
               type="button"
-              onClick={() => setQuery("")}
+              onClick={() => updateQuery("", "full")}
               className="ml-2 rounded-full border border-sky-200 px-3 py-1.5 text-sm font-medium text-slate-600 transition hover:border-cyan-300 hover:text-slate-950 dark:border-cyan-400/15 dark:text-slate-300 dark:hover:border-cyan-300/40 dark:hover:text-white"
             >
               {vi.home.searchClear}
@@ -294,6 +310,14 @@ export function LazyStockSearchList({ active }: { active: boolean }) {
 
     setFeatured({ status: "idle", stocks: [], message: null });
     setFeaturedRetryKey((current) => current + 1);
+  }
+
+  function updateQuery(nextQuery: string, source: "full" | "compact") {
+    if (source === "compact" && compactSearchVisible) {
+      pendingCompactScrollYRef.current = window.scrollY;
+    }
+
+    setQuery(nextQuery);
   }
 }
 
