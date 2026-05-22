@@ -14,6 +14,7 @@ type CoveredWarrantRow = {
   type: string | null;
   strike_price: number | null;
   exercise_ratio: number | null;
+  issue_date: string | null;
   maturity_date: string | null;
   last_price: number | null;
   change_percent: number | null;
@@ -48,7 +49,7 @@ export type CoveredWarrantDetailResult = {
 };
 
 const coveredWarrantSelect =
-  "symbol, underlying_symbol, issuer, type, strike_price, exercise_ratio, maturity_date, last_price, change_percent, bid, ask, volume, open_interest, underlying_price, sx_value, break_even_price, days_to_maturity, is_active, source, raw, updated_at";
+  "symbol, underlying_symbol, issuer, type, strike_price, exercise_ratio, issue_date, maturity_date, last_price, change_percent, bid, ask, volume, open_interest, underlying_price, sx_value, break_even_price, days_to_maturity, is_active, source, raw, updated_at";
 
 export async function getCoveredWarrantsByUnderlying(underlying: string): Promise<CoveredWarrantSearchResult> {
   const normalizedUnderlying = normalizeUnderlying(underlying);
@@ -178,7 +179,31 @@ export async function getCoveredWarrantBySymbol(symbol: string): Promise<Covered
     };
   }
 
-  const row = data as CoveredWarrantRow;
+  let row = data as CoveredWarrantRow;
+
+  if (!row.issue_date || !row.maturity_date) {
+    try {
+      const syncedCount = await syncCoveredWarrantsByUnderlying(row.underlying_symbol);
+
+      if (syncedCount > 0) {
+        const retry = await supabase
+          .from("covered_warrants")
+          .select(coveredWarrantSelect)
+          .eq("symbol", normalizedSymbol)
+          .maybeSingle();
+
+        if (!retry.error && retry.data) {
+          row = retry.data as CoveredWarrantRow;
+        }
+      }
+    } catch (syncError) {
+      console.warn("Khong sync duoc chi tiet CW on-demand:", {
+        symbol: normalizedSymbol,
+        error: syncError instanceof Error ? syncError.message : String(syncError),
+      });
+    }
+  }
+
   const relatedResult = await getCoveredWarrantsByUnderlying(row.underlying_symbol);
   const fallbackWarrant = attachCoveredWarrantMetrics([mapCoveredWarrantRow(row, row.underlying_price)])[0] ?? null;
   const warrant = relatedResult.warrants.find((item) => item.symbol === normalizedSymbol) ?? fallbackWarrant;
@@ -273,6 +298,7 @@ async function syncCoveredWarrantsByUnderlying(underlying: string): Promise<numb
     type: warrant.type,
     strike_price: warrant.strikePrice,
     exercise_ratio: warrant.exerciseRatio,
+    issue_date: warrant.issueDate,
     maturity_date: warrant.maturityDate,
     last_price: warrant.lastPrice,
     change_percent: warrant.changePercent,
@@ -305,6 +331,7 @@ function mapCoveredWarrantRow(row: CoveredWarrantRow, underlyingPrice: number | 
     type: row.type,
     strikePrice: row.strike_price,
     exerciseRatio: row.exercise_ratio,
+    issueDate: row.issue_date,
     maturityDate: row.maturity_date,
     lastPrice: row.last_price,
     changePercent: row.change_percent,

@@ -27,7 +27,9 @@ export const twentyFourHMoneyCoveredWarrantProvider: CoveredWarrantProvider = {
   async fetchCoveredWarrantsByUnderlying(underlying: string) {
     const result = await fetchTwentyFourHMoneyCoveredWarrants();
     const normalizedUnderlying = normalizeSymbol(underlying);
-    const warrants = result.warrants.filter((warrant) => warrant.underlyingSymbol === normalizedUnderlying);
+    const warrants = await enrichWarrantsWithDetails(
+      result.warrants.filter((warrant) => warrant.underlyingSymbol === normalizedUnderlying),
+    );
 
     return {
       warrants,
@@ -113,6 +115,7 @@ export function parseTwentyFourHMoneyCoveredWarrants(html: string): ParseResult 
       type: "call",
       strikePrice,
       exerciseRatio,
+      issueDate: null,
       maturityDate: null,
       lastPrice,
       changePercent: parseNumber(row.cells[2]),
@@ -130,6 +133,7 @@ export function parseTwentyFourHMoneyCoveredWarrants(html: string): ParseResult 
       raw: {
         cells: row.cells,
         rawHtml: row.rawHtml.slice(0, 2_000),
+        sourcePage: coveredWarrantUrl,
       },
     });
   }
@@ -140,6 +144,137 @@ export function parseTwentyFourHMoneyCoveredWarrants(html: string): ParseResult 
     foundSymbolCount,
     skippedReasons,
   };
+}
+
+type DetailFields = Partial<Pick<CoveredWarrantRecord, "issueDate" | "maturityDate" | "strikePrice" | "exerciseRatio">> & {
+  rawDetail?: CoveredWarrantRaw;
+};
+
+async function enrichWarrantsWithDetails(warrants: CoveredWarrantRecord[]): Promise<CoveredWarrantRecord[]> {
+  const enriched: CoveredWarrantRecord[] = [];
+
+  for (const warrant of warrants) {
+    try {
+      const details = await fetchTwentyFourHMoneyWarrantDetail(warrant.symbol);
+      enriched.push(mergeWarrantDetails(warrant, details));
+    } catch (error) {
+      console.warn("Khong doc duoc chi tiet CW tu 24HMoney:", {
+        symbol: warrant.symbol,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      enriched.push(warrant);
+    }
+  }
+
+  return enriched;
+}
+
+async function fetchTwentyFourHMoneyWarrantDetail(symbol: string): Promise<DetailFields> {
+  const detailUrl = `${coveredWarrantUrl}/${encodeURIComponent(symbol)}`;
+  const response = await fetch(detailUrl, {
+    headers: {
+      Accept: "text/html,application/xhtml+xml",
+      "User-Agent": "Mozilla/5.0 stock-analyzer covered-warrant-detail",
+    },
+    cache: "no-store",
+  });
+  const html = await response.text();
+
+  if (!response.ok) {
+    throw new Error(`24HMoney CW detail fetch failed: ${response.status} - ${html.slice(0, 180)}`);
+  }
+
+  return parseTwentyFourHMoneyWarrantDetail(html, detailUrl);
+}
+
+function parseTwentyFourHMoneyWarrantDetail(html: string, detailUrl: string): DetailFields {
+  const text = cleanCell(html).replace(/\s+/g, " ");
+  const exerciseRatioText = readLabelValue(text, "Tỷ lệ chuyển đổi");
+
+  return {
+    issueDate: normalizeDate(readLabelValue(text, "Ngày phát hành")),
+    maturityDate: normalizeDate(readLabelValue(text, "Ngày đáo hạn")),
+    strikePrice: parseNumber(readLabelValue(text, "Giá thực hiện") ?? undefined),
+    exerciseRatio: parseExerciseRatio(exerciseRatioText),
+    rawDetail: {
+      sourcePage: detailUrl,
+      issueDateText: readLabelValue(text, "Ngày phát hành"),
+      maturityDateText: readLabelValue(text, "Ngày đáo hạn"),
+      exerciseRatioText,
+      strikePriceText: readLabelValue(text, "Giá thực hiện"),
+    },
+  };
+}
+
+function mergeWarrantDetails(warrant: CoveredWarrantRecord, details: DetailFields): CoveredWarrantRecord {
+  return {
+    ...warrant,
+    issueDate: details.issueDate ?? warrant.issueDate,
+    maturityDate: details.maturityDate ?? warrant.maturityDate,
+    strikePrice: details.strikePrice ?? warrant.strikePrice,
+    exerciseRatio: details.exerciseRatio ?? warrant.exerciseRatio,
+    raw: {
+      ...(warrant.raw ?? {}),
+      detail: details.rawDetail ?? null,
+    },
+  };
+}
+
+function readLabelValue(text: string, label: string): string | null {
+  const labels = [
+    "CK cơ sở",
+    "Tổ chức phát hành CKCS",
+    "Tổ chức phát hành CW",
+    "Loại chứng quyền",
+    "Kiểu thực hiện",
+    "Phương thức thực hiện quyền",
+    "Thời hạn",
+    "Ngày phát hành",
+    "Ngày niêm yết",
+    "Ngày giao dịch đầu tiên",
+    "Ngày giao dịch cuối cùng",
+    "Ngày đáo hạn",
+    "Tỷ lệ chuyển đổi",
+    "Giá phát hành",
+    "Giá thực hiện",
+    "Khối lượng Niêm yết",
+    "Khối lượng lưu hành",
+    "Giá CK cơ sở",
+    "KLCPLH",
+    "Số ngày đến hạn",
+    "Hòa vốn",
+    "S-X",
+  ];
+  const start = text.indexOf(label);
+  if (start < 0) return null;
+
+  const valueStart = start + label.length;
+  const nextIndex = labels
+    .filter((item) => item !== label)
+    .map((item) => text.indexOf(item, valueStart))
+    .filter((index) => index > valueStart)
+    .sort((a, b) => a - b)[0] ?? text.length;
+  const value = text.slice(valueStart, nextIndex).trim();
+
+  return value || null;
+}
+
+function normalizeDate(value: string | null): string | null {
+  if (!value) return null;
+  const match = value.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (!match) return null;
+  const [, day, month, year] = match;
+  return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+}
+
+function parseExerciseRatio(value: string | null): number | null {
+  if (!value) return null;
+  const match = value.match(/(\d+(?:[.,]\d+)?)\s*:\s*(\d+(?:[.,]\d+)?)/);
+  if (!match) return parseNumber(value);
+  const numerator = Number(match[1].replace(",", "."));
+  const denominator = Number(match[2].replace(",", "."));
+  if (!Number.isFinite(numerator) || !Number.isFinite(denominator) || denominator === 0) return null;
+  return roundMetric(numerator / denominator);
 }
 
 function deriveCallStrikePrice(underlyingPrice: number | null, sxValue: number | null): number | null {

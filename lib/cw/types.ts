@@ -8,6 +8,7 @@ export type CoveredWarrantRecord = {
   type: CoveredWarrantType | string | null;
   strikePrice: number | null;
   exerciseRatio: number | null;
+  issueDate: string | null;
   maturityDate: string | null;
   lastPrice: number | null;
   changePercent: number | null;

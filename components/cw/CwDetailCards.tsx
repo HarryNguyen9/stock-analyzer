@@ -51,6 +51,7 @@ export function CwContractTab({ warrant }: { warrant: CoveredWarrantWithMetrics 
         <KeyValue label="Tổ chức phát hành" value={warrant.issuer} />
         <KeyValue label="Giá thực hiện" value={formatPrice(warrant.strikePrice)} emptyText="Chưa hỗ trợ từ nguồn hiện tại" />
         <KeyValue label="Tỷ lệ chuyển đổi" value={formatNullableNumber(warrant.exerciseRatio)} emptyText="Chưa hỗ trợ từ nguồn hiện tại" />
+        <KeyValue label="Ngày phát hành" value={formatDate(warrant.issueDate)} emptyText="Chưa hỗ trợ từ nguồn hiện tại" />
         <KeyValue label="Ngày đáo hạn" value={formatDate(warrant.maturityDate)} emptyText="Chưa hỗ trợ từ nguồn hiện tại" />
         <KeyValue label="Số ngày còn lại" value={formatDays(warrant.metrics.daysToMaturity)} />
         <KeyValue label="Kiểu thực hiện" value={getRawText(warrant, ["exerciseStyle", "exercise_style"])} emptyText="Chưa hỗ trợ từ nguồn hiện tại" />

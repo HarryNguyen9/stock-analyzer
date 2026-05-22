@@ -251,6 +251,7 @@ export type Database = {
           type: string | null;
           strike_price: number | null;
           exercise_ratio: number | null;
+          issue_date: string | null;
           maturity_date: string | null;
           last_price: number | null;
           change_percent: number | null;
@@ -274,6 +275,7 @@ export type Database = {
           type?: string | null;
           strike_price?: number | null;
           exercise_ratio?: number | null;
+          issue_date?: string | null;
           maturity_date?: string | null;
           last_price?: number | null;
           change_percent?: number | null;
@@ -297,6 +299,7 @@ export type Database = {
           type?: string | null;
           strike_price?: number | null;
           exercise_ratio?: number | null;
+          issue_date?: string | null;
           maturity_date?: string | null;
           last_price?: number | null;
           change_percent?: number | null;

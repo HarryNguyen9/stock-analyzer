@@ -11,6 +11,7 @@ type CoveredWarrantUpsert = {
   type: string | null;
   strike_price: number | null;
   exercise_ratio: number | null;
+  issue_date: string | null;
   maturity_date: string | null;
   last_price: number | null;
   change_percent: number | null;
@@ -56,6 +57,7 @@ async function syncCoveredWarrants(request: Request) {
       type: warrant.type,
       strike_price: warrant.strikePrice,
       exercise_ratio: warrant.exerciseRatio,
+      issue_date: warrant.issueDate,
       maturity_date: warrant.maturityDate,
       last_price: warrant.lastPrice,
       change_percent: warrant.changePercent,

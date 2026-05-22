@@ -5,6 +5,7 @@ create table if not exists public.covered_warrants (
   type text,
   strike_price numeric,
   exercise_ratio numeric,
+  issue_date date,
   maturity_date date,
   last_price numeric,
   change_percent numeric,
