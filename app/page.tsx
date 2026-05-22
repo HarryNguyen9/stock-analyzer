@@ -6,7 +6,6 @@ import { MarketBreadth } from "@/components/MarketBreadth";
 import { MarketNarrativeCard } from "@/components/MarketNarrativeCard";
 import { MarketProductTabs } from "@/components/MarketProductTabs";
 import { MarketScanner } from "@/components/MarketScanner";
-import { SectorHeatmap } from "@/components/SectorHeatmap";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { getDataFreshness } from "@/lib/data-source/prices";
 import type { DataFreshnessResult } from "@/lib/data-source/provider";
@@ -15,7 +14,6 @@ import { buildMarketNarrative } from "@/lib/market/narrative";
 import {
   readMarketAlertsSnapshot,
   readMarketBreadthSnapshot,
-  readSectorHeatmapSnapshot,
 } from "@/lib/pipeline/snapshot";
 import { readHomeScannerSnapshot } from "@/lib/scanner/snapshot";
 
@@ -28,10 +26,9 @@ export default async function Home({
   const initialTab = getInitialTab(query?.tab);
   const initialProduct = getInitialProduct(query?.product);
   const emptyFreshness: DataFreshnessResult = { status: "empty", updatedAt: null };
-  const [dataFreshness, mergedScannerSnapshot, sectorHeatmap, marketBreadth, marketAlerts] = await Promise.all([
+  const [dataFreshness, mergedScannerSnapshot, marketBreadth, marketAlerts] = await Promise.all([
     timedSnapshot("dataFreshness", getDataFreshness(), emptyFreshness),
     timedSnapshot("home_scanner", readHomeScannerSnapshot(), null),
-    timedSnapshot("sector_heatmap", readSectorHeatmapSnapshot(), []),
     timedSnapshot("market_breadth", readMarketBreadthSnapshot(), null),
     timedSnapshot("market_alerts", readMarketAlertsSnapshot(), []),
   ]);
@@ -40,7 +37,7 @@ export default async function Home({
     "market_narrative",
     buildMarketNarrative({
       breadth: marketBreadth,
-      sectors: sectorHeatmap,
+      sectors: [],
       scannerGroups: mergedScannerSnapshot,
       alerts: marketAlerts,
     }),
@@ -75,7 +72,6 @@ export default async function Home({
                 <MarketScanner stocks={[]} snapshotGroups={mergedScannerSnapshot} />
                 <MarketAlerts alerts={marketAlerts} />
                 {marketBreadth ? <MarketBreadth breadth={marketBreadth} /> : <SnapshotEmptyState title="Độ rộng thị trường" />}
-                <SectorHeatmap sectors={sectorHeatmap} />
               </>
             }
           />
