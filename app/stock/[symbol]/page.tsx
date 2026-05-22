@@ -155,23 +155,16 @@ export default async function StockDetailPage({ params }: StockPageProps) {
       <StockDetailTabs
         overview={
         <div className="min-w-0 space-y-5">
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-            <MetricCard label={vi.stock.lastClose} value={latest.close.toFixed(2)} />
-            <MetricCard
-              label={vi.stock.dailyChange}
-              value={`${isUp ? "+" : ""}${change.toFixed(2)}`}
-              subValue={`${isUp ? "+" : ""}${changePercent.toFixed(2)}%`}
-              tone={isUp ? "positive" : "negative"}
-            />
-            <MetricCard label={vi.stock.volume} value={formatVolume(latest.volume)} />
-            <MetricCard
-              label={vi.stock.latestDate}
-              value={formatDate(latest.date)}
-              subValue={isIntradayLatest ? "Dữ liệu trong phiên" : undefined}
-              tone={isIntradayLatest ? "positive" : "neutral"}
-            />
-            <MetricCard label={vi.stock.candles} value={String(candles.length)} />
-          </div>
+          <MetricsPanel
+            lastClose={latest.close.toFixed(2)}
+            change={`${isUp ? "+" : ""}${change.toFixed(2)}`}
+            changePercent={`${isUp ? "+" : ""}${changePercent.toFixed(2)}%`}
+            changeTone={isUp ? "positive" : "negative"}
+            volume={formatVolume(latest.volume)}
+            latestDate={formatDate(latest.date)}
+            dateSubValue={isIntradayLatest ? "Dữ liệu trong phiên" : undefined}
+            candles={String(candles.length)}
+          />
 
           <CandlestickChart
             key={`${stock.symbol}-${latest.date}-${latest.close}`}
@@ -560,7 +553,7 @@ function PriceActionSection({ analysis }: { analysis: PriceActionCore }) {
           <div className="flex items-start justify-between gap-3">
             <h3 className="text-sm font-semibold text-slate-950 dark:text-white">Chất lượng xu hướng</h3>
             <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold text-slate-600 dark:bg-slate-900 dark:text-slate-300">
-              {analysis.trendQuality.score}/100
+              Điểm phụ {analysis.trendQuality.score}/100
             </span>
           </div>
           <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
@@ -1094,30 +1087,183 @@ function normalizeSymbol(symbol: string): string {
   return symbol.trim().toUpperCase();
 }
 
+function MetricsPanel({
+  lastClose,
+  change,
+  changePercent,
+  changeTone,
+  volume,
+  latestDate,
+  dateSubValue,
+  candles,
+}: {
+  lastClose: string;
+  change: string;
+  changePercent: string;
+  changeTone: "positive" | "negative";
+  volume: string;
+  latestDate: string;
+  dateSubValue?: string;
+  candles: string;
+}) {
+  return (
+    <section className="relative overflow-hidden rounded-2xl border border-sky-200 bg-white p-4 shadow-[0_16px_48px_rgba(15,23,42,0.08)] ring-1 ring-slate-900/[0.03] dark:border-cyan-300/15 dark:bg-[#091a31]/95 dark:shadow-[0_18px_56px_rgba(0,0,0,0.18)] dark:ring-white/5">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_92%_10%,rgba(34,211,238,0.16),transparent_28%),linear-gradient(135deg,rgba(14,165,233,0.08),transparent_46%)] opacity-80" />
+      <div className="relative z-10 grid gap-3">
+        <div className="grid grid-cols-2 gap-3">
+          <MetricCard label={vi.stock.lastClose} value={lastClose} icon="price" compact={false} />
+          <MetricCard
+            label={vi.stock.dailyChange}
+            value={change}
+            subValue={changePercent}
+            tone={changeTone}
+            icon="change"
+            compact={false}
+          />
+        </div>
+        <div className="grid grid-cols-2 gap-2 min-[390px]:grid-cols-3">
+          <MetricCard label={vi.stock.volume} value={volume} icon="volume" compact />
+          <MetricCard label={vi.stock.latestDate} value={latestDate} subValue={dateSubValue} tone={dateSubValue ? "positive" : "neutral"} icon="calendar" compact />
+          <MetricCard label={vi.stock.candles} value={candles} icon="candles" compact />
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function MetricCard({
   label,
   value,
   subValue,
   tone = "neutral",
+  icon = "price",
+  compact,
 }: {
   label: string;
   value: string;
   subValue?: string;
   tone?: "neutral" | "positive" | "negative";
+  icon?: "price" | "change" | "volume" | "calendar" | "candles";
+  compact: boolean;
 }) {
-  const color =
+  const valueColor =
     tone === "positive"
       ? "text-emerald-600 dark:text-emerald-300"
       : tone === "negative"
         ? "text-rose-600 dark:text-rose-300"
         : "text-slate-950 dark:text-white";
+  const accentColor =
+    tone === "positive"
+      ? "text-emerald-500 border-emerald-300/30 bg-emerald-400/10"
+      : tone === "negative"
+        ? "text-rose-400 border-rose-300/25 bg-rose-400/10"
+        : "text-cyan-400 border-cyan-300/25 bg-cyan-400/10";
 
   return (
-    <article className="rounded-2xl border border-sky-200 bg-white p-4 shadow-[0_14px_40px_rgba(15,23,42,0.08)] ring-1 ring-slate-900/[0.03] dark:border-cyan-300/10 dark:bg-[#09152c]/95 dark:shadow-[0_14px_40px_rgba(0,0,0,0.16)] dark:ring-white/5">
-      <p className="text-sm text-slate-500 dark:text-slate-400">{label}</p>
-      <p className={`mt-2 text-xl font-semibold tabular-nums ${color}`}>{value}</p>
-      {subValue ? <p className={`mt-1 text-sm font-medium ${color}`}>{subValue}</p> : null}
+    <article
+      className={`relative overflow-hidden rounded-2xl border border-sky-100 bg-slate-50/90 p-3 dark:border-cyan-300/10 dark:bg-[#061326]/70 ${
+        compact ? "min-h-24" : "min-h-28"
+      }`}
+    >
+      <MetricCardArt icon={icon} compact={compact} tone={tone} />
+      <div className="relative z-10">
+        <span className={`grid ${compact ? "h-8 w-8 rounded-lg" : "h-9 w-9 rounded-xl"} place-items-center border ${accentColor}`}>
+          <MetricIcon icon={icon} />
+        </span>
+        <p className={`${compact ? "mt-2 text-[11px] leading-4" : "mt-3 text-xs leading-4"} text-slate-500 dark:text-slate-400`}>{label}</p>
+        <p className={`mt-1 font-black tabular-nums tracking-tight ${compact ? "text-sm leading-5 min-[390px]:text-base sm:text-lg" : "text-2xl leading-7 min-[390px]:text-3xl"} ${valueColor}`}>
+          {value}
+        </p>
+        {subValue ? <p className={`mt-0.5 text-[11px] font-semibold leading-4 ${valueColor}`}>{subValue}</p> : null}
+      </div>
     </article>
+  );
+}
+
+function MetricIcon({ icon }: { icon: "price" | "change" | "volume" | "calendar" | "candles" }) {
+  if (icon === "change") {
+    return (
+      <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2.4">
+        <path d="m4 8 5 5 4-4 7 7" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M17 16h3v-3" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+  }
+
+  if (icon === "volume") {
+    return (
+      <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2.4">
+        <path d="M6 19V9" strokeLinecap="round" />
+        <path d="M12 19V5" strokeLinecap="round" />
+        <path d="M18 19v-7" strokeLinecap="round" />
+      </svg>
+    );
+  }
+
+  if (icon === "calendar") {
+    return (
+      <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2.2">
+        <path d="M7 3v4M17 3v4M5 8h14M6 5h12a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Z" strokeLinecap="round" />
+      </svg>
+    );
+  }
+
+  if (icon === "candles") {
+    return (
+      <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2.2">
+        <path d="M8 4v16M16 4v16" strokeLinecap="round" />
+        <path d="M6 9h4v6H6zM14 7h4v8h-4z" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2.4">
+      <path d="m4 16 5-5 4 3 7-8" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M18 6h2v2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function MetricCardArt({
+  icon,
+  compact,
+  tone,
+}: {
+  icon: "price" | "change" | "volume" | "calendar" | "candles";
+  compact: boolean;
+  tone: "neutral" | "positive" | "negative";
+}) {
+  const stroke = tone === "negative" ? "rgba(251,113,133,0.38)" : "rgba(34,211,238,0.36)";
+  const bar = tone === "negative" ? "bg-rose-400/15" : "bg-cyan-400/15";
+
+  if (icon === "volume" || icon === "candles") {
+    return (
+      <div className={`absolute bottom-3 right-3 flex items-end gap-1.5 opacity-35 ${compact ? "h-10" : "h-14"}`}>
+        {[14, 22, 30, 24, 38, 48, 34].map((height, index) => (
+          <span key={index} className={`w-1.5 rounded-t ${bar}`} style={{ height }} />
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <svg
+      viewBox="0 0 220 110"
+      className={`absolute bottom-2 right-2 opacity-35 ${compact ? "h-12 w-20" : "h-16 w-32"}`}
+      fill="none"
+    >
+      <path
+        d="M4 88 C28 72 36 78 54 62 C74 44 90 60 108 45 C130 25 142 36 158 22 C174 8 190 18 216 4"
+        stroke={stroke}
+        strokeWidth="3"
+        strokeLinecap="round"
+      />
+      <path
+        d="M4 88 C28 72 36 78 54 62 C74 44 90 60 108 45 C130 25 142 36 158 22 C174 8 190 18 216 4 V110 H4 Z"
+        fill={tone === "negative" ? "rgba(251,113,133,0.12)" : "rgba(34,211,238,0.12)"}
+      />
+    </svg>
   );
 }
 

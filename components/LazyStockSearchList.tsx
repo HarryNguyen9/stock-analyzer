@@ -165,7 +165,7 @@ export function LazyStockSearchList({ active }: { active: boolean }) {
   return (
     <section className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
       <div
-        className={`sticky top-[112px] z-30 -mx-1 mb-3 transition-all duration-200 sm:top-[120px] ${
+        className={`sticky top-[112px] z-30 -mx-1 h-0 overflow-visible transition-all duration-200 sm:top-[120px] ${
           compactSearchVisible ? "translate-y-0 opacity-100" : "pointer-events-none -translate-y-2 opacity-0"
         }`}
         aria-hidden={!compactSearchVisible}

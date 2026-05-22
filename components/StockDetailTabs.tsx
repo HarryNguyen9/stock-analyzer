@@ -12,12 +12,12 @@ type StockDetailTabsProps = {
   aiAnalysis: ReactNode;
 };
 
-const tabs: Array<{ id: StockDetailTabId; label: string }> = [
-  { id: "overview", label: "Overview" },
-  { id: "price-action", label: "Price Action" },
-  { id: "indicators", label: "Indicators" },
-  { id: "patterns", label: "Patterns" },
-  { id: "ai", label: "AI Analysis" },
+const tabs: Array<{ id: StockDetailTabId; label: string; icon: ReactNode }> = [
+  { id: "overview", label: "Overview", icon: <OverviewIcon /> },
+  { id: "price-action", label: "Price Action", icon: <PriceActionIcon /> },
+  { id: "indicators", label: "Indicators", icon: <IndicatorsIcon /> },
+  { id: "patterns", label: "Patterns", icon: <PatternsIcon /> },
+  { id: "ai", label: "AI Analysis", icon: <AiIcon /> },
 ];
 
 export function StockDetailTabs({
@@ -96,12 +96,12 @@ export function StockDetailTabs({
   }
 
   return (
-    <section className="mx-auto w-full max-w-7xl px-3 py-4 sm:px-6 lg:px-8">
+    <section className="mx-auto w-full max-w-7xl px-3 pb-4 sm:px-6 lg:px-8">
       <div className="-mx-3 border-b border-sky-200 bg-slate-50 px-3 py-3.5 shadow-[0_14px_40px_rgba(15,23,42,0.08)] dark:border-cyan-400/10 dark:bg-[#071126] dark:shadow-[0_14px_40px_rgba(0,0,0,0.22)] sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
         <div
           role="tablist"
           aria-label="Stock detail sections"
-          className="flex items-center gap-1 overflow-x-auto rounded-2xl border border-sky-200 bg-white/90 p-1.5 [scrollbar-width:none] dark:border-cyan-300/10 dark:bg-[#030816]/90 [&::-webkit-scrollbar]:hidden"
+          className="flex max-w-full items-center gap-1 overflow-x-auto rounded-[1.6rem] border border-sky-200 bg-white/90 p-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.70)] [scrollbar-width:none] dark:border-cyan-400/25 dark:bg-[#030816]/92 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_0_26px_rgba(8,145,178,0.10)] [&::-webkit-scrollbar]:hidden"
         >
           {tabs.map((tab) => {
             const isActive = activeTab === tab.id;
@@ -118,12 +118,13 @@ export function StockDetailTabs({
                   tabButtonRefs.current[tab.id] = node;
                 }}
                 onClick={() => setActiveTab(tab.id)}
-                className={`min-h-10 w-[104px] shrink-0 rounded-xl px-3 text-center text-sm font-semibold leading-none transition sm:w-auto sm:flex-1 ${
+                className={`inline-flex h-11 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-[1.2rem] px-5 text-center text-sm font-semibold leading-none transition sm:flex-1 ${
                   isActive
-                    ? "bg-gradient-to-r from-cyan-400 to-teal-300 text-slate-950 shadow-[0_0_22px_rgba(34,211,238,0.24)]"
-                    : "text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-white/5 dark:hover:text-cyan-100"
+                    ? "bg-gradient-to-r from-cyan-400 to-emerald-300 text-slate-950 shadow-[0_0_24px_rgba(34,211,238,0.28)]"
+                    : "text-slate-500 hover:bg-slate-100/80 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-white/[0.04] dark:hover:text-cyan-100"
                 }`}
               >
+                <span className={isActive ? "text-slate-950" : "text-slate-400 dark:text-slate-500"}>{tab.icon}</span>
                 {tab.label}
               </button>
             );
@@ -150,6 +151,60 @@ export function StockDetailTabs({
         })}
       </div>
     </section>
+  );
+}
+
+function OverviewIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M4 17h16" strokeLinecap="round" />
+      <path d="m5 14 4-5 4 3 5-7" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M7 19h10" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function PriceActionIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M7 5v14" strokeLinecap="round" />
+      <path d="M17 5v14" strokeLinecap="round" />
+      <path d="M5 9h4" strokeLinecap="round" />
+      <path d="M15 15h4" strokeLinecap="round" />
+      <path d="M9 7v4" strokeLinecap="round" />
+      <path d="M15 13v4" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function IndicatorsIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="m4 17 5-5 4 3 7-8" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx="9" cy="12" r="1.5" />
+      <circle cx="13" cy="15" r="1.5" />
+      <circle cx="20" cy="7" r="1.5" />
+    </svg>
+  );
+}
+
+function PatternsIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+      <circle cx="7" cy="7" r="2" />
+      <circle cx="17" cy="7" r="2" />
+      <circle cx="7" cy="17" r="2" />
+      <circle cx="17" cy="17" r="2" />
+    </svg>
+  );
+}
+
+function AiIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M12 3l1.7 5.1L19 10l-5.3 1.9L12 17l-1.7-5.1L5 10l5.3-1.9L12 3Z" strokeLinejoin="round" />
+      <path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15Z" strokeLinejoin="round" />
+    </svg>
   );
 }
 

@@ -134,18 +134,18 @@ function getQuality(score: number, latestClose: number, indicators: TechnicalInd
 
 function createSummary(quality: TrendQualityAnalysis["quality"], score: number): string {
   if (quality === "clean") {
-    return `Xu hướng khá sạch với điểm chất lượng ${score}/100, ít nhiễu hơn trong các nhịp gần đây.`;
+    return `Xu hướng khá sạch theo thang đánh giá riêng ${score}/100, ít nhiễu hơn trong các nhịp gần đây.`;
   }
 
   if (quality === "volatile") {
-    return `Xu hướng có biến động cao với điểm chất lượng ${score}/100, nên đọc tín hiệu thận trọng hơn.`;
+    return `Xu hướng có biến động cao theo thang đánh giá riêng ${score}/100, nên đọc tín hiệu thận trọng hơn.`;
   }
 
   if (quality === "choppy") {
-    return `Xu hướng còn nhiễu với điểm chất lượng ${score}/100, các tín hiệu cần thêm xác nhận.`;
+    return `Xu hướng còn nhiễu theo thang đánh giá riêng ${score}/100, các tín hiệu cần thêm xác nhận.`;
   }
 
-  return `Chất lượng xu hướng yếu với điểm ${score}/100, chưa cho thấy nhịp đi rõ ràng.`;
+  return `Chất lượng xu hướng yếu theo thang đánh giá riêng ${score}/100, chưa cho thấy nhịp đi rõ ràng.`;
 }
 
 function clamp(value: number, min: number, max: number): number {
