@@ -97,11 +97,11 @@ export function StockDetailTabs({
 
   return (
     <section className="mx-auto w-full max-w-7xl px-3 py-4 sm:px-6 lg:px-8">
-      <div className="sticky top-14 z-40 -mx-3 border-b border-sky-200 bg-slate-50/95 px-3 py-3 shadow-[0_14px_40px_rgba(15,23,42,0.08)] backdrop-blur-xl dark:border-cyan-400/10 dark:bg-[#071126]/95 dark:shadow-[0_14px_40px_rgba(0,0,0,0.22)] sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
+      <div className="sticky top-[7.5rem] z-40 -mx-3 border-b border-sky-200 bg-slate-50/95 px-3 py-3 shadow-[0_14px_40px_rgba(15,23,42,0.08)] backdrop-blur-xl dark:border-cyan-400/10 dark:bg-[#071126]/95 dark:shadow-[0_14px_40px_rgba(0,0,0,0.22)] sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
         <div
           role="tablist"
           aria-label="Stock detail sections"
-          className="flex gap-2 overflow-x-auto rounded-2xl border border-sky-200 bg-white p-1.5 [scrollbar-width:none] dark:border-cyan-300/10 dark:bg-[#030816]/80 [&::-webkit-scrollbar]:hidden"
+          className="flex gap-1.5 overflow-x-auto rounded-2xl border border-sky-200 bg-white p-1 [scrollbar-width:none] dark:border-cyan-300/10 dark:bg-[#030816]/80 [&::-webkit-scrollbar]:hidden"
         >
           {tabs.map((tab) => {
             const isActive = activeTab === tab.id;
@@ -118,7 +118,7 @@ export function StockDetailTabs({
                   tabButtonRefs.current[tab.id] = node;
                 }}
                 onClick={() => setActiveTab(tab.id)}
-                className={`shrink-0 rounded-full px-4 py-2 text-sm font-semibold transition ${
+                className={`min-h-10 w-[96px] shrink-0 rounded-full px-3 text-center text-sm font-semibold transition sm:w-auto sm:flex-1 ${
                   isActive
                     ? "bg-cyan-500 text-white shadow-[0_0_24px_rgba(14,165,233,0.20)] dark:bg-cyan-300 dark:text-slate-950 dark:shadow-[0_0_24px_rgba(34,211,238,0.25)]"
                     : "text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-white/5 dark:hover:text-cyan-100"

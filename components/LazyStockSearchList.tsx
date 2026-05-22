@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { StockCard } from "@/components/StockCard";
 import { vi } from "@/lib/i18n/vi";
 import type { StockSummary } from "@/types/stock";
@@ -38,6 +38,8 @@ export function LazyStockSearchList({ active }: { active: boolean }) {
   });
   const [featuredRetryKey, setFeaturedRetryKey] = useState(0);
   const [retryKey, setRetryKey] = useState(0);
+  const searchCardRef = useRef<HTMLDivElement | null>(null);
+  const [compactSearchVisible, setCompactSearchVisible] = useState(false);
   const normalizedQuery = useMemo(() => query.trim(), [query]);
   const hasQuery = normalizedQuery.length > 0;
   const canSearch = normalizedQuery.length >= SEARCH_MIN_LENGTH;
@@ -48,6 +50,32 @@ export function LazyStockSearchList({ active }: { active: boolean }) {
     : hasQuery
       ? results.message
       : featured.message;
+
+  useEffect(() => {
+    if (!active) {
+      setCompactSearchVisible(false);
+      return;
+    }
+
+    const target = searchCardRef.current;
+
+    if (!target) {
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setCompactSearchVisible(!entry.isIntersecting && entry.boundingClientRect.top < 0);
+      },
+      {
+        root: null,
+        threshold: 0,
+      },
+    );
+
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [active]);
 
   useEffect(() => {
     if (!active || featured.status !== "idle") {
@@ -134,7 +162,46 @@ export function LazyStockSearchList({ active }: { active: boolean }) {
 
   return (
     <section className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-      <div className="rounded-2xl border border-sky-200 bg-white p-5 shadow-[0_20px_70px_rgba(15,23,42,0.10)] ring-1 ring-slate-900/[0.03] dark:border-cyan-400/15 dark:bg-[#0b1b31] dark:shadow-[0_20px_70px_rgba(2,8,23,0.24)] dark:ring-white/5 sm:p-7">
+      <div
+        className={`sticky top-[112px] z-30 -mx-1 mb-3 transition-all duration-200 sm:top-[120px] ${
+          compactSearchVisible ? "translate-y-0 opacity-100" : "pointer-events-none -translate-y-2 opacity-0"
+        }`}
+        aria-hidden={!compactSearchVisible}
+      >
+        <div className="rounded-2xl border border-cyan-300/20 bg-white/95 p-2 shadow-[0_14px_40px_rgba(15,23,42,0.12)] backdrop-blur-xl dark:bg-[#071a31]/95 dark:shadow-[0_14px_40px_rgba(0,0,0,0.26)]">
+          <div className="flex min-h-11 items-center rounded-xl border border-sky-200 bg-slate-50 px-3 focus-within:border-cyan-400 focus-within:shadow-[0_0_22px_rgba(14,165,233,0.12)] dark:border-cyan-400/25 dark:bg-[#10223b] dark:focus-within:border-cyan-300/70">
+            <span className="mr-3 text-slate-400 dark:text-slate-500">
+              <SearchIcon />
+            </span>
+            <input
+              id="stock-search-compact"
+              type="search"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder={vi.home.searchPlaceholder}
+              className="min-h-11 min-w-0 flex-1 bg-transparent text-sm text-slate-950 outline-none placeholder:text-slate-400 dark:text-white dark:placeholder:text-slate-500"
+            />
+            {query ? (
+              <button
+                type="button"
+                onClick={() => setQuery("")}
+                className="ml-2 rounded-full border border-sky-200 px-3 py-1 text-xs font-medium text-slate-600 transition hover:border-cyan-300 hover:text-slate-950 dark:border-cyan-400/15 dark:text-slate-300 dark:hover:border-cyan-300/40 dark:hover:text-white"
+              >
+                {vi.home.searchClear}
+              </button>
+            ) : (
+              <span className="ml-2 text-slate-500">
+                <SlidersIcon />
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div
+        ref={searchCardRef}
+        className="rounded-2xl border border-sky-200 bg-white p-5 shadow-[0_20px_70px_rgba(15,23,42,0.10)] ring-1 ring-slate-900/[0.03] dark:border-cyan-400/15 dark:bg-[#0b1b31] dark:shadow-[0_20px_70px_rgba(2,8,23,0.24)] dark:ring-white/5 sm:p-7"
+      >
         <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-start gap-4">
             <span className="grid h-14 w-14 shrink-0 place-items-center rounded-full border border-emerald-300/30 bg-emerald-50 text-emerald-600 dark:border-emerald-300/25 dark:bg-emerald-400/10 dark:text-emerald-300">

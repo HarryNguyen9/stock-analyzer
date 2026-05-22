@@ -20,7 +20,13 @@ type SearchResponse = {
   message?: string;
 };
 
-export function StockDetailSymbolSearch({ currentSymbol }: { currentSymbol: string }) {
+export function StockDetailSymbolSearch({
+  currentSymbol,
+  variant = "card",
+}: {
+  currentSymbol: string;
+  variant?: "card" | "header";
+}) {
   const [query, setQuery] = useState("");
   const [state, setState] = useState<SearchState>({
     status: "idle",
@@ -31,6 +37,7 @@ export function StockDetailSymbolSearch({ currentSymbol }: { currentSymbol: stri
   const normalizedQuery = useMemo(() => query.trim().toUpperCase(), [query]);
   const canSearch = normalizedQuery.length >= SEARCH_MIN_LENGTH;
   const showPanel = query.length > 0;
+  const isHeader = variant === "header";
 
   useEffect(() => {
     function handlePointerDown(event: PointerEvent) {
@@ -98,15 +105,26 @@ export function StockDetailSymbolSearch({ currentSymbol }: { currentSymbol: stri
     };
   }, [canSearch, currentSymbol, normalizedQuery, query]);
 
+  const rootClass = isHeader
+    ? "relative rounded-xl border border-sky-200 bg-white/92 p-2 shadow-[0_10px_28px_rgba(15,23,42,0.08)] dark:border-cyan-300/10 dark:bg-[#071a31]/92 dark:shadow-[0_10px_28px_rgba(0,0,0,0.18)]"
+    : "relative mt-4 rounded-2xl border border-sky-200 bg-white p-3 shadow-[0_14px_40px_rgba(15,23,42,0.06)] dark:border-cyan-300/10 dark:bg-[#071a31]/80 dark:shadow-[0_14px_40px_rgba(0,0,0,0.16)]";
+  const labelClass = isHeader ? "sr-only" : "mb-2 block text-xs font-semibold text-slate-500 dark:text-slate-400";
+  const inputWrapClass = isHeader
+    ? "flex min-h-10 items-center rounded-lg border border-sky-200 bg-slate-50 px-3 focus-within:border-cyan-400 focus-within:shadow-[0_0_20px_rgba(14,165,233,0.12)] dark:border-cyan-400/20 dark:bg-[#0b172b] dark:focus-within:border-cyan-300/70"
+    : "flex min-h-12 items-center rounded-xl border border-sky-200 bg-slate-50 px-3 focus-within:border-cyan-400 focus-within:shadow-[0_0_24px_rgba(14,165,233,0.12)] dark:border-cyan-400/20 dark:bg-[#0b172b] dark:focus-within:border-cyan-300/70";
+  const inputClass = isHeader
+    ? "min-h-10 min-w-0 flex-1 bg-transparent px-3 text-sm font-medium text-slate-950 outline-none placeholder:text-slate-400 dark:text-white dark:placeholder:text-slate-500"
+    : "min-h-12 min-w-0 flex-1 bg-transparent px-3 text-sm font-medium text-slate-950 outline-none placeholder:text-slate-400 dark:text-white dark:placeholder:text-slate-500";
+  const panelClass = isHeader
+    ? "absolute left-2 right-2 top-[calc(100%-0.25rem)] z-50 overflow-hidden rounded-2xl border border-sky-200 bg-white shadow-[0_18px_60px_rgba(15,23,42,0.18)] dark:border-cyan-300/15 dark:bg-[#061225] dark:shadow-[0_18px_60px_rgba(0,0,0,0.36)]"
+    : "absolute left-3 right-3 top-[calc(100%-0.5rem)] z-30 overflow-hidden rounded-2xl border border-sky-200 bg-white shadow-[0_18px_60px_rgba(15,23,42,0.18)] dark:border-cyan-300/15 dark:bg-[#061225] dark:shadow-[0_18px_60px_rgba(0,0,0,0.36)]";
+
   return (
-    <div
-      ref={wrapperRef}
-      className="relative mt-4 rounded-2xl border border-sky-200 bg-white p-3 shadow-[0_14px_40px_rgba(15,23,42,0.06)] dark:border-cyan-300/10 dark:bg-[#071a31]/80 dark:shadow-[0_14px_40px_rgba(0,0,0,0.16)]"
-    >
-      <label htmlFor="stock-detail-symbol-search" className="mb-2 block text-xs font-semibold text-slate-500 dark:text-slate-400">
+    <div ref={wrapperRef} className={rootClass}>
+      <label htmlFor="stock-detail-symbol-search" className={labelClass}>
         Chuyển nhanh sang mã khác
       </label>
-      <div className="flex min-h-12 items-center rounded-xl border border-sky-200 bg-slate-50 px-3 focus-within:border-cyan-400 focus-within:shadow-[0_0_24px_rgba(14,165,233,0.12)] dark:border-cyan-400/20 dark:bg-[#0b172b] dark:focus-within:border-cyan-300/70">
+      <div className={inputWrapClass}>
         <SearchIcon />
         <input
           id="stock-detail-symbol-search"
@@ -114,7 +132,7 @@ export function StockDetailSymbolSearch({ currentSymbol }: { currentSymbol: stri
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           placeholder="Nhập mã, tên công ty hoặc sàn"
-          className="min-h-12 min-w-0 flex-1 bg-transparent px-3 text-sm font-medium text-slate-950 outline-none placeholder:text-slate-400 dark:text-white dark:placeholder:text-slate-500"
+          className={inputClass}
         />
         {query ? (
           <button
@@ -128,7 +146,7 @@ export function StockDetailSymbolSearch({ currentSymbol }: { currentSymbol: stri
       </div>
 
       {showPanel ? (
-        <div className="absolute left-3 right-3 top-[calc(100%-0.5rem)] z-30 overflow-hidden rounded-2xl border border-sky-200 bg-white shadow-[0_18px_60px_rgba(15,23,42,0.18)] dark:border-cyan-300/15 dark:bg-[#061225] dark:shadow-[0_18px_60px_rgba(0,0,0,0.36)]">
+        <div className={panelClass}>
           {state.status === "loading" ? (
             <div className="space-y-2 p-3">
               <div className="h-12 animate-pulse rounded-xl bg-slate-100 dark:bg-white/5" />

@@ -110,6 +110,9 @@ export default async function StockDetailPage({ params }: StockPageProps) {
           </div>
           <ThemeToggle />
         </div>
+        <div className="mx-auto w-full max-w-7xl px-2 pb-2 sm:px-6 lg:px-8">
+          <StockDetailSymbolSearch currentSymbol={stock.symbol} variant="header" />
+        </div>
       </div>
 
       <section className="border-b border-sky-200 bg-[radial-gradient(circle_at_top_left,rgba(14,165,233,0.16),transparent_34%),linear-gradient(180deg,#f8fafc,#eef6fb)] dark:border-cyan-300/10 dark:bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.14),transparent_34%),linear-gradient(180deg,#08152d,#071126)]">
@@ -144,7 +147,6 @@ export default async function StockDetailPage({ params }: StockPageProps) {
             </div>
           </div>
 
-          <StockDetailSymbolSearch currentSymbol={stock.symbol} />
           <SymbolRefreshPanel symbol={stock.symbol} freshness={freshness} />
         </div>
       </section>
