@@ -5,6 +5,8 @@ import { getCoveredWarrantProvider } from "@/lib/cw/providers/provider";
 import type { Database, Json } from "@/lib/supabase/types";
 import type { CoveredWarrantRecord, CoveredWarrantWithMetrics } from "@/lib/cw/types";
 
+const cwOnDemandStaleMinutes = 10;
+
 type CoveredWarrantRow = {
   symbol: string;
   underlying_symbol: string;
@@ -51,7 +53,7 @@ export async function getCoveredWarrantsByUnderlying(underlying: string): Promis
     };
   }
 
-  let { data, error } = await supabase
+  const { data, error } = await supabase
     .from("covered_warrants")
     .select("symbol, underlying_symbol, issuer, type, strike_price, exercise_ratio, maturity_date, last_price, change_percent, bid, ask, volume, open_interest, underlying_price, sx_value, break_even_price, days_to_maturity, is_active, source, raw, updated_at")
     .ilike("underlying_symbol", normalizedUnderlying)
@@ -73,21 +75,23 @@ export async function getCoveredWarrantsByUnderlying(underlying: string): Promis
 
   let rows = (data ?? []) as CoveredWarrantRow[];
 
-  if (rows.length === 0) {
+  if (rows.length === 0 || isCoveredWarrantDataStale(rows)) {
     try {
-      await syncCoveredWarrantsByUnderlying(normalizedUnderlying);
-      const retry = await supabase
-        .from("covered_warrants")
-        .select("symbol, underlying_symbol, issuer, type, strike_price, exercise_ratio, maturity_date, last_price, change_percent, bid, ask, volume, open_interest, underlying_price, sx_value, break_even_price, days_to_maturity, is_active, source, raw, updated_at")
-        .ilike("underlying_symbol", normalizedUnderlying)
-        .eq("is_active", true)
-        .order("volume", { ascending: false, nullsFirst: false })
-        .order("maturity_date", { ascending: true, nullsFirst: false })
-        .limit(100);
+      const syncedCount = await syncCoveredWarrantsByUnderlying(normalizedUnderlying);
 
-      if (!retry.error) {
-        data = retry.data;
-        rows = (data ?? []) as CoveredWarrantRow[];
+      if (syncedCount > 0) {
+        const retry = await supabase
+          .from("covered_warrants")
+          .select("symbol, underlying_symbol, issuer, type, strike_price, exercise_ratio, maturity_date, last_price, change_percent, bid, ask, volume, open_interest, underlying_price, sx_value, break_even_price, days_to_maturity, is_active, source, raw, updated_at")
+          .ilike("underlying_symbol", normalizedUnderlying)
+          .eq("is_active", true)
+          .order("volume", { ascending: false, nullsFirst: false })
+          .order("maturity_date", { ascending: true, nullsFirst: false })
+          .limit(100);
+
+        if (!retry.error) {
+          rows = (retry.data ?? []) as CoveredWarrantRow[];
+        }
       }
     } catch (syncError) {
       console.warn("Không sync được CW on-demand:", {
@@ -117,7 +121,7 @@ export async function getCoveredWarrantsByUnderlying(underlying: string): Promis
     underlying: normalizedUnderlying,
     warrants,
     source: "supabase",
-    updatedAt: rows[0]?.updated_at ?? null,
+    updatedAt: getLatestCoveredWarrantUpdatedAt(rows),
     message: null,
   };
 }
@@ -230,4 +234,22 @@ function mapCoveredWarrantRow(row: CoveredWarrantRow, underlyingPrice: number | 
 
 function normalizeUnderlying(value: string): string {
   return value.trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+}
+
+function isCoveredWarrantDataStale(rows: CoveredWarrantRow[]): boolean {
+  const latestUpdatedAt = getLatestCoveredWarrantUpdatedAt(rows);
+  if (!latestUpdatedAt) return true;
+
+  const updatedAtMs = new Date(latestUpdatedAt).getTime();
+  if (!Number.isFinite(updatedAtMs)) return true;
+
+  return Date.now() - updatedAtMs > cwOnDemandStaleMinutes * 60 * 1000;
+}
+
+function getLatestCoveredWarrantUpdatedAt(rows: CoveredWarrantRow[]): string | null {
+  return rows.reduce<string | null>((latest, row) => {
+    if (!row.updated_at) return latest;
+    if (!latest) return row.updated_at;
+    return new Date(row.updated_at).getTime() > new Date(latest).getTime() ? row.updated_at : latest;
+  }, null);
 }
