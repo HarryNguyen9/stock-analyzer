@@ -99,23 +99,30 @@ export function parseTwentyFourHMoneyCoveredWarrants(html: string): ParseResult 
       continue;
     }
 
+    const lastPrice = parseNumber(row.cells[1]);
+    const underlyingPrice = parseNumber(row.cells[4]);
+    const sxValue = parseNumber(row.cells[5]);
+    const breakEvenPrice = parseNumber(row.cells[6]);
+    const strikePrice = deriveCallStrikePrice(underlyingPrice, sxValue);
+    const exerciseRatio = deriveCallExerciseRatio(lastPrice, breakEvenPrice, strikePrice);
+
     warrants.push({
       symbol,
       underlyingSymbol,
       issuer: normalizeIssuer(row.cells[7]),
       type: "call",
-      strikePrice: null,
-      exerciseRatio: null,
+      strikePrice,
+      exerciseRatio,
       maturityDate: null,
-      lastPrice: parseNumber(row.cells[1]),
+      lastPrice,
       changePercent: parseNumber(row.cells[2]),
       bid: null,
       ask: null,
       volume: parseNumber(row.cells[3]),
       openInterest: null,
-      underlyingPrice: parseNumber(row.cells[4]),
-      sxValue: parseNumber(row.cells[5]),
-      breakEvenPrice: parseNumber(row.cells[6]),
+      underlyingPrice,
+      sxValue,
+      breakEvenPrice,
       daysToMaturity: parseNumber(row.cells[8]),
       isActive: true,
       updatedAt: new Date().toISOString(),
@@ -133,6 +140,26 @@ export function parseTwentyFourHMoneyCoveredWarrants(html: string): ParseResult 
     foundSymbolCount,
     skippedReasons,
   };
+}
+
+function deriveCallStrikePrice(underlyingPrice: number | null, sxValue: number | null): number | null {
+  if (underlyingPrice === null || sxValue === null) return null;
+  const strikePrice = underlyingPrice - sxValue;
+  return Number.isFinite(strikePrice) && strikePrice > 0 ? roundMetric(strikePrice) : null;
+}
+
+function deriveCallExerciseRatio(
+  lastPrice: number | null,
+  breakEvenPrice: number | null,
+  strikePrice: number | null,
+): number | null {
+  if (lastPrice === null || lastPrice <= 0 || breakEvenPrice === null || strikePrice === null) return null;
+  const ratio = (breakEvenPrice - strikePrice) / lastPrice;
+  return Number.isFinite(ratio) && ratio > 0 ? roundMetric(ratio) : null;
+}
+
+function roundMetric(value: number): number {
+  return Math.round(value * 100) / 100;
 }
 
 export class TwentyFourHMoneyParseError extends Error {

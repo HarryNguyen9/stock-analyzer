@@ -59,11 +59,13 @@ export function CoveredWarrantsPanel({ active }: { active: boolean }) {
   const summary = useMemo(() => buildCoveredWarrantSummary(state.warrants), [state.warrants]);
   const dataSource = state.warrants.find((warrant) => warrant.source)?.source;
   const normalizedQuery = useMemo(() => normalizeUnderlying(query), [query]);
-  const canAutoSearch = normalizedQuery.length >= 2;
+  const normalizedCompactQuery = useMemo(() => normalizeUnderlying(compactQuery), [compactQuery]);
+  const compactCanAutoSearch = normalizedCompactQuery.length >= 2;
 
   useEffect(() => {
     if (!active) {
       setCompactSearchVisible(false);
+      resetPanelState();
       return;
     }
 
@@ -73,7 +75,13 @@ export function CoveredWarrantsPanel({ active }: { active: boolean }) {
 
       const stickyTriggerTop = window.innerWidth >= 640 ? 120 : 112;
       const rect = target.getBoundingClientRect();
-      setCompactSearchVisible(rect.bottom <= stickyTriggerTop + 8);
+      const nextVisible = rect.bottom <= stickyTriggerTop + 8;
+      setCompactSearchVisible((wasVisible) => {
+        if (wasVisible && !nextVisible) {
+          resetCompactSearchState();
+        }
+        return nextVisible;
+      });
     }
 
     updateCompactVisibility();
@@ -89,33 +97,33 @@ export function CoveredWarrantsPanel({ active }: { active: boolean }) {
   useEffect(() => {
     if (!active || !compactSearchVisible) return;
 
-    if (!normalizedQuery) {
+    if (!normalizedCompactQuery) {
       lastCompactSearchQueryRef.current = "";
-      setSubmittedUnderlying("");
-      setState({
+      setCompactState({ status: "intro", message: null, warrants: [] });
+      return;
+    }
+
+    if (!compactCanAutoSearch) {
+      lastCompactSearchQueryRef.current = "";
+      setCompactState({
         status: "intro",
-        message: "Nhập mã cơ sở để xem chứng quyền đang giao dịch.",
+        message: "Nhap it nhat 2 ky tu de tim nhanh hon.",
         warrants: [],
       });
       return;
     }
 
-    if (!canAutoSearch) {
-      lastCompactSearchQueryRef.current = "";
-      return;
-    }
-
-    if (lastCompactSearchQueryRef.current === normalizedQuery) {
+    if (lastCompactSearchQueryRef.current === normalizedCompactQuery) {
       return;
     }
 
     const debounceId = window.setTimeout(() => {
-      lastCompactSearchQueryRef.current = normalizedQuery;
-      void runSearch(normalizedQuery);
+      lastCompactSearchQueryRef.current = normalizedCompactQuery;
+      void runCompactSearch(normalizedCompactQuery);
     }, 300);
 
     return () => window.clearTimeout(debounceId);
-  }, [active, canAutoSearch, compactSearchVisible, normalizedQuery]);
+  }, [active, compactCanAutoSearch, compactSearchVisible, normalizedCompactQuery]);
 
   async function runSearch(normalized: string) {
     if (!normalized) {
@@ -162,6 +170,59 @@ export function CoveredWarrantsPanel({ active }: { active: boolean }) {
     await runSearch(normalizedQuery);
   }
 
+  async function runCompactSearch(normalized: string) {
+    if (!normalized) {
+      setCompactState({ status: "intro", message: null, warrants: [] });
+      return;
+    }
+
+    setCompactState({ status: "loading", message: null, warrants: [] });
+
+    try {
+      const response = await fetch(`/api/cw/search?underlying=${encodeURIComponent(normalized)}`, {
+        cache: "no-store",
+      });
+      const payload = (await response.json()) as SearchPayload;
+
+      if (!response.ok || !payload.ok) {
+        throw new Error(payload.message ?? "KhÃ´ng táº£i Ä‘Æ°á»£c dá»¯ liá»‡u chá»©ng quyá»n.");
+      }
+
+      setCompactState({
+        status: "ready",
+        message: payload.message ?? null,
+        warrants: payload.warrants ?? [],
+      });
+    } catch (error) {
+      setCompactState({
+        status: "error",
+        message: error instanceof Error ? error.message : "KhÃ´ng táº£i Ä‘Æ°á»£c dá»¯ liá»‡u chá»©ng quyá»n.",
+        warrants: [],
+      });
+    }
+  }
+
+  function resetPanelState() {
+    setQuery("");
+    setSubmittedUnderlying("");
+    setSortMode("liquidity");
+    setIssuerFilter("all");
+    setPremiumFilter("all");
+    setMinVolume("");
+    setState({
+      status: "intro",
+      message: "Nhap ma co so de xem chung quyen dang giao dich.",
+      warrants: [],
+    });
+    resetCompactSearchState();
+  }
+
+  function resetCompactSearchState() {
+    lastCompactSearchQueryRef.current = "";
+    setCompactQuery("");
+    setCompactState({ status: "intro", message: null, warrants: [] });
+  }
+
   if (!active) return null;
 
   return (
@@ -177,15 +238,15 @@ export function CoveredWarrantsPanel({ active }: { active: boolean }) {
             <span className="mr-3 text-cyan-300">⌕</span>
             <input
               type="search"
-              value={query}
-              onChange={(event) => setQuery(event.target.value.toUpperCase())}
+              value={compactQuery}
+              onChange={(event) => setCompactQuery(event.target.value.toUpperCase())}
               placeholder="Nhập mã cơ sở, ví dụ FPT"
               className="min-h-11 min-w-0 flex-1 bg-transparent text-sm font-semibold uppercase text-white outline-none placeholder:font-normal placeholder:normal-case placeholder:text-slate-500"
             />
-            {query ? (
+            {compactQuery ? (
               <button
                 type="button"
-                onClick={() => setQuery("")}
+                onClick={resetCompactSearchState}
                 className="ml-2 rounded-full border border-cyan-400/15 px-3 py-1 text-xs font-medium text-slate-300 transition hover:border-cyan-300/40 hover:text-white"
               >
                 Xóa
@@ -194,13 +255,13 @@ export function CoveredWarrantsPanel({ active }: { active: boolean }) {
               <span className="ml-2 text-slate-500">⌘</span>
             )}
           </div>
-          {query && state.status !== "ready" ? (
+          {compactQuery ? (
             <CompactCoveredWarrantPanel
-              warrants={state.warrants}
-              status={state.status}
-              message={!canAutoSearch ? "Nhập ít nhất 2 ký tự để tìm nhanh hơn." : state.message}
-              canSearch={canAutoSearch}
-              underlying={submittedUnderlying || normalizedQuery}
+              warrants={compactState.warrants}
+              status={compactState.status}
+              message={!compactCanAutoSearch ? "Nhập ít nhất 2 ký tự để tìm nhanh hơn." : compactState.message}
+              canSearch={compactCanAutoSearch}
+              underlying={normalizedCompactQuery}
             />
           ) : null}
         </div>

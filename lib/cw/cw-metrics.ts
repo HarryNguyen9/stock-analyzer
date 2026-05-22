@@ -9,8 +9,10 @@ export function calculateCoveredWarrantMetrics(warrant: CoveredWarrantRecord, to
     : 0);
   const isCall = warrant.type?.toLowerCase() !== "put";
   const underlyingPrice = warrant.underlyingPrice;
-  const ratio = warrant.exerciseRatio !== null && warrant.exerciseRatio > 0 ? warrant.exerciseRatio : null;
-  const strikePrice = warrant.strikePrice;
+  const derivedStrikePrice = deriveStrikePrice(warrant);
+  const strikePrice = warrant.strikePrice ?? derivedStrikePrice;
+  const derivedRatio = deriveExerciseRatio(warrant, strikePrice, isCall);
+  const ratio = warrant.exerciseRatio !== null && warrant.exerciseRatio > 0 ? warrant.exerciseRatio : derivedRatio;
   const lastPrice = warrant.lastPrice;
   const intrinsicValue =
     underlyingPrice !== null && ratio && strikePrice !== null
@@ -47,6 +49,28 @@ export function calculateCoveredWarrantMetrics(warrant: CoveredWarrantRecord, to
     effectiveLeverage: gearing,
     spreadPercent,
   };
+}
+
+function deriveStrikePrice(warrant: CoveredWarrantRecord): number | null {
+  if (warrant.underlyingPrice === null || warrant.sxValue === null) return null;
+  const isCall = warrant.type?.toLowerCase() !== "put";
+  const strikePrice = isCall
+    ? warrant.underlyingPrice - warrant.sxValue
+    : warrant.underlyingPrice + warrant.sxValue;
+
+  return Number.isFinite(strikePrice) && strikePrice > 0 ? strikePrice : null;
+}
+
+function deriveExerciseRatio(warrant: CoveredWarrantRecord, strikePrice: number | null, isCall: boolean): number | null {
+  if (strikePrice === null || warrant.breakEvenPrice === null || warrant.lastPrice === null || warrant.lastPrice <= 0) {
+    return null;
+  }
+
+  const ratio = isCall
+    ? (warrant.breakEvenPrice - strikePrice) / warrant.lastPrice
+    : (strikePrice - warrant.breakEvenPrice) / warrant.lastPrice;
+
+  return Number.isFinite(ratio) && ratio > 0 ? ratio : null;
 }
 
 export function attachCoveredWarrantMetrics(warrants: CoveredWarrantRecord[]): CoveredWarrantWithMetrics[] {

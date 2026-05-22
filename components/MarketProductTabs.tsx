@@ -50,11 +50,15 @@ export function MarketProductTabs({
       </div>
 
       <div className="bg-slate-50 dark:bg-[#07111f]" hidden={activeProduct !== "stocks"}>
-        {stocks}
+        {activeProduct === "stocks" ? stocks : null}
       </div>
       <div hidden={activeProduct !== "covered-warrants"}>
-        <CoveredWarrantSubNav />
-        {coveredWarrants}
+        {activeProduct === "covered-warrants" ? (
+          <>
+            <CoveredWarrantSubNav />
+            {coveredWarrants}
+          </>
+        ) : null}
       </div>
     </>
   );
