@@ -38,7 +38,7 @@ export function LazyStockSearchList({ active }: { active: boolean }) {
   });
   const [featuredRetryKey, setFeaturedRetryKey] = useState(0);
   const [retryKey, setRetryKey] = useState(0);
-  const searchCardRef = useRef<HTMLDivElement | null>(null);
+  const searchInputWrapRef = useRef<HTMLDivElement | null>(null);
   const [compactSearchVisible, setCompactSearchVisible] = useState(false);
   const normalizedQuery = useMemo(() => query.trim(), [query]);
   const hasQuery = normalizedQuery.length > 0;
@@ -57,24 +57,26 @@ export function LazyStockSearchList({ active }: { active: boolean }) {
       return;
     }
 
-    const target = searchCardRef.current;
+    function updateCompactVisibility() {
+      const target = searchInputWrapRef.current;
 
-    if (!target) {
-      return;
+      if (!target) {
+        return;
+      }
+
+      const stickyTriggerTop = window.innerWidth >= 640 ? 120 : 112;
+      const rect = target.getBoundingClientRect();
+      setCompactSearchVisible(rect.bottom <= stickyTriggerTop + 8);
     }
 
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        setCompactSearchVisible(!entry.isIntersecting && entry.boundingClientRect.top < 0);
-      },
-      {
-        root: null,
-        threshold: 0,
-      },
-    );
+    updateCompactVisibility();
+    window.addEventListener("scroll", updateCompactVisibility, { passive: true });
+    window.addEventListener("resize", updateCompactVisibility);
 
-    observer.observe(target);
-    return () => observer.disconnect();
+    return () => {
+      window.removeEventListener("scroll", updateCompactVisibility);
+      window.removeEventListener("resize", updateCompactVisibility);
+    };
   }, [active]);
 
   useEffect(() => {
@@ -198,10 +200,7 @@ export function LazyStockSearchList({ active }: { active: boolean }) {
         </div>
       </div>
 
-      <div
-        ref={searchCardRef}
-        className="rounded-2xl border border-sky-200 bg-white p-5 shadow-[0_20px_70px_rgba(15,23,42,0.10)] ring-1 ring-slate-900/[0.03] dark:border-cyan-400/15 dark:bg-[#0b1b31] dark:shadow-[0_20px_70px_rgba(2,8,23,0.24)] dark:ring-white/5 sm:p-7"
-      >
+      <div className="rounded-2xl border border-sky-200 bg-white p-5 shadow-[0_20px_70px_rgba(15,23,42,0.10)] ring-1 ring-slate-900/[0.03] dark:border-cyan-400/15 dark:bg-[#0b1b31] dark:shadow-[0_20px_70px_rgba(2,8,23,0.24)] dark:ring-white/5 sm:p-7">
         <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-start gap-4">
             <span className="grid h-14 w-14 shrink-0 place-items-center rounded-full border border-emerald-300/30 bg-emerald-50 text-emerald-600 dark:border-emerald-300/25 dark:bg-emerald-400/10 dark:text-emerald-300">
@@ -218,7 +217,10 @@ export function LazyStockSearchList({ active }: { active: boolean }) {
           </div>
         </div>
 
-        <div className="mt-5 flex min-h-14 items-center rounded-2xl border border-sky-200 bg-slate-50 px-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] focus-within:border-cyan-400 focus-within:shadow-[0_0_28px_rgba(14,165,233,0.12)] dark:border-cyan-400/25 dark:bg-[#10223b] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] dark:focus-within:border-cyan-300/70 dark:focus-within:shadow-[0_0_28px_rgba(34,211,238,0.14)]">
+        <div
+          ref={searchInputWrapRef}
+          className="mt-5 flex min-h-14 items-center rounded-2xl border border-sky-200 bg-slate-50 px-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] focus-within:border-cyan-400 focus-within:shadow-[0_0_28px_rgba(14,165,233,0.12)] dark:border-cyan-400/25 dark:bg-[#10223b] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] dark:focus-within:border-cyan-300/70 dark:focus-within:shadow-[0_0_28px_rgba(34,211,238,0.14)]"
+        >
           <span className="mr-3 text-slate-400 dark:text-slate-500">
             <SearchIcon />
           </span>

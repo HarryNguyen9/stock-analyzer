@@ -97,7 +97,7 @@ export function StockDetailTabs({
 
   return (
     <section className="mx-auto w-full max-w-7xl px-3 py-4 sm:px-6 lg:px-8">
-      <div className="sticky top-[7.5rem] z-40 -mx-3 border-b border-sky-200 bg-slate-50/95 px-3 py-3 shadow-[0_14px_40px_rgba(15,23,42,0.08)] backdrop-blur-xl dark:border-cyan-400/10 dark:bg-[#071126]/95 dark:shadow-[0_14px_40px_rgba(0,0,0,0.22)] sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
+      <div className="-mx-3 border-b border-sky-200 bg-slate-50 px-3 py-3 shadow-[0_14px_40px_rgba(15,23,42,0.08)] dark:border-cyan-400/10 dark:bg-[#071126] dark:shadow-[0_14px_40px_rgba(0,0,0,0.22)] sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
         <div
           role="tablist"
           aria-label="Stock detail sections"
