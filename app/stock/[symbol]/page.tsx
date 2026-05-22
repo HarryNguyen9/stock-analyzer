@@ -90,6 +90,7 @@ export default async function StockDetailPage({ params }: StockPageProps) {
   const latest = candles[candles.length - 1];
   const previous = candles[candles.length - 2];
   const isIntradayLatest = latest.isIntraday === true || latest.finalized === false;
+  const priceActionAnalysis = isIntradayLatest ? createTechnicalSnapshot(candles, supabaseScore).analysis : analysis;
   const change = latest.close - previous.close;
   const changePercent = round((change / previous.close) * 100);
   const isUp = change >= 0;
@@ -189,9 +190,9 @@ export default async function StockDetailPage({ params }: StockPageProps) {
         }
         priceAction={
         <div className="space-y-5">
-          <PriceActionSection analysis={analysis.priceAction} />
+          <PriceActionSection analysis={priceActionAnalysis.priceAction} />
 
-          <WyckoffLiteSection analysis={analysis.priceBehavior} />
+          <WyckoffLiteSection analysis={priceActionAnalysis.priceBehavior} />
         </div>
         }
         indicators={
@@ -508,6 +509,8 @@ function formatThesisLevel(value: number | null): string {
 }
 
 function PriceActionSection({ analysis }: { analysis: PriceActionCore }) {
+  const structureBias = getMarketStructureDisplayBias(analysis.marketStructure);
+
   return (
     <section className="rounded-2xl border border-sky-200 bg-white p-5 shadow-[0_20px_60px_rgba(15,23,42,0.08)] ring-1 ring-slate-900/[0.03] dark:border-cyan-300/10 dark:bg-[#09152c]/95 dark:shadow-[0_20px_60px_rgba(0,0,0,0.18)] dark:ring-white/5">
       <div>
@@ -521,8 +524,8 @@ function PriceActionSection({ analysis }: { analysis: PriceActionCore }) {
         <article className="rounded-2xl border border-sky-100 bg-slate-50 p-4 dark:border-cyan-300/10 dark:bg-[#030816]/70">
           <div className="flex items-start justify-between gap-3">
             <h3 className="text-sm font-semibold text-slate-950 dark:text-white">Cấu trúc giá</h3>
-            <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${getBehaviorSentimentClass(analysis.marketStructure.shortTermBias)}`}>
-              {getBehaviorSentimentLabel(analysis.marketStructure.shortTermBias)}
+            <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${getBehaviorSentimentClass(structureBias)}`}>
+              {getBehaviorSentimentLabel(structureBias)}
             </span>
           </div>
           <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
@@ -579,6 +582,14 @@ function PriceActionSection({ analysis }: { analysis: PriceActionCore }) {
       </div>
     </section>
   );
+}
+
+function getMarketStructureDisplayBias(
+  marketStructure: PriceActionCore["marketStructure"],
+): Signal["sentiment"] {
+  if (marketStructure.lastBreakType === "breakout") return "bullish";
+  if (marketStructure.lastBreakType === "breakdown") return "bearish";
+  return marketStructure.shortTermBias;
 }
 
 function MiniData({ label, value }: { label: string; value: string }) {

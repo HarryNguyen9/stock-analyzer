@@ -97,11 +97,11 @@ export function StockDetailTabs({
 
   return (
     <section className="mx-auto w-full max-w-7xl px-3 py-4 sm:px-6 lg:px-8">
-      <div className="-mx-3 border-b border-sky-200 bg-slate-50 px-3 py-3 shadow-[0_14px_40px_rgba(15,23,42,0.08)] dark:border-cyan-400/10 dark:bg-[#071126] dark:shadow-[0_14px_40px_rgba(0,0,0,0.22)] sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
+      <div className="-mx-3 border-b border-sky-200 bg-slate-50 px-3 py-3.5 shadow-[0_14px_40px_rgba(15,23,42,0.08)] dark:border-cyan-400/10 dark:bg-[#071126] dark:shadow-[0_14px_40px_rgba(0,0,0,0.22)] sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
         <div
           role="tablist"
           aria-label="Stock detail sections"
-          className="flex gap-1.5 overflow-x-auto rounded-2xl border border-sky-200 bg-white p-1 [scrollbar-width:none] dark:border-cyan-300/10 dark:bg-[#030816]/80 [&::-webkit-scrollbar]:hidden"
+          className="flex items-center gap-1 overflow-x-auto rounded-2xl border border-sky-200 bg-white/90 p-1.5 [scrollbar-width:none] dark:border-cyan-300/10 dark:bg-[#030816]/90 [&::-webkit-scrollbar]:hidden"
         >
           {tabs.map((tab) => {
             const isActive = activeTab === tab.id;
@@ -118,9 +118,9 @@ export function StockDetailTabs({
                   tabButtonRefs.current[tab.id] = node;
                 }}
                 onClick={() => setActiveTab(tab.id)}
-                className={`min-h-10 w-[96px] shrink-0 rounded-full px-3 text-center text-sm font-semibold transition sm:w-auto sm:flex-1 ${
+                className={`min-h-10 w-[104px] shrink-0 rounded-xl px-3 text-center text-sm font-semibold leading-none transition sm:w-auto sm:flex-1 ${
                   isActive
-                    ? "bg-cyan-500 text-white shadow-[0_0_24px_rgba(14,165,233,0.20)] dark:bg-cyan-300 dark:text-slate-950 dark:shadow-[0_0_24px_rgba(34,211,238,0.25)]"
+                    ? "bg-gradient-to-r from-cyan-400 to-teal-300 text-slate-950 shadow-[0_0_22px_rgba(34,211,238,0.24)]"
                     : "text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-white/5 dark:hover:text-cyan-100"
                 }`}
               >
