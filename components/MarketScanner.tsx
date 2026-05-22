@@ -75,9 +75,10 @@ function ScannerCard({ item }: { item: ScannerItem }) {
     <Link
       href={`/stock/${item.stock.symbol}`}
       prefetch={false}
-      className="w-56 shrink-0 snap-start rounded-xl border border-cyan-400/15 bg-[#10223b]/80 p-4 shadow-[0_12px_36px_rgba(2,8,23,0.16)] transition hover:-translate-y-0.5 hover:border-cyan-300/30 hover:bg-[#132945] active:scale-[0.99]"
+      className="group relative w-56 shrink-0 snap-start overflow-hidden rounded-xl border border-cyan-400/15 bg-[#10223b]/80 p-4 shadow-[0_12px_36px_rgba(2,8,23,0.16)] transition hover:-translate-y-0.5 hover:border-cyan-300/30 hover:bg-[#132945] active:scale-[0.99]"
     >
-      <div className="flex items-start justify-between gap-3">
+      <MiniChartBackdrop symbol={item.stock.symbol} isUp={isUp} score={item.stock.score} />
+      <div className="relative z-10 flex items-start justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
             <p className="text-2xl font-semibold text-white">{item.stock.symbol}</p>
@@ -96,7 +97,7 @@ function ScannerCard({ item }: { item: ScannerItem }) {
         </div>
       </div>
 
-      <div className="mt-4 flex items-center justify-between gap-2">
+      <div className="relative z-10 mt-4 flex items-center justify-between gap-2">
         <p className="line-clamp-1 text-sm font-medium text-slate-300">
           {item.signal?.labelVi ?? item.stock.signal}
         </p>
@@ -106,6 +107,67 @@ function ScannerCard({ item }: { item: ScannerItem }) {
       </div>
     </Link>
   );
+}
+
+function MiniChartBackdrop({ symbol, isUp, score }: { symbol: string; isUp: boolean; score: number }) {
+  const points = buildSparklinePoints(symbol, score, isUp);
+  const lineColor = isUp ? "rgba(52,211,153,0.62)" : "rgba(56,189,248,0.58)";
+  const fillColor = isUp ? "rgba(16,185,129,0.16)" : "rgba(14,165,233,0.14)";
+
+  return (
+    <svg
+      viewBox="0 0 220 120"
+      className="pointer-events-none absolute inset-x-2 bottom-7 z-0 h-20 opacity-55 transition duration-300 group-hover:opacity-75"
+      aria-hidden="true"
+      preserveAspectRatio="none"
+    >
+      <path d={`${points} L 220 120 L 0 120 Z`} fill={fillColor} />
+      <path d={points} fill="none" stroke={lineColor} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+      {pointsToBars(points).map((bar, index) => (
+        <rect
+          key={`${symbol}-${index}`}
+          x={bar.x}
+          y={bar.y}
+          width="4"
+          height={bar.height}
+          rx="1.5"
+          fill={lineColor}
+          opacity={0.22 + index * 0.018}
+        />
+      ))}
+    </svg>
+  );
+}
+
+function buildSparklinePoints(symbol: string, score: number, isUp: boolean): string {
+  const seed = symbol.split("").reduce((total, char) => total + char.charCodeAt(0), 0);
+  const trend = isUp ? -18 : 10;
+  const base = 74 - Math.min(28, Math.max(0, score - 50) * 0.55);
+  const points = Array.from({ length: 14 }, (_, index) => {
+    const x = Math.round((index / 13) * 220);
+    const wave = Math.sin((seed + index * 19) * 0.55) * 10;
+    const jitter = Math.cos((seed + index * 7) * 0.4) * 5;
+    const y = Math.max(18, Math.min(100, base + wave + jitter + (trend * index) / 13));
+    return `${x},${Math.round(y)}`;
+  });
+
+  return `M ${points.join(" L ")}`;
+}
+
+function pointsToBars(path: string): Array<{ x: number; y: number; height: number }> {
+  return path
+    .replace("M ", "")
+    .split(" L ")
+    .filter((_, index) => index % 2 === 0)
+    .map((point) => {
+      const [x, y] = point.split(",").map(Number);
+      const height = Math.max(8, 110 - y);
+      return {
+        x: Math.max(0, x - 2),
+        y,
+        height,
+      };
+    });
 }
 
 function getSentimentClass(sentiment: SignalSentiment): string {
