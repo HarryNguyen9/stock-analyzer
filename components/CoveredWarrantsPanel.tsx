@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
+import { analyzeCoveredWarrant, type CoveredWarrantAnalysis } from "@/lib/cw/cw-analysis";
 import type { CoveredWarrantWithMetrics } from "@/lib/cw/types";
 
 type LoadState = {
@@ -57,6 +58,8 @@ export function CoveredWarrantsPanel({ active }: { active: boolean }) {
     [issuerFilter, minVolume, premiumFilter, sortMode, state.warrants],
   );
   const summary = useMemo(() => buildCoveredWarrantSummary(state.warrants), [state.warrants]);
+  const analysisMap = useMemo(() => buildAnalysisMap(state.warrants), [state.warrants]);
+  const scannerGroups = useMemo(() => buildCoveredWarrantScannerGroups(state.warrants, analysisMap), [analysisMap, state.warrants]);
   const dataSource = state.warrants.find((warrant) => warrant.source)?.source;
   const normalizedQuery = useMemo(() => normalizeUnderlying(query), [query]);
   const normalizedCompactQuery = useMemo(() => normalizeUnderlying(compactQuery), [compactQuery]);
@@ -355,6 +358,8 @@ export function CoveredWarrantsPanel({ active }: { active: boolean }) {
             </p>
           </section>
 
+          <CoveredWarrantScanner groups={scannerGroups} analysisMap={analysisMap} />
+
           <div className="mt-5 rounded-2xl border border-amber-300/20 bg-amber-500/10 p-4 text-sm leading-6 text-amber-100">
             <p className="font-semibold">Lưu ý khi so sánh chứng quyền</p>
             <p className="mt-1">
@@ -553,6 +558,67 @@ function buildCoveredWarrantSummary(warrants: CoveredWarrantWithMetrics[]) {
   };
 }
 
+function buildAnalysisMap(warrants: CoveredWarrantWithMetrics[]): Map<string, CoveredWarrantAnalysis> {
+  return new Map(warrants.map((warrant) => [warrant.symbol, analyzeCoveredWarrant(warrant, warrants, null)]));
+}
+
+function buildCoveredWarrantScannerGroups(
+  warrants: CoveredWarrantWithMetrics[],
+  analysisMap: Map<string, CoveredWarrantAnalysis>,
+): CwScannerGroup[] {
+  const byScore = (a: CoveredWarrantWithMetrics, b: CoveredWarrantWithMetrics) =>
+    (analysisMap.get(b.symbol)?.cwScore ?? 0) - (analysisMap.get(a.symbol)?.cwScore ?? 0);
+
+  return [
+    {
+      id: "balanced",
+      title: "CW hấp dẫn cân bằng",
+      subtitle: "Điểm tổng hợp tốt, không dùng như khuyến nghị mua/bán.",
+      warrants: [...warrants]
+        .filter((warrant) => (analysisMap.get(warrant.symbol)?.riskLevel ?? "medium") !== "high")
+        .sort(byScore)
+        .slice(0, 5),
+    },
+    {
+      id: "low-premium",
+      title: "Premium thấp nhất",
+      subtitle: "Ưu tiên premium thấp trong nhóm đang xem.",
+      warrants: [...warrants]
+        .filter((warrant) => warrant.metrics.premiumPercent !== null)
+        .sort((a, b) => (a.metrics.premiumPercent ?? 0) - (b.metrics.premiumPercent ?? 0))
+        .slice(0, 5),
+    },
+    {
+      id: "liquidity",
+      title: "Thanh khoản tốt nhất",
+      subtitle: "Dễ quan sát hơn nhờ khối lượng cao.",
+      warrants: [...warrants].sort((a, b) => (b.volume ?? 0) - (a.volume ?? 0)).slice(0, 5),
+    },
+    {
+      id: "near-breakeven",
+      title: "Hòa vốn gần nhất",
+      subtitle: "Khoảng cách tới hòa vốn thấp hơn tương đối.",
+      warrants: [...warrants]
+        .filter((warrant) => analysisMap.get(warrant.symbol)?.distanceToBreakEvenPercent !== null)
+        .sort(
+          (a, b) =>
+            (analysisMap.get(a.symbol)?.distanceToBreakEvenPercent ?? Number.POSITIVE_INFINITY) -
+            (analysisMap.get(b.symbol)?.distanceToBreakEvenPercent ?? Number.POSITIVE_INFINITY),
+        )
+        .slice(0, 5),
+    },
+    {
+      id: "high-risk",
+      title: "Rủi ro cao cần tránh",
+      subtitle: "Các mã có nhiều yếu tố rủi ro tương đối.",
+      warrants: [...warrants]
+        .filter((warrant) => analysisMap.get(warrant.symbol)?.riskLevel === "high")
+        .sort((a, b) => (analysisMap.get(a.symbol)?.cwScore ?? 0) - (analysisMap.get(b.symbol)?.cwScore ?? 0))
+        .slice(0, 5),
+    },
+  ];
+}
+
 function getWarrantBadges(warrant: CoveredWarrantWithMetrics): Array<{ label: string; className: string }> {
   const badges: Array<{ label: string; className: string }> = [];
   const premium = warrant.metrics.premiumPercent;
@@ -649,6 +715,108 @@ function CompactCoveredWarrantPanel({
       )}
     </div>
   );
+}
+
+type CwScannerGroup = {
+  id: string;
+  title: string;
+  subtitle: string;
+  warrants: CoveredWarrantWithMetrics[];
+};
+
+function CoveredWarrantScanner({
+  groups,
+  analysisMap,
+}: {
+  groups: CwScannerGroup[];
+  analysisMap: Map<string, CoveredWarrantAnalysis>;
+}) {
+  const visibleGroups = groups.filter((group) => group.warrants.length > 0);
+
+  if (visibleGroups.length === 0) {
+    return (
+      <section className="mt-5 rounded-2xl border border-dashed border-cyan-400/20 bg-[#07172a] p-5 text-sm text-slate-400">
+        Chưa có đủ dữ liệu để tạo nhóm phân tích chứng quyền.
+      </section>
+    );
+  }
+
+  return (
+    <section className="mt-5 rounded-[28px] border border-cyan-400/20 bg-[#061426] p-4 shadow-[0_18px_60px_rgba(0,210,255,0.08)]">
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <div>
+          <h3 className="text-xl font-black text-white">Tín hiệu chứng quyền</h3>
+          <p className="mt-1 text-sm text-slate-400">Các nhóm so sánh tương đối theo dữ liệu hiện có.</p>
+        </div>
+        <span className="rounded-full border border-cyan-300/20 bg-cyan-400/10 px-3 py-1 text-xs font-bold text-cyan-100">
+          {visibleGroups.length} nhóm
+        </span>
+      </div>
+
+      <div className="space-y-4">
+        {visibleGroups.map((group) => (
+          <div key={group.id} className="border-t border-cyan-400/10 pt-4 first:border-t-0 first:pt-0">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div>
+                <h4 className="font-black text-white">{group.title}</h4>
+                <p className="mt-0.5 text-xs text-slate-400">{group.subtitle}</p>
+              </div>
+              <span className="text-xs font-semibold text-slate-400">{group.warrants.length} mã</span>
+            </div>
+            <div className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              {group.warrants.map((warrant) => (
+                <CwSignalCard key={`${group.id}-${warrant.symbol}`} warrant={warrant} analysis={analysisMap.get(warrant.symbol)} />
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function CwSignalCard({
+  warrant,
+  analysis,
+}: {
+  warrant: CoveredWarrantWithMetrics;
+  analysis: CoveredWarrantAnalysis | undefined;
+}) {
+  return (
+    <Link
+      href={`/cw/${encodeURIComponent(warrant.symbol)}`}
+      className="min-w-[190px] rounded-2xl border border-cyan-300/15 bg-[#0a1c33] p-3 transition hover:border-cyan-300/35 hover:bg-cyan-400/10"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="truncate text-lg font-black text-white">{warrant.symbol}</p>
+          <p className="mt-1 text-xs font-semibold text-cyan-200">{warrant.issuer ?? warrant.underlyingSymbol}</p>
+        </div>
+        <span className={`rounded-full px-2 py-1 text-[11px] font-black ${getAnalysisBadgeClass(analysis?.riskLevel)}`}>
+          {analysis?.cwScore ?? "--"}/100
+        </span>
+      </div>
+      <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+        <div>
+          <p className="text-slate-500">Premium</p>
+          <p className="mt-1 font-black text-white">{formatPercent(warrant.metrics.premiumPercent)}</p>
+        </div>
+        <div>
+          <p className="text-slate-500">Volume</p>
+          <p className="mt-1 font-black text-white">{formatVolume(warrant.volume)}</p>
+        </div>
+      </div>
+      <p className="mt-3 line-clamp-2 text-xs leading-5 text-slate-400">
+        {analysis?.scoreLabelVi ?? "Cần theo dõi"} · Hòa vốn {formatPrice(warrant.metrics.breakEvenPrice)}
+      </p>
+    </Link>
+  );
+}
+
+function getAnalysisBadgeClass(level: CoveredWarrantAnalysis["riskLevel"] | undefined): string {
+  if (level === "high") return "border border-rose-300/20 bg-rose-400/10 text-rose-100";
+  if (level === "medium") return "border border-amber-300/20 bg-amber-400/10 text-amber-100";
+  return "border border-emerald-300/20 bg-emerald-400/10 text-emerald-100";
 }
 
 function SummaryCard({ label, value, helper }: { label: string; value: string; helper: string }) {

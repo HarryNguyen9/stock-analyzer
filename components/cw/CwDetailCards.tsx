@@ -1,9 +1,10 @@
 import type { ReactNode } from "react";
+import type { CoveredWarrantAnalysis } from "@/lib/cw/cw-analysis";
 import type { CoveredWarrantWithMetrics } from "@/lib/cw/types";
 
 type Tone = "neutral" | "positive" | "negative" | "warning" | "info";
 
-export function CwOverviewTab({ warrant }: { warrant: CoveredWarrantWithMetrics }) {
+export function CwOverviewTab({ warrant, analysis }: { warrant: CoveredWarrantWithMetrics; analysis: CoveredWarrantAnalysis }) {
   return (
     <div className="space-y-5">
       <section className="relative overflow-hidden rounded-2xl border border-cyan-300/15 bg-[#091a31]/95 p-4 shadow-[0_18px_56px_rgba(0,0,0,0.18)] ring-1 ring-white/5">
@@ -20,14 +21,28 @@ export function CwOverviewTab({ warrant }: { warrant: CoveredWarrantWithMetrics 
           </div>
           <div className="grid grid-cols-2 gap-2 min-[390px]:grid-cols-3">
             <CwMetricCard label="Khối lượng" value={formatVolume(warrant.volume)} tone="info" />
-            <CwMetricCard label="Giá cơ sở" value={formatPrice(warrant.underlyingPrice)} />
+            <CwMetricCard label="CW Score" value={`${analysis.cwScore}/100`} tone={analysis.riskLevel === "high" ? "warning" : "positive"} />
             <CwMetricCard label="Premium" value={formatPercent(warrant.metrics.premiumPercent)} tone={getPremiumTone(warrant.metrics.premiumPercent)} />
             <CwMetricCard label="Hòa vốn" value={formatPrice(warrant.metrics.breakEvenPrice)} />
-            <CwMetricCard label="Đòn bẩy" value={formatRatio(warrant.metrics.gearing)} tone="info" />
+            <CwMetricCard label="Cần tăng để hòa vốn" value={formatPercent(analysis.distanceToBreakEvenPercent)} tone={getDistanceTone(warrant)} />
             <CwMetricCard label="Còn lại" value={formatDays(warrant.metrics.daysToMaturity)} tone={getMaturityTone(warrant.metrics.daysToMaturity)} />
           </div>
         </div>
       </section>
+
+      <CwSection title="Luận điểm CW" subtitle="Đánh giá tương đối trong nhóm cùng mã cơ sở, không phải khuyến nghị mua/bán.">
+        <div className="rounded-2xl border border-cyan-300/15 bg-[#061326] p-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className={`rounded-full px-3 py-1 text-xs font-black ${getRiskBadgeClass(analysis.riskLevel)}`}>
+              {analysis.scoreLabelVi}
+            </span>
+            <span className="rounded-full border border-cyan-300/15 bg-cyan-400/10 px-3 py-1 text-xs font-bold text-cyan-100">
+              Độ hấp dẫn tương đối {analysis.cwScore}/100
+            </span>
+          </div>
+          <p className="mt-3 text-sm leading-6 text-slate-300">{analysis.summaryVi}</p>
+        </div>
+      </CwSection>
 
       <CwSection title="Thông tin nhanh" subtitle="Các thông tin chính của chứng quyền đang chọn.">
         <div className="grid gap-3 sm:grid-cols-2">
@@ -53,6 +68,7 @@ export function CwContractTab({ warrant }: { warrant: CoveredWarrantWithMetrics 
         <KeyValue label="Tỷ lệ chuyển đổi" value={formatNullableNumber(warrant.exerciseRatio)} emptyText="Chưa hỗ trợ từ nguồn hiện tại" />
         <KeyValue label="Ngày phát hành" value={formatDate(warrant.issueDate)} emptyText="Chưa hỗ trợ từ nguồn hiện tại" />
         <KeyValue label="Ngày đáo hạn" value={formatDate(warrant.maturityDate)} emptyText="Chưa hỗ trợ từ nguồn hiện tại" />
+        <KeyValue label="Ngày giao dịch cuối" value={getRawText(warrant, ["lastTradingDateText"])} emptyText="Chưa có dữ liệu" />
         <KeyValue label="Số ngày còn lại" value={formatDays(warrant.metrics.daysToMaturity)} />
         <KeyValue label="Kiểu thực hiện" value={getRawText(warrant, ["exerciseStyle", "exercise_style"])} emptyText="Chưa hỗ trợ từ nguồn hiện tại" />
         <KeyValue label="Phương thức thanh toán" value={getRawText(warrant, ["settlementMethod", "settlement_method"])} emptyText="Chưa hỗ trợ từ nguồn hiện tại" />
@@ -66,9 +82,11 @@ export function CwContractTab({ warrant }: { warrant: CoveredWarrantWithMetrics 
 export function CwPricingTab({
   warrant,
   related,
+  analysis,
 }: {
   warrant: CoveredWarrantWithMetrics;
   related: CoveredWarrantWithMetrics[];
+  analysis: CoveredWarrantAnalysis;
 }) {
   const ranking = buildRanking(warrant, related);
 
@@ -82,15 +100,19 @@ export function CwPricingTab({
           <CwMetricCard label="Spread" value={formatPercent(warrant.metrics.spreadPercent)} emptyText="Chưa có bid/ask" />
           <CwMetricCard label="Thanh khoản" value={formatVolume(warrant.volume)} tone="info" />
           <CwMetricCard label="Khoảng cách tới hòa vốn" value={formatDistanceToBreakEven(warrant)} tone={getDistanceTone(warrant)} />
+          <CwMetricCard label="CW Score" value={`${analysis.cwScore}/100`} tone={analysis.riskLevel === "high" ? "warning" : "positive"} />
         </div>
       </CwSection>
 
       <CwSection title="So với các CW cùng mã cơ sở" subtitle={`Nhóm ${warrant.underlyingSymbol} hiện có ${related.length} mã active.`}>
         {related.length > 1 ? (
           <div className="grid gap-3 sm:grid-cols-3">
-            <KeyValue label="Xếp hạng thanh khoản" value={ranking.volumeRank} />
-            <KeyValue label="Xếp hạng premium thấp" value={ranking.premiumRank} />
-            <KeyValue label="Xếp hạng hòa vốn thấp" value={ranking.breakEvenRank} />
+            <KeyValue label="Premium rank" value={formatRank(analysis.premiumRankWithinUnderlying, related.length, ranking.premiumRank)} />
+            <KeyValue label="Hòa vốn rank" value={formatRank(analysis.breakEvenRankWithinUnderlying, related.length, ranking.breakEvenRank)} />
+            <KeyValue label="Thanh khoản rank" value={formatRank(analysis.liquidityRankWithinUnderlying, related.length, ranking.volumeRank)} />
+            <KeyValue label="Đòn bẩy rank" value={formatRank(analysis.leverageRankWithinUnderlying, related.length)} />
+            <KeyValue label="Spread rank" value={formatRank(analysis.spreadRankWithinUnderlying, related.length)} />
+            <KeyValue label="Định giá" value={formatBucket(analysis.valuationBucket)} />
           </div>
         ) : (
           <p className="rounded-2xl border border-cyan-300/10 bg-[#061326] p-4 text-sm leading-6 text-slate-400">
@@ -102,21 +124,21 @@ export function CwPricingTab({
   );
 }
 
-export function CwRiskTab({ warrant }: { warrant: CoveredWarrantWithMetrics }) {
-  const risks = buildRiskCards(warrant);
+export function CwRiskTab({ analysis }: { analysis: CoveredWarrantAnalysis }) {
+  const risks = analysis.riskCards;
 
   return (
     <CwSection title="Rủi ro cần chú ý" subtitle="Các cảnh báo này chỉ dựa trên dữ liệu chứng quyền hiện có, không phải khuyến nghị mua/bán.">
       <div className="grid gap-3">
         {risks.map((risk) => (
-          <article key={risk.title} className={`rounded-2xl border p-4 ${getRiskCardClass(risk.tone)}`}>
+          <article key={risk.title} className={`rounded-2xl border p-4 ${getRiskCardClass(getRiskTone(risk.level))}`}>
             <div className="flex items-start justify-between gap-3">
               <div>
                 <h3 className="text-sm font-black text-white">{risk.title}</h3>
                 <p className="mt-2 text-sm leading-6 opacity-85">{risk.description}</p>
               </div>
               <span className="shrink-0 rounded-full border border-current/20 px-2 py-1 text-[11px] font-bold">
-                {risk.badge}
+                {formatRiskLevel(risk.level)}
               </span>
             </div>
           </article>
@@ -193,83 +215,34 @@ function KeyValue({
   );
 }
 
-function buildRiskCards(warrant: CoveredWarrantWithMetrics): Array<{ title: string; description: string; badge: string; tone: Tone }> {
-  const risks: Array<{ title: string; description: string; badge: string; tone: Tone }> = [];
-  const premium = warrant.metrics.premiumPercent;
-  const volume = warrant.volume ?? 0;
-  const days = warrant.metrics.daysToMaturity;
-  const spread = warrant.metrics.spreadPercent;
-  const distance = getDistanceToBreakEvenPercent(warrant);
+function formatRank(rank: number | null, total: number, fallback?: string): string {
+  if (rank) return `${rank}/${total}`;
+  return fallback ?? "Chưa có dữ liệu";
+}
 
-  if (premium === null) {
-    risks.push({
-      title: "Thiếu dữ liệu premium",
-      description: "Nguồn hiện tại chưa đủ dữ liệu để đánh giá premium chính xác.",
-      badge: "Dữ liệu",
-      tone: "warning",
-    });
-  } else if (premium >= 30) {
-    risks.push({
-      title: "Premium cao",
-      description: `Premium đang ở mức ${formatPercent(premium)}, cần thận trọng khi so với biến động mã cơ sở.`,
-      badge: "Cao",
-      tone: "negative",
-    });
-  }
+function formatBucket(bucket: CoveredWarrantAnalysis["valuationBucket"]): string {
+  if (bucket === "low") return "Tương đối dễ chịu";
+  if (bucket === "medium") return "Trung tính";
+  if (bucket === "high") return "Cần theo dõi";
+  return "Chưa đủ dữ liệu";
+}
 
-  if (volume <= 0) {
-    risks.push({
-      title: "Chưa có thanh khoản",
-      description: "Không thấy khối lượng giao dịch trong dữ liệu hiện tại.",
-      badge: "Thanh khoản",
-      tone: "negative",
-    });
-  } else if (volume < 10_000) {
-    risks.push({
-      title: "Thanh khoản thấp",
-      description: `Khối lượng chỉ khoảng ${formatVolume(volume)}, có thể khó mua/bán ở giá mong muốn.`,
-      badge: "Mỏng",
-      tone: "warning",
-    });
-  }
+function formatRiskLevel(level: "low" | "medium" | "high"): string {
+  if (level === "high") return "Cao";
+  if (level === "medium") return "Trung bình";
+  return "Thấp";
+}
 
-  if (days > 0 && days <= 30) {
-    risks.push({
-      title: "Gần đáo hạn",
-      description: `Còn ${days} ngày đến hạn, giá CW có thể nhạy với thời gian còn lại.`,
-      badge: "Thời gian",
-      tone: "warning",
-    });
-  }
+function getRiskTone(level: "low" | "medium" | "high"): Tone {
+  if (level === "high") return "negative";
+  if (level === "medium") return "warning";
+  return "info";
+}
 
-  if (spread !== null && spread >= 10) {
-    risks.push({
-      title: "Spread rộng",
-      description: `Spread ước tính ${formatPercent(spread)}, chi phí giao dịch có thể cao hơn bình thường.`,
-      badge: "Spread",
-      tone: "warning",
-    });
-  }
-
-  if (distance !== null && distance > 20) {
-    risks.push({
-      title: "Xa điểm hòa vốn",
-      description: `Giá cơ sở cần tăng/giảm thêm khoảng ${formatPercent(distance)} để tới vùng hòa vốn.`,
-      badge: "Hòa vốn",
-      tone: "warning",
-    });
-  }
-
-  if (risks.length === 0) {
-    risks.push({
-      title: "Chưa có rủi ro nổi bật từ dữ liệu hiện tại",
-      description: "Vẫn cần theo dõi thanh khoản, premium và biến động mã cơ sở trước khi ra quyết định.",
-      badge: "Theo dõi",
-      tone: "info",
-    });
-  }
-
-  return risks;
+function getRiskBadgeClass(level: "low" | "medium" | "high"): string {
+  if (level === "high") return "border border-rose-300/25 bg-rose-400/10 text-rose-100";
+  if (level === "medium") return "border border-amber-300/25 bg-amber-400/10 text-amber-100";
+  return "border border-emerald-300/25 bg-emerald-400/10 text-emerald-100";
 }
 
 function buildRanking(warrant: CoveredWarrantWithMetrics, related: CoveredWarrantWithMetrics[]) {
@@ -316,6 +289,15 @@ function getRawText(warrant: CoveredWarrantWithMetrics, keys: string[]): string 
   for (const key of keys) {
     const value = raw[key];
     if (typeof value === "string" || typeof value === "number") return String(value);
+  }
+
+  const detail = raw.detail;
+  if (detail && typeof detail === "object" && !Array.isArray(detail)) {
+    const detailRecord = detail as Record<string, unknown>;
+    for (const key of keys) {
+      const value = detailRecord[key];
+      if (typeof value === "string" || typeof value === "number") return String(value);
+    }
   }
 
   return null;

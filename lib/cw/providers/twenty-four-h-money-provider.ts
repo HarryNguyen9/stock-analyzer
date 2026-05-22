@@ -200,6 +200,7 @@ function parseTwentyFourHMoneyWarrantDetail(html: string, detailUrl: string): De
       sourcePage: detailUrl,
       issueDateText: readLabelValue(text, "Ngày phát hành"),
       maturityDateText: readLabelValue(text, "Ngày đáo hạn"),
+      lastTradingDateText: readLabelValue(text, "Ngày giao dịch cuối cùng"),
       exerciseRatioText,
       strikePriceText: readLabelValue(text, "Giá thực hiện"),
     },

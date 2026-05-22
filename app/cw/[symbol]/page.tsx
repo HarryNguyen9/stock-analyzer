@@ -12,8 +12,10 @@ import {
 } from "@/components/cw/CwDetailCards";
 import { CwDetailSearch } from "@/components/cw/CwDetailSearch";
 import { CwDetailTabs } from "@/components/cw/CwDetailTabs";
+import { analyzeCoveredWarrant } from "@/lib/cw/cw-analysis";
 import { getCoveredWarrantBySymbol } from "@/lib/cw/cw-provider";
 import type { CoveredWarrantWithMetrics } from "@/lib/cw/types";
+import { readLatestTechnicalScore } from "@/lib/data-source/supabase-provider";
 
 type CwPageProps = {
   params: Promise<{ symbol: string }>;
@@ -47,6 +49,10 @@ export default async function CoveredWarrantDetailPage({ params }: CwPageProps) 
   const warrant = result.warrant;
   const changePercent = warrant.changePercent ?? 0;
   const isUp = changePercent >= 0;
+  const underlyingTechnicalScore = await readLatestTechnicalScore(warrant.underlyingSymbol);
+  const analysis = analyzeCoveredWarrant(warrant, result.related, {
+    technicalScore: underlyingTechnicalScore,
+  });
 
   return (
     <main className="min-h-screen bg-[#071126] pb-10 text-slate-100">
@@ -78,10 +84,10 @@ export default async function CoveredWarrantDetailPage({ params }: CwPageProps) 
       </section>
 
       <CwDetailTabs
-        overview={<CwOverviewTab warrant={warrant} />}
+        overview={<CwOverviewTab warrant={warrant} analysis={analysis} />}
         contract={<CwContractTab warrant={warrant} />}
-        pricing={<CwPricingTab warrant={warrant} related={result.related} />}
-        risk={<CwRiskTab warrant={warrant} />}
+        pricing={<CwPricingTab warrant={warrant} related={result.related} analysis={analysis} />}
+        risk={<CwRiskTab analysis={analysis} />}
       />
     </main>
   );
