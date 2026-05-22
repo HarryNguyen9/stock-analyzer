@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { useState } from "react";
 
 type ProductTab = "stocks" | "covered-warrants";
+type CoveredWarrantTab = "compare" | "underlyings";
 
 export function MarketProductTabs({
   initialProduct = "stocks",
@@ -15,6 +16,12 @@ export function MarketProductTabs({
   coveredWarrants: ReactNode;
 }) {
   const [activeProduct, setActiveProduct] = useState<ProductTab>(initialProduct);
+  const [activeCoveredWarrantTab, setActiveCoveredWarrantTab] = useState<CoveredWarrantTab>("compare");
+
+  function selectCoveredWarrantTab(tab: CoveredWarrantTab) {
+    setActiveCoveredWarrantTab(tab);
+    window.dispatchEvent(new CustomEvent("covered-warrant-tab-change", { detail: tab }));
+  }
 
   function selectProduct(product: ProductTab) {
     setActiveProduct(product);
@@ -55,7 +62,7 @@ export function MarketProductTabs({
       <div hidden={activeProduct !== "covered-warrants"}>
         {activeProduct === "covered-warrants" ? (
           <>
-            <CoveredWarrantSubNav />
+            <CoveredWarrantSubNav activeTab={activeCoveredWarrantTab} onSelect={selectCoveredWarrantTab} />
             {coveredWarrants}
           </>
         ) : null}
