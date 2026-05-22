@@ -6,6 +6,7 @@ import { BackButton } from "@/components/BackButton";
 import { CandlestickChart } from "@/components/CandlestickChart";
 import { DEFAULT_DETAIL_CANDLE_LIMIT } from "@/lib/data-source/constants";
 import { ScoreGauge } from "@/components/ScoreGauge";
+import { StockDetailSymbolSearch } from "@/components/StockDetailSymbolSearch";
 import { StockDetailTabs } from "@/components/StockDetailTabs";
 import { SymbolRefreshPanel } from "@/components/SymbolRefreshPanel";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -143,6 +144,7 @@ export default async function StockDetailPage({ params }: StockPageProps) {
             </div>
           </div>
 
+          <StockDetailSymbolSearch currentSymbol={stock.symbol} />
           <SymbolRefreshPanel symbol={stock.symbol} freshness={freshness} />
         </div>
       </section>
