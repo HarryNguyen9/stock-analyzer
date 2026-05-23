@@ -217,7 +217,7 @@ export async function getCoveredWarrantBySymbol(symbol: string): Promise<Covered
   };
 }
 
-export async function searchCoveredWarrantUnderlyings(query: string, limit = 20): Promise<string[]> {
+export async function searchCoveredWarrantUnderlyings(query: string, limit = 200): Promise<string[]> {
   const normalizedQuery = normalizeUnderlying(query);
   const supabase = createSupabaseClient();
   if (!supabase) return [];
@@ -227,7 +227,7 @@ export async function searchCoveredWarrantUnderlyings(query: string, limit = 20)
     .select("underlying_symbol")
     .eq("is_active", true)
     .order("underlying_symbol", { ascending: true })
-    .limit(Math.min(Math.max(limit * 5, limit), 200));
+    .limit(Math.min(Math.max(limit * 10, limit), 1000));
 
   const { data, error } = normalizedQuery
     ? await request.ilike("underlying_symbol", `${normalizedQuery}%`)

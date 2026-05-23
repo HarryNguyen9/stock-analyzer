@@ -19,6 +19,19 @@ type SearchPayload = {
   warrants?: CoveredWarrantWithMetrics[];
 };
 
+type UnderlyingsPayload = {
+  ok: boolean;
+  underlyings?: string[];
+};
+
+type UnderlyingsState = {
+  status: "idle" | "loading" | "ready" | "error";
+  underlyings: string[];
+  message: string | null;
+};
+
+type CoveredWarrantTab = "compare" | "underlyings";
+
 type SortMode = "liquidity" | "premium" | "breakeven" | "low-price";
 type PremiumFilter = "all" | "low" | "medium" | "high";
 
@@ -34,8 +47,13 @@ export function CoveredWarrantsPanel({ active }: { active: boolean }) {
   const [compactQuery, setCompactQuery] = useState("");
   const [submittedUnderlying, setSubmittedUnderlying] = useState("");
   const searchInputWrapRef = useRef<HTMLDivElement | null>(null);
-  const lastCompactSearchQueryRef = useRef("");
   const [compactSearchVisible, setCompactSearchVisible] = useState(false);
+  const [activeCoveredWarrantTab, setActiveCoveredWarrantTab] = useState<CoveredWarrantTab>("compare");
+  const [underlyingsState, setUnderlyingsState] = useState<UnderlyingsState>({
+    status: "idle",
+    underlyings: [],
+    message: null,
+  });
   const [sortMode, setSortMode] = useState<SortMode>("liquidity");
   const [issuerFilter, setIssuerFilter] = useState("all");
   const [premiumFilter, setPremiumFilter] = useState<PremiumFilter>("all");
@@ -63,7 +81,24 @@ export function CoveredWarrantsPanel({ active }: { active: boolean }) {
   const dataSource = state.warrants.find((warrant) => warrant.source)?.source;
   const normalizedQuery = useMemo(() => normalizeUnderlying(query), [query]);
   const normalizedCompactQuery = useMemo(() => normalizeUnderlying(compactQuery), [compactQuery]);
-  const compactCanAutoSearch = normalizedCompactQuery.length >= 2;
+  const compactCanSearch = normalizedCompactQuery.length > 0;
+
+  useEffect(() => {
+    function handleCoveredWarrantTabChange(event: Event) {
+      const detail = (event as CustomEvent<CoveredWarrantTab>).detail;
+      if (detail === "compare" || detail === "underlyings") {
+        setActiveCoveredWarrantTab(detail);
+      }
+    }
+
+    window.addEventListener("covered-warrant-tab-change", handleCoveredWarrantTabChange);
+    return () => window.removeEventListener("covered-warrant-tab-change", handleCoveredWarrantTabChange);
+  }, []);
+
+  useEffect(() => {
+    if (!active || activeCoveredWarrantTab !== "underlyings" || underlyingsState.status !== "idle") return;
+    void loadUnderlyings();
+  }, [active, activeCoveredWarrantTab, underlyingsState.status]);
 
   useEffect(() => {
     if (!active) {
@@ -80,6 +115,10 @@ export function CoveredWarrantsPanel({ active }: { active: boolean }) {
       const rect = target.getBoundingClientRect();
       const nextVisible = rect.bottom <= stickyTriggerTop + 8;
       setCompactSearchVisible((wasVisible) => {
+        if (!wasVisible && nextVisible) {
+          setCompactQuery(query);
+          setCompactState({ status: "intro", message: null, warrants: [] });
+        }
         if (wasVisible && !nextVisible) {
           resetCompactSearchState();
         }
@@ -95,38 +134,7 @@ export function CoveredWarrantsPanel({ active }: { active: boolean }) {
       window.removeEventListener("scroll", updateCompactVisibility);
       window.removeEventListener("resize", updateCompactVisibility);
     };
-  }, [active]);
-
-  useEffect(() => {
-    if (!active || !compactSearchVisible) return;
-
-    if (!normalizedCompactQuery) {
-      lastCompactSearchQueryRef.current = "";
-      setCompactState({ status: "intro", message: null, warrants: [] });
-      return;
-    }
-
-    if (!compactCanAutoSearch) {
-      lastCompactSearchQueryRef.current = "";
-      setCompactState({
-        status: "intro",
-        message: "Nhap it nhat 2 ky tu de tim nhanh hon.",
-        warrants: [],
-      });
-      return;
-    }
-
-    if (lastCompactSearchQueryRef.current === normalizedCompactQuery) {
-      return;
-    }
-
-    const debounceId = window.setTimeout(() => {
-      lastCompactSearchQueryRef.current = normalizedCompactQuery;
-      void runCompactSearch(normalizedCompactQuery);
-    }, 300);
-
-    return () => window.clearTimeout(debounceId);
-  }, [active, compactCanAutoSearch, compactSearchVisible, normalizedCompactQuery]);
+  }, [active, query]);
 
   async function runSearch(normalized: string) {
     if (!normalized) {
@@ -169,16 +177,56 @@ export function CoveredWarrantsPanel({ active }: { active: boolean }) {
 
   async function submitSearch(event?: FormEvent<HTMLFormElement>) {
     event?.preventDefault();
-    lastCompactSearchQueryRef.current = normalizedQuery;
     await runSearch(normalizedQuery);
   }
 
-  async function runCompactSearch(normalized: string) {
+  async function loadUnderlyings() {
+    setUnderlyingsState({ status: "loading", underlyings: [], message: null });
+
+    try {
+      const response = await fetch("/api/cw/underlyings?limit=200", { cache: "no-store" });
+      const payload = (await response.json()) as UnderlyingsPayload;
+
+      if (!response.ok || !payload.ok) {
+        throw new Error("Không tải được danh sách mã cơ sở.");
+      }
+
+      setUnderlyingsState({
+        status: "ready",
+        underlyings: payload.underlyings ?? [],
+        message: null,
+      });
+    } catch (error) {
+      setUnderlyingsState({
+        status: "error",
+        underlyings: [],
+        message: error instanceof Error ? error.message : "Không tải được danh sách mã cơ sở.",
+      });
+    }
+  }
+
+  async function selectUnderlying(underlying: string) {
+    const normalized = normalizeUnderlying(underlying);
+    setQuery(normalized);
+    setCompactQuery("");
+    resetCompactSearchState();
+    setActiveCoveredWarrantTab("compare");
+    window.dispatchEvent(new CustomEvent("covered-warrant-tab-change", { detail: "compare" }));
+    requestAnimationFrame(() => searchInputWrapRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }));
+    await runSearch(normalized);
+  }
+
+  async function submitCompactSearch(event?: FormEvent<HTMLFormElement>) {
+    event?.preventDefault();
+    const normalized = normalizedCompactQuery;
     if (!normalized) {
       setCompactState({ status: "intro", message: null, warrants: [] });
       return;
     }
 
+    setQuery(normalized);
+    setSubmittedUnderlying(normalized);
+    setState({ status: "loading", message: null, warrants: [] });
     setCompactState({ status: "loading", message: null, warrants: [] });
 
     try {
@@ -191,17 +239,21 @@ export function CoveredWarrantsPanel({ active }: { active: boolean }) {
         throw new Error(payload.message ?? "KhÃ´ng táº£i Ä‘Æ°á»£c dá»¯ liá»‡u chá»©ng quyá»n.");
       }
 
-      setCompactState({
+      const nextState: LoadState = {
         status: "ready",
         message: payload.message ?? null,
         warrants: payload.warrants ?? [],
-      });
+      };
+      setState(nextState);
+      setCompactState(nextState);
     } catch (error) {
-      setCompactState({
+      const nextState: LoadState = {
         status: "error",
-        message: error instanceof Error ? error.message : "KhÃ´ng táº£i Ä‘Æ°á»£c dá»¯ liá»‡u chá»©ng quyá»n.",
+        message: error instanceof Error ? error.message : "Không tải được dữ liệu chứng quyền.",
         warrants: [],
-      });
+      };
+      setState(nextState);
+      setCompactState(nextState);
     }
   }
 
@@ -221,12 +273,73 @@ export function CoveredWarrantsPanel({ active }: { active: boolean }) {
   }
 
   function resetCompactSearchState() {
-    lastCompactSearchQueryRef.current = "";
     setCompactQuery("");
     setCompactState({ status: "intro", message: null, warrants: [] });
   }
 
+  function clearCompactSearch() {
+    setCompactQuery("");
+    setQuery("");
+    setCompactState({ status: "intro", message: null, warrants: [] });
+  }
+
   if (!active) return null;
+
+  if (activeCoveredWarrantTab === "underlyings") {
+    return (
+      <section className="mx-auto w-full max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
+        <section className="overflow-hidden rounded-[28px] border border-cyan-400/20 bg-[#061426] p-5 shadow-[0_18px_70px_rgba(0,210,255,0.08)]">
+          <div className="flex items-start gap-3">
+            <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl border border-cyan-300/30 bg-cyan-400/10 text-cyan-200">
+              CW
+            </div>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-300">Mã cơ sở</p>
+              <h2 className="mt-1 text-2xl font-bold tracking-tight text-white">Chọn mã có chứng quyền</h2>
+              <p className="mt-2 text-sm leading-6 text-slate-300">
+                Chọn một mã cơ sở để tự điền vào tab So sánh và xem danh sách chứng quyền active.
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-5">
+            {underlyingsState.status === "loading" ? (
+              <div className="grid gap-3 sm:grid-cols-2">
+                {Array.from({ length: 6 }).map((_, index) => (
+                  <div key={index} className="h-16 animate-pulse rounded-2xl bg-cyan-400/10" />
+                ))}
+              </div>
+            ) : underlyingsState.status === "error" ? (
+              <div className="rounded-2xl border border-rose-300/20 bg-rose-400/10 p-4 text-sm text-rose-100">
+                {underlyingsState.message}
+              </div>
+            ) : underlyingsState.underlyings.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-cyan-300/20 bg-[#07172a] p-5 text-sm text-slate-400">
+                Chưa có mã cơ sở nào có chứng quyền active.
+              </div>
+            ) : (
+              <div className="grid gap-3 sm:grid-cols-2">
+                {underlyingsState.underlyings.map((underlying) => (
+                  <button
+                    key={underlying}
+                    type="button"
+                    onClick={() => void selectUnderlying(underlying)}
+                    className="group flex items-center justify-between rounded-2xl border border-cyan-300/15 bg-[#0a1c33] px-4 py-3 text-left transition hover:border-cyan-300/45 hover:bg-cyan-400/10"
+                  >
+                    <span>
+                      <span className="block text-lg font-black text-white">{underlying}</span>
+                      <span className="mt-1 block text-xs text-slate-400">Xem chứng quyền active</span>
+                    </span>
+                    <span className="text-cyan-300 transition group-hover:translate-x-1">›</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </section>
+      </section>
+    );
+  }
 
   return (
     <section className="mx-auto w-full max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
@@ -237,19 +350,25 @@ export function CoveredWarrantsPanel({ active }: { active: boolean }) {
         aria-hidden={!compactSearchVisible}
       >
         <div className="relative rounded-2xl border border-cyan-300/20 bg-[#071a31]/95 p-2 shadow-[0_14px_40px_rgba(0,0,0,0.26)] backdrop-blur-xl">
-          <div className="flex min-h-11 items-center rounded-xl border border-cyan-400/25 bg-[#10223b] px-3 focus-within:border-cyan-300/70 focus-within:shadow-[0_0_22px_rgba(34,211,238,0.12)]">
+          <form
+            onSubmit={submitCompactSearch}
+            className="flex min-h-11 items-center rounded-xl border border-cyan-400/25 bg-[#10223b] px-3 focus-within:border-cyan-300/70 focus-within:shadow-[0_0_22px_rgba(34,211,238,0.12)]"
+          >
             <span className="mr-3 text-cyan-300">⌕</span>
             <input
               type="search"
               value={compactQuery}
-              onChange={(event) => setCompactQuery(event.target.value.toUpperCase())}
+              onChange={(event) => {
+                setCompactQuery(event.target.value.toUpperCase());
+                setCompactState({ status: "intro", message: null, warrants: [] });
+              }}
               placeholder="Nhập mã cơ sở, ví dụ FPT"
               className="min-h-11 min-w-0 flex-1 bg-transparent text-sm font-semibold uppercase text-white outline-none placeholder:font-normal placeholder:normal-case placeholder:text-slate-500"
             />
             {compactQuery ? (
               <button
                 type="button"
-                onClick={resetCompactSearchState}
+                onClick={clearCompactSearch}
                 className="ml-2 rounded-full border border-cyan-400/15 px-3 py-1 text-xs font-medium text-slate-300 transition hover:border-cyan-300/40 hover:text-white"
               >
                 Xóa
@@ -257,13 +376,20 @@ export function CoveredWarrantsPanel({ active }: { active: boolean }) {
             ) : (
               <span className="ml-2 text-slate-500">⌘</span>
             )}
-          </div>
-          {compactQuery ? (
+            <button
+              type="submit"
+              disabled={!compactCanSearch || compactState.status === "loading"}
+              className="ml-2 rounded-full bg-cyan-300 px-3 py-1 text-xs font-black text-slate-950 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {compactState.status === "loading" ? "Đang tải" : "Tìm"}
+            </button>
+          </form>
+          {compactQuery && compactState.status !== "intro" ? (
             <CompactCoveredWarrantPanel
               warrants={compactState.warrants}
               status={compactState.status}
-              message={!compactCanAutoSearch ? "Nhập ít nhất 2 ký tự để tìm nhanh hơn." : compactState.message}
-              canSearch={compactCanAutoSearch}
+              message={compactState.message}
+              canSearch={compactCanSearch}
               underlying={normalizedCompactQuery}
             />
           ) : null}

@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 type ProductTab = "stocks" | "covered-warrants";
 type CoveredWarrantTab = "compare" | "underlyings";
@@ -17,6 +17,18 @@ export function MarketProductTabs({
 }) {
   const [activeProduct, setActiveProduct] = useState<ProductTab>(initialProduct);
   const [activeCoveredWarrantTab, setActiveCoveredWarrantTab] = useState<CoveredWarrantTab>("compare");
+
+  useEffect(() => {
+    function handleCoveredWarrantTabChange(event: Event) {
+      const detail = (event as CustomEvent<CoveredWarrantTab>).detail;
+      if (detail === "compare" || detail === "underlyings") {
+        setActiveCoveredWarrantTab(detail);
+      }
+    }
+
+    window.addEventListener("covered-warrant-tab-change", handleCoveredWarrantTabChange);
+    return () => window.removeEventListener("covered-warrant-tab-change", handleCoveredWarrantTabChange);
+  }, []);
 
   function selectCoveredWarrantTab(tab: CoveredWarrantTab) {
     setActiveCoveredWarrantTab(tab);
@@ -108,18 +120,41 @@ function ProductButton({
   );
 }
 
-function CoveredWarrantSubNav() {
+function CoveredWarrantSubNav({
+  activeTab,
+  onSelect,
+}: {
+  activeTab: CoveredWarrantTab;
+  onSelect: (tab: CoveredWarrantTab) => void;
+}) {
   return (
     <div className="sticky top-[58px] z-40 bg-slate-50/95 px-2 pb-2 backdrop-blur-xl dark:bg-[#07111f]/95 sm:top-[64px] sm:px-4">
       <div className="mx-auto w-full max-w-7xl overflow-hidden rounded-b-2xl border-x border-b border-sky-200 bg-white/90 dark:border-cyan-400/10 dark:bg-[#061323]/95">
         <div className="grid grid-cols-2">
-          <span className="relative inline-flex min-h-11 items-center justify-center px-4 text-sm font-semibold text-cyan-100">
+          <button
+            type="button"
+            onClick={() => onSelect("compare")}
+            className={`relative inline-flex min-h-11 items-center justify-center px-4 text-sm font-semibold transition ${
+              activeTab === "compare" ? "text-cyan-100" : "text-slate-500 hover:text-slate-300"
+            }`}
+          >
             So sánh
-            <span className="absolute bottom-0 h-0.5 w-1/2 rounded-full bg-cyan-300 shadow-[0_0_14px_rgba(34,211,238,0.9)]" />
-          </span>
-          <span className="inline-flex min-h-11 items-center justify-center px-4 text-sm font-semibold text-slate-500">
+            {activeTab === "compare" ? (
+              <span className="absolute bottom-0 h-0.5 w-1/2 rounded-full bg-cyan-300 shadow-[0_0_14px_rgba(34,211,238,0.9)]" />
+            ) : null}
+          </button>
+          <button
+            type="button"
+            onClick={() => onSelect("underlyings")}
+            className={`relative inline-flex min-h-11 items-center justify-center px-4 text-sm font-semibold transition ${
+              activeTab === "underlyings" ? "text-cyan-100" : "text-slate-500 hover:text-slate-300"
+            }`}
+          >
             Tìm mã cơ sở
-          </span>
+            {activeTab === "underlyings" ? (
+              <span className="absolute bottom-0 h-0.5 w-1/2 rounded-full bg-cyan-300 shadow-[0_0_14px_rgba(34,211,238,0.9)]" />
+            ) : null}
+          </button>
         </div>
       </div>
     </div>
