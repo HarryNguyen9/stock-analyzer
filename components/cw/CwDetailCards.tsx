@@ -104,7 +104,7 @@ export function CwPricingTab({
         </div>
       </CwSection>
 
-      <CwSection title="So với các CW cùng mã cơ sở" subtitle={`Nhóm ${warrant.underlyingSymbol} hiện có ${related.length} mã active.`}>
+       <CwSection title="So với các CW cùng mã cơ sở" subtitle={`Nhóm ${warrant.underlyingSymbol} hiện có ${related.length} mã đang giao dịch.`}>
         {related.length > 1 ? (
           <div className="grid gap-3 sm:grid-cols-3">
             <KeyValue label="Premium rank" value={formatRank(analysis.premiumRankWithinUnderlying, related.length, ranking.premiumRank)} />

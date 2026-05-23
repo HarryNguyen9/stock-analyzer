@@ -236,7 +236,7 @@ export function CoveredWarrantsPanel({ active }: { active: boolean }) {
       const payload = (await response.json()) as SearchPayload;
 
       if (!response.ok || !payload.ok) {
-        throw new Error(payload.message ?? "KhÃ´ng táº£i Ä‘Æ°á»£c dá»¯ liá»‡u chá»©ng quyá»n.");
+        throw new Error(payload.message ?? "Không tải được dữ liệu chứng quyền.");
       }
 
       const nextState: LoadState = {
@@ -266,7 +266,7 @@ export function CoveredWarrantsPanel({ active }: { active: boolean }) {
     setMinVolume("");
     setState({
       status: "intro",
-      message: "Nhap ma co so de xem chung quyen dang giao dich.",
+      message: "Nhập mã cơ sở để xem chứng quyền đang giao dịch.",
       warrants: [],
     });
     resetCompactSearchState();
@@ -297,7 +297,7 @@ export function CoveredWarrantsPanel({ active }: { active: boolean }) {
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-300">Mã cơ sở</p>
               <h2 className="mt-1 text-2xl font-bold tracking-tight text-white">Chọn mã có chứng quyền</h2>
               <p className="mt-2 text-sm leading-6 text-slate-300">
-                Chọn một mã cơ sở để tự điền vào tab So sánh và xem danh sách chứng quyền active.
+                Chọn một mã cơ sở để tự điền vào tab So sánh và xem danh sách chứng quyền đang giao dịch.
               </p>
             </div>
           </div>
@@ -315,7 +315,7 @@ export function CoveredWarrantsPanel({ active }: { active: boolean }) {
               </div>
             ) : underlyingsState.underlyings.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-cyan-300/20 bg-[#07172a] p-5 text-sm text-slate-400">
-                Chưa có mã cơ sở nào có chứng quyền active.
+                Chưa có mã cơ sở nào có chứng quyền đang giao dịch.
               </div>
             ) : (
               <div className="grid gap-3 sm:grid-cols-2">
@@ -328,7 +328,7 @@ export function CoveredWarrantsPanel({ active }: { active: boolean }) {
                   >
                     <span>
                       <span className="block text-lg font-black text-white">{underlying}</span>
-                      <span className="mt-1 block text-xs text-slate-400">Xem chứng quyền active</span>
+                      <span className="mt-1 block text-xs text-slate-400">Xem chứng quyền đang giao dịch</span>
                     </span>
                     <span className="text-cyan-300 transition group-hover:translate-x-1">›</span>
                   </button>
@@ -408,7 +408,7 @@ export function CoveredWarrantsPanel({ active }: { active: boolean }) {
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-300">Chứng quyền</p>
                 <h2 className="mt-1 text-2xl font-bold tracking-tight text-white sm:text-3xl">So sánh chứng quyền</h2>
                 <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">
-                  Tìm theo mã cơ sở để xem premium, hòa vốn và thanh khoản của các chứng quyền active.
+                  Tìm theo mã cơ sở để xem premium, hòa vốn và thanh khoản của các chứng quyền đang giao dịch.
                 </p>
               </div>
             </div>
@@ -450,7 +450,7 @@ export function CoveredWarrantsPanel({ active }: { active: boolean }) {
         <CoveredWarrantState title="Không tải được chứng quyền" description={state.message ?? "Vui lòng thử lại sau."} />
       ) : state.warrants.length === 0 ? (
         <CoveredWarrantState
-          title={submittedUnderlying ? `Không tìm thấy chứng quyền active cho ${submittedUnderlying}` : "Chưa có dữ liệu chứng quyền"}
+          title={submittedUnderlying ? `Không tìm thấy chứng quyền đang giao dịch cho ${submittedUnderlying}` : "Chưa có dữ liệu chứng quyền"}
           description={state.message ?? "Chưa có dữ liệu chứng quyền. Hãy chạy đồng bộ CW từ provider."}
         />
       ) : (
@@ -538,7 +538,7 @@ export function CoveredWarrantsPanel({ active }: { active: boolean }) {
               <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <h3 className="text-base font-bold text-white">
-                    Chứng quyền active theo <span className="text-cyan-300">{submittedUnderlying}</span>
+                    Chứng quyền đang giao dịch theo <span className="text-cyan-300">{submittedUnderlying}</span>
                   </h3>
                   <p className="mt-1 text-xs text-slate-400">
                     Hiển thị {displayWarrants.length}/{state.warrants.length} mã sau lọc.
@@ -808,7 +808,7 @@ function CompactCoveredWarrantPanel({
         <p className="px-4 py-4 text-sm text-rose-200">{message ?? "Không tải được dữ liệu chứng quyền."}</p>
       ) : topWarrants.length === 0 ? (
         <p className="px-4 py-4 text-sm text-slate-400">
-          {message ?? `Không tìm thấy chứng quyền active cho ${underlying}.`}
+          {message ?? `Không tìm thấy chứng quyền đang giao dịch cho ${underlying}.`}
         </p>
       ) : (
         <div className="divide-y divide-cyan-400/10">

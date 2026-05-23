@@ -13,11 +13,11 @@ type StockDetailTabsProps = {
 };
 
 const tabs: Array<{ id: StockDetailTabId; label: string; icon: ReactNode }> = [
-  { id: "overview", label: "Overview", icon: <OverviewIcon /> },
-  { id: "price-action", label: "Price Action", icon: <PriceActionIcon /> },
-  { id: "indicators", label: "Indicators", icon: <IndicatorsIcon /> },
-  { id: "patterns", label: "Patterns", icon: <PatternsIcon /> },
-  { id: "ai", label: "AI Analysis", icon: <AiIcon /> },
+  { id: "overview", label: "Tổng quan", icon: <OverviewIcon /> },
+  { id: "price-action", label: "Hành động giá", icon: <PriceActionIcon /> },
+  { id: "indicators", label: "Chỉ báo", icon: <IndicatorsIcon /> },
+  { id: "patterns", label: "Mẫu hình", icon: <PatternsIcon /> },
+  { id: "ai", label: "Phân tích AI", icon: <AiIcon /> },
 ];
 
 export function StockDetailTabs({
