@@ -18,7 +18,7 @@ export type PriceDataResult =
     }
   | {
       status: "error";
-      source: "local-json";
+      source: AppDataSource;
       data: [];
       error: string;
     };
@@ -46,6 +46,10 @@ export async function getHistoricalPricesResult(
   const supabaseResult = await supabaseDataProvider.getPrices(symbol, options);
 
   if (supabaseResult.status === "ready") {
+    return supabaseResult;
+  }
+
+  if (isSupabaseClientConfigured()) {
     return supabaseResult;
   }
 

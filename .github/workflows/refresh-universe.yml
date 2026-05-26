@@ -12,5 +12,20 @@ jobs:
     steps:
       - name: Call refresh universe endpoint
         run: |
-          curl -fsS -X GET "https://stock-analyzer-sigma-one.vercel.app/api/cron/refresh-universe" \
+          curl -fsS --retry 2 --max-time 280 -X GET "https://stock-analyzer-sigma-one.vercel.app/api/cron/refresh-universe" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
+
+      - name: Sync missing/new symbol prices
+        run: |
+          curl -fsS --retry 2 --max-time 280 -X GET "https://stock-analyzer-sigma-one.vercel.app/api/cron/sync-prices?missingOnly=true&limit=20&updateSnapshot=false" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
+
+      - name: Backfill historical candles for new/missing symbols
+        run: |
+          curl -fsS --retry 2 --max-time 280 -X GET "https://stock-analyzer-sigma-one.vercel.app/api/cron/backfill-missing-prices?limit=30&targetCandles=365" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
+
+      - name: Rebuild dashboard snapshot
+        run: |
+          curl -fsS --retry 2 --max-time 280 -X GET "https://stock-analyzer-sigma-one.vercel.app/api/cron/sync-prices?batch=0&limit=20&updateSnapshot=true" \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"

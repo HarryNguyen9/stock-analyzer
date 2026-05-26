@@ -62,7 +62,7 @@ export const supabaseDataProvider: AppDataProvider = {
     if (!data || data.length < 50) {
       return {
         status: "error",
-        source: "local-json",
+        source: "supabase",
         data: [],
         error: `${symbol}: Supabase chưa có đủ dữ liệu`,
       };

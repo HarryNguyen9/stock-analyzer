@@ -135,7 +135,7 @@ function CoveredWarrantSubNav({
             type="button"
             onClick={() => onSelect("compare")}
             className={`relative inline-flex min-h-11 items-center justify-center px-4 text-sm font-semibold transition ${
-              activeTab === "compare" ? "text-cyan-100" : "text-slate-500 hover:text-slate-300"
+              activeTab === "compare" ? "text-cyan-700 dark:text-cyan-100" : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-300"
             }`}
           >
             So sánh
@@ -147,7 +147,7 @@ function CoveredWarrantSubNav({
             type="button"
             onClick={() => onSelect("underlyings")}
             className={`relative inline-flex min-h-11 items-center justify-center px-4 text-sm font-semibold transition ${
-              activeTab === "underlyings" ? "text-cyan-100" : "text-slate-500 hover:text-slate-300"
+              activeTab === "underlyings" ? "text-cyan-700 dark:text-cyan-100" : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-300"
             }`}
           >
             Tìm mã cơ sở

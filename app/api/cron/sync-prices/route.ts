@@ -12,6 +12,7 @@ type CronSuccessResponse = {
   pipeline: typeof PRICE_SYNC_PIPELINE.pipeline;
   responsibility: typeof PRICE_SYNC_PIPELINE.responsibility;
   source: typeof PRICE_SYNC_PIPELINE.source;
+  mode: "batch" | "missingOnly";
   batch: number;
   limit: number;
   maxLimit: number;
@@ -23,6 +24,9 @@ type CronSuccessResponse = {
   failed: number;
   failedTemporary: Array<{ symbol: string; error: string }>;
   failedUnsupported: Array<{ symbol: string; error: string }>;
+  selectedSymbols: string[];
+  symbolsWithoutPriceBefore: number | null;
+  symbolsWithoutPriceAfter: number | null;
   snapshotUpdated: boolean;
   intradayUpdated: number;
   intradaySkipped: number;
@@ -83,9 +87,11 @@ async function handleSyncPricesCron(
     const batch = getNumberParam(url, "batch", 0, 0, Number.MAX_SAFE_INTEGER);
     const limitParam = getClampedNumberParam(url, "limit", DEFAULT_LIMIT, 1, MAX_LIMIT);
     const limit = limitParam.value;
+    const missingOnly = url.searchParams.get("missingOnly") === "true";
     const shouldUpdateSnapshot = getUpdateSnapshotFlag(url, batch);
     jobId = await createSyncJob({
       ...PRICE_SYNC_PIPELINE,
+      mode: missingOnly ? "missingOnly" : "batch",
       batch,
       limit,
       maxLimit: MAX_LIMIT,
@@ -97,6 +103,7 @@ async function handleSyncPricesCron(
     const result = await syncPricesToSupabase({
       batch,
       limit,
+      missingOnly,
       shouldStop: () => Date.now() - startedAt >= SOFT_TIME_LIMIT_MS,
     });
     const snapshotUpdated = shouldUpdateSnapshot && !result.stoppedEarly ? await refreshHomeScannerSnapshot() : false;
@@ -110,6 +117,7 @@ async function handleSyncPricesCron(
       success_count: result.synced,
       failed_count: result.failed,
       metadata: {
+        mode: result.mode,
         batch: result.batch,
         limit: result.limit,
         maxLimit: MAX_LIMIT,
@@ -117,6 +125,8 @@ async function handleSyncPricesCron(
         candleLimit: result.candleLimit,
         targetCandles: result.targetCandles,
         selectedSymbols: result.selectedSymbols,
+        symbolsWithoutPriceBefore: result.symbolsWithoutPriceBefore,
+        symbolsWithoutPriceAfter: result.symbolsWithoutPriceAfter,
         failedSymbols: result.failedSymbols,
         failedTemporary: result.failedTemporary,
         failedUnsupported: result.failedUnsupported,
@@ -137,6 +147,7 @@ async function handleSyncPricesCron(
       ok: true,
       jobId,
       ...PRICE_SYNC_PIPELINE,
+      mode: result.mode,
       batch: result.batch,
       limit: result.limit,
       maxLimit: MAX_LIMIT,
@@ -148,6 +159,9 @@ async function handleSyncPricesCron(
       failed: result.failed,
       failedTemporary: result.failedTemporary,
       failedUnsupported: result.failedUnsupported,
+      selectedSymbols: result.selectedSymbols,
+      symbolsWithoutPriceBefore: result.symbolsWithoutPriceBefore,
+      symbolsWithoutPriceAfter: result.symbolsWithoutPriceAfter,
       snapshotUpdated,
       intradayUpdated: result.intradayUpdated,
       intradaySkipped: result.intradaySkipped,

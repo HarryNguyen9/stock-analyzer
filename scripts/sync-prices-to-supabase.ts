@@ -20,7 +20,7 @@ const DEFAULT_SYNC_LIMIT = 100;
 
 type SymbolRow = Pick<
   Database["public"]["Tables"]["symbols"]["Row"],
-  "symbol" | "tier" | "auto_sync" | "liquidity_rank"
+  "symbol" | "name" | "sector" | "tier" | "auto_sync" | "liquidity_rank"
 >;
 type SymbolRetryRow = Pick<Database["public"]["Tables"]["symbols"]["Row"], "retry_count">;
 
@@ -32,7 +32,10 @@ type SyncTarget = {
   source: "supabase" | "fallback";
 };
 
+type SyncMode = "batch" | "missingOnly";
+
 export type SyncPricesResult = {
+  mode: SyncMode;
   batch: number;
   limit: number;
   candleLimit: number;
@@ -44,6 +47,8 @@ export type SyncPricesResult = {
   failedUnsupported: SyncFailedSymbol[];
   selectedSymbols: string[];
   failedSymbols: string[];
+  symbolsWithoutPriceBefore: number | null;
+  symbolsWithoutPriceAfter: number | null;
   stoppedEarly: boolean;
   stopReason: "time_guard" | null;
   intradayUpdated: number;
@@ -86,19 +91,28 @@ export type SyncFailedSymbol = {
 };
 
 export async function syncPricesToSupabase(
-  options: { batch?: number; limit?: number; shouldStop?: () => boolean } = {},
+  options: { batch?: number; limit?: number; missingOnly?: boolean; shouldStop?: () => boolean } = {},
 ): Promise<SyncPricesResult> {
   loadEnvConfig(process.cwd());
 
   const batch = options.batch ?? DEFAULT_SYNC_BATCH;
   const limit = options.limit ?? DEFAULT_SYNC_LIMIT;
-  const targets = await getSyncTargets({ batch, limit });
+  const selection = options.missingOnly
+    ? await getMissingPriceTargets({ limit })
+    : { targets: await getSyncTargets({ batch, limit }), symbolsWithoutPriceBefore: null };
+  const targets = selection.targets;
   const symbols = targets.map((target) => target.symbol);
+  const mode: SyncMode = options.missingOnly ? "missingOnly" : "batch";
 
-  console.log(`Sync target: batch ${batch}, limit ${limit}, ${symbols.length} ma (${targets[0]?.source ?? "supabase"}).`);
+  console.log(`Sync target: mode ${mode}, batch ${batch}, limit ${limit}, ${symbols.length} ma (${targets[0]?.source ?? "supabase"}).`);
 
   if (isVercelProduction()) {
-    return syncPricesDirectlyToSupabase(targets, { batch, limit, shouldStop: options.shouldStop });
+    const result = await syncPricesDirectlyToSupabase(targets, { mode, batch, limit, shouldStop: options.shouldStop });
+    return {
+      ...result,
+      symbolsWithoutPriceBefore: selection.symbolsWithoutPriceBefore,
+      symbolsWithoutPriceAfter: options.missingOnly ? await countSymbolsWithoutPrices() : null,
+    };
   }
 
   console.log("Sync buoc 1/2: fetch du lieu moi va cap nhat JSON local...");
@@ -111,6 +125,7 @@ export async function syncPricesToSupabase(
 
   console.log(`Sync hoan tat. Da cap nhat ${importedSymbols} ma.`);
   return {
+    mode,
     batch,
     limit,
     candleLimit: DEFAULT_HISTORICAL_CANDLE_LIMIT,
@@ -122,6 +137,8 @@ export async function syncPricesToSupabase(
     failedUnsupported: [],
     selectedSymbols: symbols,
     failedSymbols: importedSymbols === targets.length ? [] : symbols,
+    symbolsWithoutPriceBefore: selection.symbolsWithoutPriceBefore,
+    symbolsWithoutPriceAfter: options.missingOnly ? await countSymbolsWithoutPrices() : null,
     stoppedEarly: false,
     stopReason: null,
     intradayUpdated: 0,
@@ -135,7 +152,7 @@ export async function syncPricesToSupabase(
 
 async function syncPricesDirectlyToSupabase(
   targets: SyncTarget[],
-  options: { batch: number; limit: number; shouldStop?: () => boolean },
+  options: { mode: SyncMode; batch: number; limit: number; shouldStop?: () => boolean },
 ): Promise<SyncPricesResult> {
   console.log("Vercel production detected: sync truc tiep vao Supabase, khong ghi local JSON.");
 
@@ -197,6 +214,7 @@ async function syncPricesDirectlyToSupabase(
   console.log(`Sync production hoan tat. Chon ${targets.length} ma, thanh cong ${synced}, fail ${failed}.`);
 
   return {
+    mode: options.mode,
     batch: options.batch,
     limit: options.limit,
     candleLimit: DEFAULT_RECENT_SYNC_CANDLE_LIMIT,
@@ -208,6 +226,8 @@ async function syncPricesDirectlyToSupabase(
     failedUnsupported,
     selectedSymbols: targets.map((target) => target.symbol),
     failedSymbols,
+    symbolsWithoutPriceBefore: null,
+    symbolsWithoutPriceAfter: null,
     stoppedEarly,
     stopReason: stoppedEarly ? "time_guard" : null,
     intradayUpdated,
@@ -371,7 +391,7 @@ async function getSyncTargets(options: { batch: number; limit: number }): Promis
     const supabase = createSupabaseAdminClient();
     const { data, error } = await supabase
       .from("symbols")
-      .select("symbol,tier,auto_sync,liquidity_rank")
+      .select("symbol,name,sector,tier,auto_sync,liquidity_rank")
       .eq("auto_sync", true)
       .eq("is_active", true)
       .or("sync_status.is.null,sync_status.neq.unsupported")
@@ -385,9 +405,11 @@ async function getSyncTargets(options: { batch: number; limit: number }): Promis
 
     const rows = (data ?? []) as SymbolRow[];
 
-    if (rows.length > 0) {
-      console.log(`Supabase selected ${rows.length} symbols auto_sync=true.`);
-      return rows.map((row) => ({
+    const stockRows = rows.filter(isStockSyncCandidate);
+
+    if (stockRows.length > 0) {
+      console.log(`Supabase selected ${stockRows.length} stock symbols auto_sync=true.`);
+      return stockRows.map((row) => ({
         symbol: row.symbol.toUpperCase(),
         tier: row.tier,
         autoSync: row.auto_sync,
@@ -410,6 +432,101 @@ async function getSyncTargets(options: { batch: number; limit: number }): Promis
     console.warn(`Khong doc duoc symbols auto_sync tu Supabase (${message}), fallback ve danh sach mac dinh.`);
     return getFallbackTargets(options);
   }
+}
+
+async function getMissingPriceTargets(options: { limit: number }): Promise<{
+  targets: SyncTarget[];
+  symbolsWithoutPriceBefore: number;
+}> {
+  const supabase = createSupabaseAdminClient();
+  const missingSymbols = await readSymbolsWithoutPrices();
+  const selectedSymbols = missingSymbols.slice(0, options.limit);
+
+  if (selectedSymbols.length === 0) {
+    return {
+      targets: [],
+      symbolsWithoutPriceBefore: missingSymbols.length,
+    };
+  }
+
+  const { data, error } = await supabase
+    .from("symbols")
+    .select("symbol,name,sector,tier,auto_sync,liquidity_rank")
+    .in("symbol", selectedSymbols);
+
+  if (error) {
+    throw error;
+  }
+
+  const rows = ((data ?? []) as SymbolRow[])
+    .filter(isStockSyncCandidate)
+    .sort(
+      (a, b) =>
+        (a.liquidity_rank ?? Number.MAX_SAFE_INTEGER) - (b.liquidity_rank ?? Number.MAX_SAFE_INTEGER) ||
+        a.symbol.localeCompare(b.symbol),
+    );
+
+  return {
+    targets: rows.map((row) => ({
+      symbol: row.symbol.toUpperCase(),
+      tier: row.tier,
+      autoSync: row.auto_sync,
+      liquidityRank: row.liquidity_rank,
+      source: "supabase",
+    })),
+    symbolsWithoutPriceBefore: missingSymbols.length,
+  };
+}
+
+async function countSymbolsWithoutPrices(): Promise<number> {
+  return (await readSymbolsWithoutPrices()).length;
+}
+
+async function readSymbolsWithoutPrices(): Promise<string[]> {
+  const supabase = createSupabaseAdminClient();
+  const { data: symbolsData, error: symbolsError } = await supabase
+    .from("symbols")
+    .select("symbol,name,sector,liquidity_rank")
+    .eq("is_active", true)
+    .or("sync_status.is.null,sync_status.neq.unsupported");
+
+  if (symbolsError) {
+    throw symbolsError;
+  }
+
+  const { data: priceData, error: priceError } = await supabase.from("stock_prices").select("symbol");
+
+  if (priceError) {
+    throw priceError;
+  }
+
+  const symbolsWithPrices = new Set((priceData ?? []).map((row) => String(row.symbol).toUpperCase()));
+
+  return (symbolsData ?? [])
+    .filter(isStockSyncCandidate)
+    .filter((row) => !symbolsWithPrices.has(String(row.symbol).toUpperCase()))
+    .sort(
+      (a, b) =>
+        (a.liquidity_rank ?? Number.MAX_SAFE_INTEGER) - (b.liquidity_rank ?? Number.MAX_SAFE_INTEGER) ||
+        String(a.symbol).localeCompare(String(b.symbol)),
+    )
+    .map((row) => String(row.symbol).toUpperCase());
+}
+
+function isStockSyncCandidate(row: Pick<SymbolRow, "symbol" | "name" | "sector">): boolean {
+  const text = normalizeSearchText(`${row.symbol} ${row.name} ${row.sector}`);
+  const nonStockPattern = /bond|future|futures|derivative|government bond|trai phieu|hop dong tuong lai|phai sinh/;
+
+  return !nonStockPattern.test(text);
+}
+
+function normalizeSearchText(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/đ/g, "d")
+    .replace(/Đ/g, "D")
+    .toLowerCase();
 }
 
 export async function markSymbolUnsupported(symbol: string, reason: string) {

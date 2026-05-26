@@ -6,7 +6,6 @@ import { MarketBreadth } from "@/components/MarketBreadth";
 import { MarketNarrativeCard } from "@/components/MarketNarrativeCard";
 import { MarketProductTabs } from "@/components/MarketProductTabs";
 import { MarketScanner } from "@/components/MarketScanner";
-import { ThemeToggle } from "@/components/ThemeToggle";
 import { getDataFreshness } from "@/lib/data-source/prices";
 import type { DataFreshnessResult } from "@/lib/data-source/provider";
 import { vi } from "@/lib/i18n/vi";
@@ -55,7 +54,7 @@ export default async function Home({
       <section className="bg-[radial-gradient(circle_at_top_left,rgba(14,165,233,0.16),transparent_34%),linear-gradient(180deg,#f8fafc_0%,#eef6fb_100%)] dark:bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.16),transparent_34%),linear-gradient(180deg,#06111f_0%,#07111f_100%)]">
         <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-4 py-5 sm:px-6 lg:px-8">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-            <DataStatusPanel initialFreshness={dataFreshness} trailingAction={<ThemeToggle />} />
+            <DataStatusPanel initialFreshness={dataFreshness} />
           </div>
         </div>
       </section>
